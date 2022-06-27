@@ -18,5 +18,6 @@
 			"launchParam":{"compose":{"messageText":"#{searchTerms}"}}
 		}
 	},
+	"trustLevel": "trusted",
 	"requiredPermissions": ["activities.manage", "applications.internal", "database", "database.internal", "networking", "networking.internal", "system", "services", "settings"]
 }

@@ -7,5 +7,7 @@
 	"title": "Calculator",
 	"icon": "icon.png",
 	"uiRevision": "2",
-	"removable": false
+	"removable": false,
+	"trustLevel": "trusted",
+	"requiredPermissions": ["activities.manage", "applications.internal", "database", "database.internal", "networking", "networking.internal", "system", "services", "settings"]
 }

@@ -12,5 +12,6 @@
 	"uiRevision": 2,
 	"debug": false,
 	"removable": false,
+	"trustLevel": "trusted",
 	"requiredPermissions": ["activities.manage", "applications.internal", "database", "database.internal", "networking", "networking.internal", "system", "services", "settings"]
 }

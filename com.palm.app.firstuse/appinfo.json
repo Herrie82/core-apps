@@ -7,5 +7,7 @@
 	"title": "HP webOS",
 	"icon": "images/icon.png",
 	"visible": false,
-	"uiRevision": 2
+	"uiRevision": 2,
+	"trustLevel": "trusted",
+	"requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
 }
