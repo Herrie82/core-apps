@@ -1,0 +1,11 @@
+{
+	"id": "com.palm.app.firstuse",
+	"version": "3.0.0",
+	"vendor": "HP",
+	"type": "web",
+	"main": "index.html",
+	"title": "HP webOS",
+	"icon": "images/icon.png",
+	"visible": false,
+	"uiRevision": 2
+}

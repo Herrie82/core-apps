@@ -1,0 +1,13 @@
+{
+	"title": "Phone & Video Calls",
+	"id": "com.palm.app.phone",
+	"version": "2.0.0",
+	"type": "web",
+	"main": "index.html",
+	"uiRevision": 2,
+	"splashicon": "icon-256x256.png",
+	"icon": "icon.png",
+	"noWindow": "true",
+	"keywords": ["Dial"],
+	"vendor": "Palm, Inc."
+}

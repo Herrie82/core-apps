@@ -1,0 +1,39 @@
+{
+	"returnValue": true,
+	"results": [{
+		"_id": "++MXD7DoSLVu3x74",
+		"_kind": "com.palm.callcapabilities.telephony:1",
+		"_rev": 955,
+		"_sync": true,
+		"callIdBlockPerCall": false,
+		"conferenceCanExtract": false,
+		"conferenceHangupIndividual": false,
+		"dataWhileOnCall": false,
+		"dtmf": ["oneshot", "held"],
+		"emergencyNumbers": ["911"],
+		"hangupAffectsAll": true,
+		"keyHoldMappings": [{
+			"0": "+",
+			"_id": "3b8"
+		}, {
+			"*": "t",
+			"_id": "3b9"
+		}, {
+			"#": "p",
+			"_id": "3ba"
+		}],
+		"launchCodeExternalApp": "com.palm.app.phonediag",
+		"launchCodeExternalAppCodes": ["786", "3836", "33284", "3282", "477", "673", "123", "889", "8378", "3366", "72346", "633", "8766", "87633", "2539", "7738", "66236", "2833766", "28337633"],
+		"launchCodes": ["##", "#*#"],
+		"legacySwap": true,
+		"maxActiveCalls": 1,
+		"maxConfCalls": 1,
+		"maxConfParticipants": 2,
+		"maxLines": 2,
+		"muteCallWaiting": false,
+		"networkStatus": "service",
+		"pauseCode": ["t"],
+		"transport": "com.palm.telephony",
+		"waitCode": ["p"]
+	}]
+}

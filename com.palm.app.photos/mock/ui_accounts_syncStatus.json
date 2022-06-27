@@ -1,0 +1,14 @@
+{
+	"accounts": {
+		"local": {
+			"syncStatus": "idle",
+			"isEnabled": true,
+			"syncCause": {
+				"del": false,
+				"copy": false,
+				"cacheNsync": false
+			}
+		}
+	},
+	"returnValue": true
+}
