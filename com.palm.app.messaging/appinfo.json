@@ -19,5 +19,5 @@
 		}
 	},
 	"trustLevel": "trusted",
-	"requiredPermissions": ["activities.manage", "applications.internal", "database", "database.internal", "networking", "networking.internal", "system", "services", "settings"]
+	"requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "contactsservice.operation", "database.operation", "filecache.operation", "filecache.management", "luna-sysmgr.operation", "networkconnection.query", "settings.read", "systemsettings.query", "telephony.management", "tempdatabase.operation"]
 }

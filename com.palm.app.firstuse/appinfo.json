@@ -9,5 +9,5 @@
 	"visible": false,
 	"uiRevision": 2,
 	"trustLevel": "trusted",
-	"requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+	"requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "database.operation", "filecache.operation", "filecache.management", "luna-sysmgr.operation", "networkconnection.query", "settings.read", "systemsettings.query", "tempdatabase.operation"]
 }

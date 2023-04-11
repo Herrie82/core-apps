@@ -1,0 +1,65 @@
+{
+    "returnValue": true,
+    "results": [
+        {
+            "_id": "++Mep6jtRl0iYQH8",
+            "_kind": "com.palm.chatthread:1",
+            "_rev": 363832,
+            "_sync": true,
+            "displayName": "Friend One",
+            "flags": {
+                "locked": true,
+                "outgoing": false,
+                "visible": true
+            },
+            "normalizedAddress": "zombie1669228244837",
+            "personId": null,
+            "replyAddress": "+14255553614",
+            "replyService": "sms",
+            "summary": "Ok I will call you back",
+            "timestamp": 1668085785000,
+            "unreadCount": 21,
+            "unreadCountRevSet": 304111
+        },
+        {
+            "_id": "++Mep7Ek4gZI_004",
+            "_kind": "com.palm.chatthread:1",
+            "_rev": 363841,
+            "_sync": true,
+            "displayName": "Friend Two",
+            "flags": {
+                "locked": true,
+                "outgoing": true,
+                "visible": true
+            },
+            "normalizedAddress": "zombie1669228245573",
+            "personId": null,
+            "replyAddress": "3185555950",
+            "replyService": "sms",
+            "summary": "Here's a website you might want to vist: http://www.palm.com",
+            "timestamp": 1665573350027,
+            "unreadCount": 0,
+            "unreadCountRevSet": 48869
+        },
+        {
+            "_id": "++MepJwBvWFvC9tQ",
+            "_kind": "com.palm.chatthread:1",
+            "_rev": 363966,
+            "_sync": true,
+            "displayName": "Friend Three",
+            "flags": {
+                "locked": true,
+                "outgoing": false,
+                "visible": true
+            },
+            "normalizedAddress": "zombie1669228264480",
+            "personId": null,
+            "replyAddress": "+12125554746",
+            "replyService": "sms",
+            "summary": "This is a message from a friend",
+            "timestamp": 1668085380000,
+            "unreadCount": 13,
+            "unreadCountRevSet": 304005
+        },
+    ]
+}

@@ -180,8 +180,7 @@ enyo.kind({
 		//enyo.log("MessagingApp: updating inbox messages to be read for thread '", inThreadId, "'");
 		//TODO: may want to use the 'unreadRevSet' value to limit to only new 
 		//inbox messages' read flag to be updated
-		this.$.readMessageMerger.call({
-			query: {
+		var myquery = JSON.stringify({query: {
 				from: "com.palm.message:1",
 				where: [
 					{
@@ -199,7 +198,9 @@ enyo.kind({
 			props: {
 				flags: {read: true}
 			}
-		});
+	});
+		this.$.readMessageMerger.call(myquery
+			);
 	},
 	addBuddy: function(inSender, inEvent) {
 		enyo.messaging.keyboard.setKeyboardAutoMode();

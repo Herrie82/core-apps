@@ -881,7 +881,14 @@ enyo.kind({
 				&& (prefs.notificationSound === "system" || prefs.notificationSound === "ringtone")) {
 			// play sound notification when user enables sound notification in preferences
 			var soundPath = enyo.messaging.utils.getAppRootPath() + (inParams.isSent ? enyo.messaging.message.SOUND_PATHS.SENT : enyo.messaging.message.SOUND_PATHS.RECEIVED);
-			window.PalmSystem.playSoundNotification(enyo.messaging.message.SOUND_CLASSES.RINGTON, soundPath);
+			if (!window.PalmSystem)
+			{
+				console.log("We don't have PalmSystem, so not playing back sounds");
+			}
+			else
+			{
+				window.PalmSystem.playSoundNotification(enyo.messaging.message.SOUND_CLASSES.RINGTON, soundPath);
+			}
 		}
 	},
 //todo: check if this message has more than one converstions (chatthread Id)

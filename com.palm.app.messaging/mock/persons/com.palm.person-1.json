@@ -1,0 +1,196 @@
+{
+    "returnValue": true,
+    "results": [
+        {
+            "_id": "++MlEAlfWSdsX09d",
+            "_kind": "com.palm.person:1",
+            "_rev": 738812,
+            "addresses": [],
+            "anniversary": "",
+            "birthday": "",
+            "contactIds": [
+                "++MlEAlDJxcFshEv"
+            ],
+            "emails": [
+                {
+                    "_id": "b4532",
+                    "favoriteData": {},
+                    "normalizedValue": "allison_bod@hotmail.com",
+                    "primary": false,
+                    "type": "type_other",
+                    "value": "allison_bod@hotmail.com"
+                }
+            ],
+            "favorite": false,
+            "gender": "",
+            "ims": [],
+            "launcherId": "",
+            "name": {
+                "familyName": "Bod",
+                "givenName": "Allison",
+                "honorificPrefix": "",
+                "honorificSuffix": "",
+                "middleName": ""
+            },
+            "names": [
+                {
+                    "_id": "b45fd",
+                    "familyName": "Bod",
+                    "givenName": "Allison",
+                    "honorificPrefix": "",
+                    "honorificSuffix": "",
+                    "middleName": ""
+                }
+            ],
+            "nickname": "",
+            "notes": [],
+            "organization": {
+                "department": "",
+                "description": "",
+                "endDate": "",
+                "location": {
+                    "country": "",
+                    "locality": "",
+                    "postalCode": "",
+                    "primary": false,
+                    "region": "",
+                    "streetAddress": "",
+                    "type": "type_work"
+                },
+                "name": "",
+                "startDate": "",
+                "title": "",
+                "type": ""
+            },
+            "phoneNumbers": [
+                {
+                    "_id": "b4533",
+                    "favoriteData": {},
+                    "normalizedValue": "-4516176-915-1-+",
+                    "primary": false,
+                    "speedDial": "",
+                    "type": "type_mobile",
+                    "value": "+1 (519) 671-6154"
+                }
+            ],
+            "photos": {
+                "accountId": "++MlEAhhVjKIZzT2",
+                "bigPhotoId": "b4534",
+                "bigPhotoPath": "/media/internal/.caldav_photos/ownCloudAllisonBod.jpeg",
+                "contactId": "++MlEAlDJxcFshEv",
+                "listPhotoPath": "/var/file-cache/contactphoto/X/UFt6wCBw.jpeg",
+                "listPhotoSource": "type_square",
+                "squarePhotoId": "b4535",
+                "squarePhotoPath": "/media/internal/.caldav_photos/ownCloudAllisonBod.jpeg"
+            },
+            "relations": [],
+            "reminder": "",
+            "ringtone": {
+                "location": "",
+                "name": ""
+            },
+            "searchTerms": [
+                "abod",
+                "bodallison"
+            ],
+            "sortKey": "bod\tallison",
+            "urls": []
+        },
+        {
+            "_id": "++MlEAlpqK7UKP+i",
+            "_kind": "com.palm.person:1",
+            "_rev": 738814,
+            "addresses": [],
+            "anniversary": "",
+            "birthday": "",
+            "contactIds": [
+                "++MlEAlDK04wIDkN"
+            ],
+            "emails": [
+                {
+                    "_id": "b4538",
+                    "favoriteData": {},
+                    "normalizedValue": "dwickma@ra.rockwell.com",
+                    "primary": false,
+                    "type": "type_other",
+                    "value": "dwickma@ra.rockwell.com"
+                }
+            ],
+            "favorite": false,
+            "gender": "",
+            "ims": [],
+            "launcherId": "",
+            "name": {
+                "familyName": "Wickman",
+                "givenName": "Dave",
+                "honorificPrefix": "",
+                "honorificSuffix": "",
+                "middleName": ""
+            },
+            "names": [
+                {
+                    "_id": "b45ff",
+                    "familyName": "Wickman",
+                    "givenName": "Dave",
+                    "honorificPrefix": "",
+                    "honorificSuffix": "",
+                    "middleName": ""
+                }
+            ],
+            "nickname": "",
+            "notes": [],
+            "organization": {
+                "_id": "b4539",
+                "department": "",
+                "description": "",
+                "endDate": "",
+                "location": {
+                    "country": "",
+                    "locality": "",
+                    "postalCode": "",
+                    "primary": false,
+                    "region": "",
+                    "streetAddress": "",
+                    "type": "type_work"
+                },
+                "name": "CESMII",
+                "startDate": "",
+                "title": "",
+                "type": ""
+            },
+            "phoneNumbers": [
+                {
+                    "_id": "b453a",
+                    "favoriteData": {},
+                    "normalizedValue": "-5623874-044-1-+",
+                    "primary": false,
+                    "speedDial": "",
+                    "type": "type_mobile",
+                    "value": "+1 440-478-3265"
+                }
+            ],
+            "photos": {
+                "accountId": "",
+                "bigPhotoId": "",
+                "bigPhotoPath": "",
+                "contactId": "",
+                "listPhotoPath": "",
+                "listPhotoSource": "",
+                "squarePhotoId": "",
+                "squarePhotoPath": ""
+            },
+            "relations": [],
+            "reminder": "",
+            "ringtone": {
+                "location": "",
+                "name": ""
+            },
+            "searchTerms": [
+                "dwickman",
+                "wickmandave"
+            ],
+            "sortKey": "wickman\tdave",
+            "urls": []
+        }
+    ]
+}
