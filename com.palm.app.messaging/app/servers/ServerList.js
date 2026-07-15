@@ -14,7 +14,7 @@ enyo.kind({
 	},
 	components: [
 		{kind: "ServerService", onSuccess: "gotServers", onWatch: "serversWatch"},
-		{kind: "Pane", flex: 1, name: "drill", transitionKind: "enyo.transitions.Slideable", components: [
+		{kind: "Pane", flex: 1, name: "drill", transitionKind: "enyo.transitions.LeftRightFlyin", components: [
 			{name: "serversView", kind: "VFlexBox", flex: 1, components: [
 				{className: "header-shadow header-app-shadow"},
 				{name: "emptyMessage", content: "", className: "messageTexts", showing: false},

@@ -28,8 +28,15 @@ enyo.kind({
 		]},
 		{kind: "DbService", dbKind: "com.palm.chatthread:1", components: [
 			{name: "threadGetter", method: "get", onSuccess: "threadFetched", onFailure: "threadFetchFailed"}
-		]}
+		]},
+		{name: "mockThreadGetter", kind: "ServersMockDb", dbKind: "serverchannels_threads/com.palm.chatthread:1", method: "get", onSuccess: "threadFetched", onFailure: "threadFetchFailed"}
 	],
+	initComponents: function() {
+		this.inherited(arguments);
+		if (!window.PalmSystem) {
+			this.$.threadGetter = this.$.mockThreadGetter;
+		}
+	},
 	// Point this list at a server: stash its id + title and re-run the DbList query.
 	setServer: function(inServer) {
 		this.serverId = inServer && inServer._id;

@@ -72,6 +72,7 @@ enyo.depends(
 	"app/threads/ThreadList.js",
 	"app/threads/ThreadService.js",
 
+	"app/servers/ServersMockDb.js",
 	"app/servers/ServerService.js",
 	"app/servers/ServerItem.js",
 	"app/servers/ChannelItem.js",

@@ -23,8 +23,15 @@ enyo.kind({
 	components: [
 		{kind: "DbService", onFailure: "fail", components: [
 			{name: "servers", dbKind: "com.palm.imserver:1", method: "find", subscribe: true, onSuccess: "gotServers", onWatch: "doWatch"}
-		]}
+		]},
+		{name: "mockServers", kind: "ServersMockDb", dbKind: "servers/com.palm.imserver:1", method: "find", onSuccess: "gotServers", onFailure: "fail", onWatch: "doWatch"}
 	],
+	initComponents: function() {
+		this.inherited(arguments);
+		if (!window.PalmSystem) {
+			this.$.servers = this.$.mockServers;
+		}
+	},
 	finish: function() {
 		// don't destroy automatically, so we can keep the subscribe watch alive
 	},
@@ -59,8 +66,15 @@ enyo.kind({
 	components: [
 		{kind: "DbService", onFailure: "fail", components: [
 			{name: "channels", dbKind: "com.palm.imchannel:1", method: "find", subscribe: true, onSuccess: "gotChannels", onWatch: "doWatch"}
-		]}
+		]},
+		{name: "mockChannels", kind: "ServersMockDb", dbKind: "channels/com.palm.imchannel:1", method: "find", onSuccess: "gotChannels", onFailure: "fail", onWatch: "doWatch"}
 	],
+	initComponents: function() {
+		this.inherited(arguments);
+		if (!window.PalmSystem) {
+			this.$.channels = this.$.mockChannels;
+		}
+	},
 	finish: function() {
 		// don't destroy automatically, so we can keep the subscribe watch alive
 	},
