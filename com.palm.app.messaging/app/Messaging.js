@@ -20,12 +20,14 @@ enyo.kind({
 		{kind: "TabGroup", onChange: "menuToggle", className:"messaging-radiobuttons", components: [
 			{value: 0, components: [{name: "unreadCountButton", kind: "ChatButton"}]},
 			{value: 1, icon: "images/menu-icon-buddies.png"},
-			{value: 2, icon: "images/menu-icon-favorites.png"}
+			{value: 2, icon: "images/menu-icon-favorites.png"},
+			{value: 3, icon: "images/menu-icon-servers.png"}
 		]},
 		{kind: "Pane", flex: 1, transitionKind: "enyo.transitions.Simple", components: [
 			{kind: "ThreadList", onSelectThread: "doSelectThread", onDeleteThread: "doDeleteThread", onThreadLocked: "doThreadLocked", onUnreadCountChanged: "updateUnreadCount"},
 			{kind: "BuddyList", onSelectBuddy: "personSelected", onDeleteThread: "doDeleteThread"},
-			{kind: "FavoriteList", onSelectFavorite: "personSelected"}
+			{kind: "FavoriteList", onSelectFavorite: "personSelected"},
+			{kind: "ServerList", onSelectThread: "doSelectThread"}
 		]},
 		{className:"footer-shadow footer-app-shadow"},
 		{kind: "Toolbar", className:"enyo-toolbar-light", components: [
@@ -63,6 +65,9 @@ enyo.kind({
 		//this.$.aggregator.findThreads();
 		if (inValue === undefined || inValue === 2) {
 			this.$.favoriteList.updateList();
+		}
+		if (inValue === undefined || inValue === 3) {
+			this.$.serverList.updateList();
 		}
 	},
 	menuToggle: function(inSender, inValue) {
@@ -170,6 +175,7 @@ enyo.kind({
 		this.$.threadList.setSelection(chatThread);
 		this.$.buddyList.setSelection(chatThread);
 		this.$.favoriteList.setSelection(chatThread);
+		this.$.serverList.setSelection(chatThread);
 	},
 	windowHiddenHandler: function(){
 		// show chat list
@@ -180,6 +186,7 @@ enyo.kind({
 		this.$.threadList.windowHiddenHandler();
 		this.$.buddyList.windowHiddenHandler();
 		this.$.favoriteList.windowHiddenHandler();
+		this.$.serverList.windowHiddenHandler();
 		this.$.imStatus.windowHiddenHandler();
 	},
 	windowShownHandler:function() {
@@ -187,5 +194,6 @@ enyo.kind({
 		this.$.threadList.resetList();
 		this.$.buddyList.resetList();
 		this.$.favoriteList.resetList();
+		this.$.serverList.resetList();
 	}
 });

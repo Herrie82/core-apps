@@ -318,3 +318,26 @@ First Launch / Preferences & Accounts
 .connect-phone {
 	margin-top: 30px;
 }
+
+/*----------------------
+  Servers / Rooms tab (Milestone 2)
+----------------------*/
+
+.server-disclosure {
+	color: #888;
+	font-size: 18px;
+	padding: 0 12px;
+}
+
+.server-back-button {
+	min-width: 44px;
+	font-size: 18px;
+}
+
+.server-title {
+	font-weight: bold;
+	padding-left: 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

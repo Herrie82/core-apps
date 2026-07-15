@@ -72,6 +72,12 @@ enyo.depends(
 	"app/threads/ThreadList.js",
 	"app/threads/ThreadService.js",
 
+	"app/servers/ServerService.js",
+	"app/servers/ServerItem.js",
+	"app/servers/ChannelItem.js",
+	"app/servers/ChannelList.js",
+	"app/servers/ServerList.js",
+
 	"utilities/UtilsFormatter.js",
 	"utilities/BucketDateFormatter.js",
 	"utilities/Notifier.js",

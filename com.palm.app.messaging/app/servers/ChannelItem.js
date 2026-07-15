@@ -1,0 +1,27 @@
+/*globals enyo */
+
+// A single channel (room) row inside a server's channel list. Channels are presented IRC-style
+// with a leading "#". The record is an imchannel; its chatThreadId links to the conversation.
+enyo.kind({
+	name: "ChannelItem",
+	kind: "HFlexBox",
+	className: "contactItem",
+	align: "center",
+	components: [
+		{kind: "VFlexBox", flex: 1, className: "message-summary", pack: "center", components: [
+			{name: "displayName", className: "contact-name"}
+		]}
+	],
+	setChannel: function(inChannel) {
+		this.$.displayName.setContent(enyo.string.escapeHtml(this.getChannelLabel(inChannel)));
+	},
+	/***********************************
+	 * Functions below are unit tested *
+	 ***********************************/
+	// Channels seeded by M1 carry name = remote id and displayName = server name, so prefer an
+	// explicit human name/topic when present and otherwise show the remote id. Always "#"-prefixed.
+	getChannelLabel: function(inChannel) {
+		var name = inChannel.name || inChannel.remoteId || inChannel.displayName || $L("channel");
+		return "# " + name;
+	}
+});
