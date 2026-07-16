@@ -19,6 +19,9 @@ enyo.kind({
 		]},
 		{name: "messageContainer", flex: 1, components:[
 			{name: "message", components:[
+				// Sender name for incoming group/channel messages (Telegram groups, Discord channels).
+				// Hidden for 1:1 IMs and outgoing messages. See updateSenderName().
+				{name: "senderName", className: "chat-sender-name", allowHtml: true, showing: false},
 				{name: "messageText", allowHtml:true},
 				{layoutKind: "HLayout", components:[
 					{name: "messageTime", className: "message-time"},
@@ -38,6 +41,7 @@ enyo.kind({
 		this.addClass("chat-balloon");
 	},
 	messageChanged: function() {
+		this.updateSenderName(this.message);
 		this.updateMessageText(this.message, this.message.folder !== enyo.messaging.message.FOLDERS.OUTBOX && this.message.folder !== enyo.messaging.message.FOLDERS.INBOX);
 		this.updateContactImage(this.message.personImage);
 		this.updateSentReceived(this.message.folder);
@@ -66,6 +70,25 @@ enyo.kind({
 		}
 		else{
 			this.$.errorIcon.canGenerate = false;
+		}
+	},
+	// Show who sent an incoming group/channel message. The transport writes the sender's display
+	// name onto from.name for group messages (Telegram groups, Discord channels); 1:1 IMs and
+	// outgoing messages have no per-message sender label (the conversation is already one person).
+	updateSenderName: function(inMessage) {
+		var isIncoming = inMessage.folder === enyo.messaging.message.FOLDERS.INBOX;
+		var isGroup = !!(inMessage.channelName || inMessage.chatType === "groupchat");
+		var sender = (inMessage.from && inMessage.from.name) ? inMessage.from.name : "";
+		if (isIncoming && isGroup && sender) {
+			// from.name may carry astral-emoji entities (&#NNNNN;) from the transport; neutralise tags
+			// but keep the entities so emojify() can turn them into inline emoji images.
+			var safe = String(sender).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+			this.$.senderName.setContent(enyo.messaging.message.emojify(safe));
+			this.$.senderName.canGenerate = true;
+			this.$.senderName.setShowing(true);
+		} else {
+			this.$.senderName.canGenerate = false;
+			this.$.senderName.setShowing(false);
 		}
 	},
 	updateMessageText: function(inMessage, skipTextIndexer) {
@@ -97,7 +120,10 @@ enyo.kind({
 		if (images.length > 0) {
 			inText += this.buildImageHtml(images);
 		}
-		this.$.messageText.setContent(inText);
+		// Render real Unicode emoji (😭 etc.) as inline images - no device font covers them,
+		// so otherwise they show as tofu rectangles. Runs last so it operates on the final
+		// HTML (after linkification) and messageText has allowHtml:true.
+		this.$.messageText.setContent(enyo.messaging.message.emojify(inText));
 	},
 	// Pull http(s) image URLs (by extension) out of a message body.
 	extractImageUrls: function(text) {

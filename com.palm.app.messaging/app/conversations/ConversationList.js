@@ -652,6 +652,8 @@ enyo.kind({
 					"commandId",
 					"from",
 					"to",
+					"channelName",
+					"chatType",
 					"locked"
 				];
 			return this.$.conversationService.call({query: inQuery});
