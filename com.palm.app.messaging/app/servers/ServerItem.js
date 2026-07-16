@@ -1,7 +1,7 @@
 /*globals enyo */
 
 // A single server (guild/network) row in the Servers tab. Shows the server display name plus its
-// account type as a subtitle, and a disclosure chevron since tapping drills into its channels.
+// account type as a subtitle; tapping the row drills into its channels.
 enyo.kind({
 	name: "ServerItem",
 	kind: "HFlexBox",
@@ -12,8 +12,7 @@ enyo.kind({
 		{kind: "VFlexBox", flex: 1, className: "message-summary", pack: "center", components: [
 			{name: "displayName", className: "contact-name"},
 			{name: "serviceName", className: "message-preview"}
-		]},
-		{name: "chevron", className: "server-disclosure", content: "&#9656;", allowHtml: true}
+		]}
 	],
 	setServer: function(inServer) {
 		var name = inServer.displayName || inServer.name || inServer.remoteId || $L("Server");

@@ -31,7 +31,7 @@ enyo.kind({
 		]},
 		{className:"footer-shadow footer-app-shadow"},
 		{kind: "Toolbar", className:"enyo-toolbar-light", components: [
-			{name: "serverBackBtn", kind: "Button", label:$L("◀ Servers"), onclick: "serverBack", showing: false},
+			{name: "serverBackBtn", kind: "GrabButton", slidingHandler: false, allowDrag: false, onclick: "serverBack", showing: false},
 			{name: "conversationBtn", kind: "Button", label:$L("New Conversation"), onclick: "doOpenComposeView"},
 			{name: "buddyBtn", kind: "Button", label:$L("Add Buddy"), onclick: "doNewBuddy", showing: false},
 			{name: "favoriteBtn", kind: "Button", label:$L("Add Favorite"), onclick: "doNewFavorite", showing: false}
