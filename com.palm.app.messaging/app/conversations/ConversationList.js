@@ -6,7 +6,8 @@ enyo.kind({
 		onSelectThread: "",
 		onClearUnreadCount: "",
 		onCloseConversationList: "",
-		onOpenComposeView:""
+		onOpenComposeView:"",
+		onSelectSender: ""
 	},
 	published: {
 		chatThread: "", 
@@ -47,7 +48,7 @@ enyo.kind({
 						{name: "deleteButton", kind: "Button", caption: $L("Delete Conversation"), className:"enyo-button-light deleteconversation-bt", onclick: "promptDelete", flex: 1}
 					]},
 					{kind: "Divider", icon: "images/default_transport_splitter.png", className: "conversationDivider", caption: ""},
-					{kind: "ConversationItem", style: "border: none;", onConfirm: "swipeDelete", onclick: "handleMessageTap", onError: "showErrorDialog", onCancel: "disableKeyboardMannualMode"}
+					{kind: "ConversationItem", style: "border: none;", onConfirm: "swipeDelete", onclick: "handleMessageTap", onError: "showErrorDialog", onCancel: "disableKeyboardMannualMode", onSelectSender: "senderRowSelected"}
 				]}
 			]},
 			{className:"footer-shadow"},
@@ -903,11 +904,25 @@ enyo.kind({
 			});
 		}
 	},
+	// A sender name on a group message was tapped: resolve the row's message and bubble up a "person"
+	// (routable id + display name) so ChatView can open/create a 1:1 with that sender.
+	senderRowSelected: function(inSender, inEvent){
+		var message = this.$.list.fetch(inEvent.rowIndex);
+		if (!message || !message.from || !message.from.addr) {
+			return true;
+		}
+		this.doSelectSender({
+			username: message.from.addr,
+			serviceName: message.serviceName,
+			displayName: (message.from.name || message.from.addr)
+		});
+		return true;
+	},
 	handleMessageTap: function(inSender, inEvent){
 		enyo.messaging.keyboard.setKeyboardAutoMode();
 		if (inEvent.target.nodeName == "A") {
 			return;
-		} 
+		}
 		var index = inEvent.rowIndex;
 		var message = this.$.list.fetch(index);
 		this.selectedMessage = message;

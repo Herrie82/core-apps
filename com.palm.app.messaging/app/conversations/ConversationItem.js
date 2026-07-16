@@ -10,7 +10,8 @@ enyo.kind({
 		message: ""
 	},
 	events: {
-		onError: ""
+		onError: "",
+		onSelectSender: ""
 	},
 	components: [
 		{name: "imageContainer", className:"conversationContactImage", components: [
@@ -21,7 +22,7 @@ enyo.kind({
 			{name: "message", components:[
 				// Sender name for incoming group/channel messages (Telegram groups, Discord channels).
 				// Hidden for 1:1 IMs and outgoing messages. See updateSenderName().
-				{name: "senderName", className: "chat-sender-name", allowHtml: true, showing: false},
+				{name: "senderName", className: "chat-sender-name", allowHtml: true, showing: false, onclick: "senderTapped"},
 				{name: "messageText", allowHtml:true},
 				{layoutKind: "HLayout", components:[
 					{name: "messageTime", className: "message-time"},
@@ -191,7 +192,14 @@ enyo.kind({
 		this.$.invitationButtons.setShowing (show);
 	},
 	showError: function(inSender, inEvent){
-		this.doError(this.message);			
+		this.doError(this.message);
+		return true;
+	},
+	// Tapping the sender name on a group message opens a 1:1 with that person. Bubble the click (it
+	// carries the flyweight rowIndex) up to the list, and return true so the normal message-tap
+	// (context menu) does not also fire.
+	senderTapped: function(inSender, inEvent){
+		this.doSelectSender(inEvent);
 		return true;
 	},
 	acceptedBuddy: function(inSender, inEvent) {

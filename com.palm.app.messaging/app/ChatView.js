@@ -19,9 +19,12 @@ enyo.kind({
 		{name: "dbGetById", kind: "DbService", dbKind: "com.palm.db:1", method: "get", onSuccess: "gotRecordById"},
 		{name: "chatThreadServiceFind", kind: "DbService", dbKind: enyo.messaging.thread.dbKind, method: "find", onSuccess: "gotConversationByPersonId", onFailure: "conversationFailure"},
 		{name: "chatThreadServiceCreate", kind: "DbService", dbKind: enyo.messaging.thread.dbKind, method: "put", onSuccess: "threadCreated", onFailure: "conversationFailure"},
+		// Open/create a 1:1 when a group-message sender name is tapped (find by address, then create).
+		{name: "senderThreadFind", kind: "DbService", dbKind: enyo.messaging.thread.dbKind, method: "find", onSuccess: "senderThreadFound", onFailure: "conversationFailure"},
+		{name: "senderThreadCreate", kind: "DbService", dbKind: enyo.messaging.thread.dbKind, method: "put", onSuccess: "senderThreadCreated", onFailure: "conversationFailure"},
 		{name: "errorDialog", kind: "PopupDialog", onAccept: "retryMessage"},
 		{name: "composeView", kind: "ComposeView", onOpenConversation: "openConversationById"},
-		{name: "conversationList", kind: "ConversationList", onCloseConversationList:"closeConversationList",onSelectThread: "selectThread", onClearUnreadCount: "doClearUnreadCount", onOpenComposeView:"openComposeView"}
+		{name: "conversationList", kind: "ConversationList", onCloseConversationList:"closeConversationList",onSelectThread: "selectThread", onClearUnreadCount: "doClearUnreadCount", onOpenComposeView:"openComposeView", onSelectSender: "openConversationWithSender"}
 	],
 	create: function() {
 		this.inherited(arguments);
@@ -36,6 +39,52 @@ enyo.kind({
 	},
 	selectThread: function(inSender, inThread) {
 		this.doSelectThread(inThread);
+	},
+	// Open a 1:1 with a tapped group-message sender: find an existing chatthread by the sender's
+	// address, else create one. person = {username: <routable id>, serviceName, displayName}.
+	openConversationWithSender: function(inSender, person) {
+		if (!person || !person.username) {
+			return true;
+		}
+		this._pendingSender = person;
+		this.$.senderThreadFind.cancel();
+		this.$.senderThreadFind.call({
+			query: { where: [{
+				prop: "normalizedAddress",
+				op: "=",
+				val: enyo.messaging.utils.normalizeAddress(person.username, person.serviceName)
+			}] }
+		});
+		return true;
+	},
+	senderThreadFound: function(inSender, inResponse) {
+		if (inResponse.returnValue && inResponse.results && inResponse.results.length > 0) {
+			this.chatThread = inResponse.results[0];
+			this.chatThreadChanged();
+			this.doSelectThread(this.chatThread);
+			this._pendingSender = undefined;
+		} else {
+			var p = this._pendingSender || {};
+			this.$.senderThreadCreate.call({
+				objects: [{
+					"_kind": enyo.messaging.thread.dbKind,
+					"timestamp": new Date().getTime(),
+					"displayName": p.displayName || p.username,
+					"replyAddress": p.username,
+					"normalizedAddress": enyo.messaging.utils.normalizeAddress(p.username, p.serviceName),
+					"replyService": p.serviceName,
+					"summary": "",
+					"flags": { "visible": false }
+				}]
+			});
+		}
+	},
+	senderThreadCreated: function(inSender, inResponse) {
+		if (inResponse.returnValue && inResponse.results && inResponse.results.length > 0) {
+			// gotRecordById opens the freshly-created chatthread (same path as the personId flow).
+			this.$.dbGetById.call({ "ids": [inResponse.results[0].id] });
+		}
+		this._pendingSender = undefined;
 	},
 	setDeletedChatThread: function(inThread){
 		this.$.conversationList.setDeletedChatThread(inThread);
