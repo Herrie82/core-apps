@@ -69,21 +69,58 @@ enyo.kind({
 		}
 	},
 	updateMessageText: function(inMessage, skipTextIndexer) {
-		var inText = inMessage.messageText || "";
+		var raw = inMessage.messageText || "";
+		var inText = raw;
 		if (enyo.messaging.message.isMMSMessage(inMessage)) {
-			inText = enyo.messaging.message.getMMSDisplayMessage();
+			this.$.messageText.setContent(enyo.messaging.message.getMMSDisplayMessage());
+			return;
 		} else if (inMessage.folder === enyo.messaging.message.FOLDERS.INBOX) {
 			inText = inText.replace(/\r|\n|\\r|\\n/g, "<br>");
 		} else if (inMessage.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
-			// outgoing message needs to be sanitized since the incoming ones 
+			// outgoing message needs to be sanitized since the incoming ones
 			// are already sanitized before they are written into database.
 			inText = enyo.string.escapeHtml(inText);
 		}
-		
+
+		// Render inline images: Discord/Telegram/etc. deliver photos as image URLs in the body,
+		// which otherwise only show as a link. If the message body is nothing but image URLs, show
+		// just the image(s); otherwise show the (linkified) text with the image(s) beneath it.
+		var images = this.extractImageUrls(raw);
+		if (images.length > 0 && this.isOnlyImages(raw)) {
+			this.$.messageText.setContent(this.buildImageHtml(images));
+			return;
+		}
+
 		if (!skipTextIndexer) {
 			inText = enyo.string.runTextIndexer(inText);
 		}
+		if (images.length > 0) {
+			inText += this.buildImageHtml(images);
+		}
 		this.$.messageText.setContent(inText);
+	},
+	// Pull http(s) image URLs (by extension) out of a message body.
+	extractImageUrls: function(text) {
+		var re = /https?:\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi;
+		var urls = [], seen = {}, m;
+		while ((m = re.exec(text)) !== null) {
+			var url = m[0].replace(/&amp;/g, "&");
+			if (!seen[url]) { seen[url] = true; urls.push(url); }
+		}
+		return urls;
+	},
+	// True when the body is only image URLs (plus whitespace) - i.e. a pure photo message.
+	isOnlyImages: function(text) {
+		var stripped = text.replace(/https?:\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi, "");
+		return stripped.replace(/\s|<br>|\\r|\\n|\r|\n/g, "") === "";
+	},
+	buildImageHtml: function(urls) {
+		var html = "";
+		for (var i = 0; i < urls.length; i++) {
+			var u = urls[i].replace(/"/g, "%22");
+			html += '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"/></a>';
+		}
+		return html;
 	},
 	updateContactImage: function(personImage) {
 		this.$.contactImage.setAttribute("src", personImage);

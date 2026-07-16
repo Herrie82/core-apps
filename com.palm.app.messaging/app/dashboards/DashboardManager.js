@@ -393,13 +393,12 @@ enyo.kind({
 		if (enyo.messaging.message.isMMSMessage(message)) {
 			text = enyo.messaging.message.getMMSDisplayMessage();
 		} else if (message._kind === "com.palm.immessage.libpurple:1" || message._kind === "com.palm.immessage.skypem:1" || message._kind === "com.palm.iminvitation:1") {
-			// almost all the kinds of the messages, except the ones from libpurple and skype,
-			// are escaped HTML tags by transports before saving them.  The two
-			// exception transports remove HTML when processing incoming messages.
-			// however, apostrophe is escaped by gtalk, so unescape it to clean the text.
-			text = text.replace(/&apos;/g, "'");
-			// remove all trusted html tags
+			// These transports store the message body HTML-escaped (the conversation view renders it
+			// with allowHtml, so &gt;/&lt;/&amp; come out right there). A banner/notification is plain
+			// text, so strip any trusted tags THEN decode the entities - otherwise "&gt;" shows
+			// literally in notifications.
 			text = enyo.messaging.message.removeHtml(text);
+			text = enyo.messaging.message.unescapeText(text);
 		} else {
 			// other transport escaped text in DB
 			text = enyo.messaging.message.unescapeText(text);

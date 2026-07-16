@@ -234,3 +234,14 @@ Custom Balloon
 .high-priority {
 	color:red;
 }
+/*----------------------
+  Inline message images (Discord/Telegram photo links rendered as images)
+----------------------*/
+.message-image {
+	display: block;
+	max-width: 100%;
+	max-height: 320px;
+	margin-top: 6px;
+	border-radius: 8px;
+	border: 1px solid rgba(0,0,0,0.15);
+}
