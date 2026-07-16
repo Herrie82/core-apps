@@ -32,39 +32,45 @@ enyo.kind({
 	],
 	create: function() {
 		this.inherited(arguments);
-		// Show which service this account is on (e.g. "Telegram", "Discord") as the row label so
-		// otherwise-cryptic usernames/phone numbers are identifiable. accountTypeName is often not
-		// populated on the states this popup receives, so resolve the friendly name ourselves.
-		this.$.accountName.setContent(this.getServiceLabel());
+		// Set the username FIRST so the row always shows its account id even if the service-label
+		// lookup below fails. Then label the row with which service this account is on (e.g.
+		// "Telegram", "Discord") so otherwise-cryptic usernames/phone numbers are identifiable.
 		this.$.username.setContent(this.loginState.username);
+		this.$.accountName.setContent(this.getServiceLabel());
 		this.loginStateChanged();
 
 		this.createComponent({name: "db", kind: "AccountLoginStateDB", accountId: this.loginState._id});
 	},
-	// Friendly service name for this account, resilient to accountTypeName being unset: try the
+	// Friendly service name for this account, resilient to accountTypeName being unset. Tries the
 	// pre-decorated value, then the account record, then the account-type template hash, and finally
-	// fall back to the raw serviceName with the "type_" prefix stripped.
+	// falls back to the raw serviceName (minus "type_", capitalized). The whole lookup is guarded:
+	// accountService.getAccount can throw for some account types, and this must never break the row.
 	getServiceLabel: function() {
 		var ls = this.loginState || {};
-		if (ls.accountTypeName) {
-			return ls.accountTypeName;
-		}
-		var as = enyo.application && enyo.application.accountService;
-		if (as) {
-			if (as.getAccount) {
-				var acct = as.getAccount(ls.serviceName, ls.username);
-				if (acct && acct.loc_name) {
-					return acct.loc_name;
+		try {
+			if (ls.accountTypeName) {
+				return ls.accountTypeName;
+			}
+			var as = enyo.application && enyo.application.accountService;
+			if (as) {
+				if (as.getAccount) {
+					var acct = as.getAccount(ls.serviceName, ls.username);
+					if (acct && acct.loc_name) {
+						return acct.loc_name;
+					}
+				}
+				if (as.getMyAccountTypesHash) {
+					var tmpl = as.getMyAccountTypesHash()[ls.serviceName];
+					if (tmpl && (tmpl.loc_name || tmpl.name)) {
+						return tmpl.loc_name || tmpl.name;
+					}
 				}
 			}
-			if (as.getMyAccountTypesHash) {
-				var tmpl = as.getMyAccountTypesHash()[ls.serviceName];
-				if (tmpl && (tmpl.loc_name || tmpl.name)) {
-					return tmpl.loc_name || tmpl.name;
-				}
-			}
+		} catch (e) {
+			enyo.warn("AccountLoginState.getServiceLabel failed, using serviceName fallback: ", e);
 		}
-		return (ls.serviceName || "").replace(/^type_/, "");
+		var s = (ls.serviceName || "").replace(/^type_/, "");
+		return s ? (s.charAt(0).toUpperCase() + s.slice(1)) : "";
 	},
 	loginStateChanged: function() {
 		var availability = enyo.messaging.imLoginState.getAvailability(this.loginState);
