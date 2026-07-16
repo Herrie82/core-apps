@@ -323,4 +323,15 @@ First Launch / Preferences & Accounts
   Servers / Rooms tab (Milestone 2)
   (no custom rows/chevron styling needed - reuses contactItem, and the back
    affordance is a framework GrabButton "|||" gripper in the bottom toolbar.)
+
+  Move the Servers tab button to the LEFT of the strip WITHOUT changing its
+  component index (index drives RadioButton value routing). The TabGroup lays its
+  buttons out in a -webkit-box, so box-ordinal-group reorders them visually only.
 ----------------------*/
+
+.messaging-radiobuttons .enyo-tabbutton {
+	-webkit-box-ordinal-group: 2;
+}
+.messaging-radiobuttons .enyo-tabbutton.servers-tab-left {
+	-webkit-box-ordinal-group: 1;
+}

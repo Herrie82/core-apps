@@ -18,10 +18,15 @@ enyo.kind({
 			{name: "imStatus", kind: "ImStatus", onLoginStatesChange: "loginStatesChange", onAddAccount: "doAddAccount"}
 		]},
 		{kind: "TabGroup", onChange: "menuToggle", className:"messaging-radiobuttons", components: [
-			{value: 3, icon: "images/menu-icon-servers.png"},
+			// NOTE: keep this in value order (0..3). RadioButton.getValue() returns
+			// `value || indexOfControl`, so the value:0 (Chats) button MUST stay at DOM index 0 or
+			// its value resolves to its position and taps route to the wrong pane. The Servers tab
+			// is moved to the LEFT visually via CSS (-webkit-box-ordinal-group, .servers-tab-left),
+			// which does not change component index, so value routing stays correct.
 			{value: 0, components: [{name: "unreadCountButton", kind: "ChatButton"}]},
 			{value: 1, icon: "images/menu-icon-buddies.png"},
-			{value: 2, icon: "images/menu-icon-favorites.png"}
+			{value: 2, icon: "images/menu-icon-favorites.png"},
+			{value: 3, icon: "images/menu-icon-servers.png", className: "servers-tab-left"}
 		]},
 		{kind: "Pane", flex: 1, transitionKind: "enyo.transitions.Simple", components: [
 			{kind: "ThreadList", onSelectThread: "doSelectThread", onDeleteThread: "doDeleteThread", onThreadLocked: "doThreadLocked", onUnreadCountChanged: "updateUnreadCount"},
