@@ -32,11 +32,39 @@ enyo.kind({
 	],
 	create: function() {
 		this.inherited(arguments);
-		this.$.accountName.setContent(this.loginState.accountTypeName);
+		// Show which service this account is on (e.g. "Telegram", "Discord") as the row label so
+		// otherwise-cryptic usernames/phone numbers are identifiable. accountTypeName is often not
+		// populated on the states this popup receives, so resolve the friendly name ourselves.
+		this.$.accountName.setContent(this.getServiceLabel());
 		this.$.username.setContent(this.loginState.username);
 		this.loginStateChanged();
-		
+
 		this.createComponent({name: "db", kind: "AccountLoginStateDB", accountId: this.loginState._id});
+	},
+	// Friendly service name for this account, resilient to accountTypeName being unset: try the
+	// pre-decorated value, then the account record, then the account-type template hash, and finally
+	// fall back to the raw serviceName with the "type_" prefix stripped.
+	getServiceLabel: function() {
+		var ls = this.loginState || {};
+		if (ls.accountTypeName) {
+			return ls.accountTypeName;
+		}
+		var as = enyo.application && enyo.application.accountService;
+		if (as) {
+			if (as.getAccount) {
+				var acct = as.getAccount(ls.serviceName, ls.username);
+				if (acct && acct.loc_name) {
+					return acct.loc_name;
+				}
+			}
+			if (as.getMyAccountTypesHash) {
+				var tmpl = as.getMyAccountTypesHash()[ls.serviceName];
+				if (tmpl && (tmpl.loc_name || tmpl.name)) {
+					return tmpl.loc_name || tmpl.name;
+				}
+			}
+		}
+		return (ls.serviceName || "").replace(/^type_/, "");
 	},
 	loginStateChanged: function() {
 		var availability = enyo.messaging.imLoginState.getAvailability(this.loginState);
