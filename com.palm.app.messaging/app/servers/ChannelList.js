@@ -1,26 +1,23 @@
 /*globals enyo */
 
-// The channel (room) list for one server, shown after drilling into a server row. Carries a "back"
-// header (there is no built-in breadcrumb in this Enyo build) and a DbList of the server's channels
-// queried by serverId. Selecting a channel resolves its imchannel.chatThreadId to the chatthread
-// record and emits it upward via onSelectThread, reusing the exact thread-selection contract that
-// ThreadList uses - so the right-hand ChatView opens the channel conversation with no new plumbing.
+// The channel (room) list for one server, shown after drilling into a server row. Going back up is
+// handled by the app's bottom Toolbar (see ServerList/Messaging), so this view has no back button of
+// its own - just a search box and the channel list. Selecting a channel resolves its
+// imchannel.chatThreadId to the chatthread record and emits it upward via onSelectThread, reusing
+// the exact thread-selection contract ThreadList uses so the right-hand ChatView opens the channel
+// conversation with no new plumbing.
 enyo.kind({
 	name: "ChannelList",
 	kind: "VFlexBox",
 	events: {
-		onSelectThread: "",
-		onBack: ""
+		onSelectThread: ""
 	},
 	published: {
 		serverId: ""
 	},
 	components: [
 		{kind: "ChannelService", onSuccess: "gotChannels", onWatch: "channelsWatch"},
-		{kind: "Toolbar", className: "enyo-toolbar-light", components: [
-			{kind: "Button", className: "server-back-button", content: "&#9666;", allowHtml: true, onclick: "backClicked"},
-			{name: "serverTitle", flex: 1, className: "server-title", content: ""}
-		]},
+		{name: "search", kind: "SearchInput", hint: $L("Search channels"), className: "enyo-middle", onchange: "filterList", onCancel: "filterList", changeOnInput: true, autoCapitalize: "lowercase"},
 		{className: "header-shadow header-app-shadow"},
 		{name: "emptyMessage", content: "", className: "messageTexts", showing: false},
 		{flex: 1, name: "list", kind: "DbList", desc: false, onQuery: "listQuery", className: "messaging-listsDivider", onSetupRow: "listSetupRow", components: [
@@ -37,17 +34,21 @@ enyo.kind({
 			this.$.threadGetter = this.$.mockThreadGetter;
 		}
 	},
-	// Point this list at a server: stash its id + title and re-run the DbList query.
+	// Point this list at a server: stash its id, retarget the search hint, and re-run the query.
 	setServer: function(inServer) {
 		this.serverId = inServer && inServer._id;
-		this.$.serverTitle.setContent(enyo.string.escapeHtml((inServer && (inServer.displayName || inServer.name)) || $L("Channels")));
+		this.serverName = (inServer && (inServer.displayName || inServer.name)) || $L("channels");
+		this.$.search.setHint($L("Search ") + this.serverName);
+		this.filterString = "";
+		this.$.search.setValue("");
 		this.$.list.reset();
-	},
-	backClicked: function() {
-		this.doBack();
 	},
 	channelsWatch: function() {
 		this.$.list.reset();
+	},
+	filterList: function() {
+		this.filterString = this.$.search.getValue();
+		this.$.list.punt();
 	},
 	listQuery: function(inSender, inQuery) {
 		if (!this.serverId) {
@@ -59,13 +60,24 @@ enyo.kind({
 		return this.$.channelService.call({query: inQuery});
 	},
 	gotChannels: function(inSender, inResponse, inRequest) {
+		inResponse = this.applyFilter(inResponse, ["name", "displayName", "remoteId"]);
 		this.$.list.queryResponse(inResponse, inRequest);
-		if ((inRequest.index === 0) && (!inResponse || !inResponse.results || inResponse.results.length === 0)) {
-			this.$.emptyMessage.setContent($L("No channels yet."));
+		if ((inRequest.index === 0) && (!inResponse.results || inResponse.results.length === 0)) {
+			this.$.emptyMessage.setContent(this.filterString ? $L("No channels match your search.") : $L("No channels yet."));
 			this.$.emptyMessage.show();
 		} else {
 			this.$.emptyMessage.hide();
 		}
+	},
+	applyFilter: function(inResponse, fields) {
+		if (!this.filterString || !inResponse || !inResponse.results) {
+			return inResponse;
+		}
+		var f = this.filterString.toLowerCase();
+		var out = inResponse.results.filter(function(r) {
+			return fields.some(function(k) { return r[k] && String(r[k]).toLowerCase().indexOf(f) !== -1; });
+		});
+		return {returnValue: inResponse.returnValue, results: out};
 	},
 	listSetupRow: function(inSender, inChannel, inIndex) {
 		this.$.channelItem.setChannel(inChannel);

@@ -19,9 +19,10 @@ enyo.kind({
 	 * Functions below are unit tested *
 	 ***********************************/
 	// Channels seeded by M1 carry name = remote id and displayName = server name, so prefer an
-	// explicit human name/topic when present and otherwise show the remote id. Always "#"-prefixed.
+	// explicit human name/topic when present and otherwise show the remote id. "#"-prefixed, but
+	// don't double it for IRC channels whose name already starts with "#".
 	getChannelLabel: function(inChannel) {
 		var name = inChannel.name || inChannel.remoteId || inChannel.displayName || $L("channel");
-		return "# " + name;
+		return (String(name).charAt(0) === "#") ? name : ("# " + name);
 	}
 });

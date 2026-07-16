@@ -18,19 +18,20 @@ enyo.kind({
 			{name: "imStatus", kind: "ImStatus", onLoginStatesChange: "loginStatesChange", onAddAccount: "doAddAccount"}
 		]},
 		{kind: "TabGroup", onChange: "menuToggle", className:"messaging-radiobuttons", components: [
+			{value: 3, icon: "images/menu-icon-servers.png"},
 			{value: 0, components: [{name: "unreadCountButton", kind: "ChatButton"}]},
 			{value: 1, icon: "images/menu-icon-buddies.png"},
-			{value: 2, icon: "images/menu-icon-favorites.png"},
-			{value: 3, icon: "images/menu-icon-servers.png"}
+			{value: 2, icon: "images/menu-icon-favorites.png"}
 		]},
 		{kind: "Pane", flex: 1, transitionKind: "enyo.transitions.Simple", components: [
 			{kind: "ThreadList", onSelectThread: "doSelectThread", onDeleteThread: "doDeleteThread", onThreadLocked: "doThreadLocked", onUnreadCountChanged: "updateUnreadCount"},
 			{kind: "BuddyList", onSelectBuddy: "personSelected", onDeleteThread: "doDeleteThread"},
 			{kind: "FavoriteList", onSelectFavorite: "personSelected"},
-			{kind: "ServerList", onSelectThread: "doSelectThread"}
+			{kind: "ServerList", onSelectThread: "doSelectThread", onServerDrill: "serverDrillChanged"}
 		]},
 		{className:"footer-shadow footer-app-shadow"},
 		{kind: "Toolbar", className:"enyo-toolbar-light", components: [
+			{name: "serverBackBtn", kind: "Button", label:$L("◀ Servers"), onclick: "serverBack", showing: false},
 			{name: "conversationBtn", kind: "Button", label:$L("New Conversation"), onclick: "doOpenComposeView"},
 			{name: "buddyBtn", kind: "Button", label:$L("Add Buddy"), onclick: "doNewBuddy", showing: false},
 			{name: "favoriteBtn", kind: "Button", label:$L("Add Favorite"), onclick: "doNewFavorite", showing: false}
@@ -71,11 +72,20 @@ enyo.kind({
 		}
 	},
 	menuToggle: function(inSender, inValue) {
+		this._curTab = inValue;
 		this.$.pane.selectViewByIndex(inValue, true);
 		this.updateButtons(inValue);
 		// this.updateDashboard(inValue);
 		// FIXME: should no longer be needed.
 		this.workaroundListVisibilityBug(inValue);
+	},
+	// Show the "Servers" back button in the bottom toolbar only while the Servers tab is drilled
+	// into a server's channels; hidden everywhere else.
+	serverBack: function() {
+		this.$.serverList.showServers();
+	},
+	serverDrillChanged: function(inSender, inDrilledIn) {
+		this.$.serverBackBtn.setShowing((this._curTab === 3) && inDrilledIn);
 	},
 	highlightTabButton: function(inValue) {
 		this.$.tabGroup.setValue(inValue);
@@ -84,6 +94,8 @@ enyo.kind({
 		for (var i = 0; i < this.buttons.length; i++) {
 			this.buttons[i].setShowing(i === index);
 		}
+		// serverBackBtn is not tab-indexed: it belongs to the Servers tab and only when drilled in.
+		this.$.serverBackBtn.setShowing((index === 3) && this.$.serverList && this.$.serverList.isDrilledIn());
 	},
 	updateDashboard: function(pane) {
 		var dashboardMgr = enyo.application.messageDashboardManager;
