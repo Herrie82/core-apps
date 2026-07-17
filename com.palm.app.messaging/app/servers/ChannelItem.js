@@ -9,11 +9,11 @@ enyo.kind({
 	align: "center",
 	components: [
 		{kind: "VFlexBox", flex: 1, className: "message-summary", pack: "center", components: [
-			{name: "displayName", className: "contact-name"}
+			{name: "displayName", className: "contact-name", allowHtml: true}
 		]}
 	],
 	setChannel: function(inChannel) {
-		this.$.displayName.setContent(enyo.string.escapeHtml(this.getChannelLabel(inChannel)));
+		this.$.displayName.setContent(enyo.messaging.message.emojifyEscaped(this.getChannelLabel(inChannel)));
 	},
 	/***********************************
 	 * Functions below are unit tested *

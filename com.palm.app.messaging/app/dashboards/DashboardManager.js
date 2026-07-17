@@ -433,7 +433,11 @@ enyo.kind({
 		} else {
 			// other transport escaped text in DB
 			text = enyo.messaging.message.unescapeText(text);
-		}	
+		}
+		// A banner is native plain text - it can't show inline emoji images and has no emoji
+		// font, so decoding would only produce tofu. Strip emoji (and any leftover U+FFFD from
+		// pre-fix data) entirely so notifications read cleanly instead of showing garbage.
+		text = enyo.messaging.message.stripEmojiForPlainText(text);
 		// remove new line characters
 		text = text.replace(/\r|\n|\\r|\\n/g, " ");
 		

@@ -10,13 +10,13 @@ enyo.kind({
 	components: [
 		{name: "serverImage", kind: "Image", className: "contact-image", src: "images/menu-icon-servers.png"},
 		{kind: "VFlexBox", flex: 1, className: "message-summary", pack: "center", components: [
-			{name: "displayName", className: "contact-name"},
+			{name: "displayName", className: "contact-name", allowHtml: true},
 			{name: "serviceName", className: "message-preview"}
 		]}
 	],
 	setServer: function(inServer) {
 		var name = inServer.displayName || inServer.name || inServer.remoteId || $L("Server");
-		this.$.displayName.setContent(enyo.string.escapeHtml(name));
+		this.$.displayName.setContent(enyo.messaging.message.emojifyEscaped(name));
 		this.$.serviceName.setContent(enyo.string.escapeHtml(this.getServiceLabel(inServer)));
 	},
 	/***********************************

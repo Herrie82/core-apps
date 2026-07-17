@@ -16,7 +16,7 @@ enyo.kind({
 		]},
 		{kind: "VFlexBox", className: "message-summary", flex: 1, components: [
 			{layoutKind: "HFlexLayout", align: "center", className:"contact-name-box", components: [
-				{name: "displayName", className: "contact-name"},
+				{name: "displayName", className: "contact-name", allowHtml: true},
 				{name: "unreadCount", className: "unread-count", showing: false}
 			]},
 			{name: "summary", className: "message-preview", allowHtml:true}
@@ -50,14 +50,16 @@ enyo.kind({
 
 		if (inThread.person) {
 			var displayName = enyo.messaging.person.getDisplayName(inThread.person);
-			this.$.displayName.setContent(displayName);
+			this.$.displayName.setContent(enyo.messaging.message.emojifyEscaped(displayName));
 		}
 		else {
-			this.$.displayName.setContent(inThread.displayName ? inThread.displayName : inThread.replyAddress);
+			this.$.displayName.setContent(enyo.messaging.message.emojifyEscaped(inThread.displayName ? inThread.displayName : inThread.replyAddress));
 		}
 		
 		var summary = this.getThreadSummary(inThread);
-		this.$.summary.setContent(summary);
+		// Render emoji in the thread preview as inline images (the summary mirrors the message
+		// text, whose astral emoji the transport stored as numeric entities). See utils.js emojify.
+		this.$.summary.setContent(enyo.messaging.message.emojify(summary));
 	}, 
 	/***********************************
 	 * Functions below are unit tested *

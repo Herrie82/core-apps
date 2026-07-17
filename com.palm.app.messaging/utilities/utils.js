@@ -325,6 +325,117 @@ enyo.messaging = {
 		// (function included in unit testing)
 		unescapeText: function(inText) {
 			return inText && inText.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+		},
+		// --- Unicode emoji as inline images ---------------------------------------------
+		// No device font covers the astral-plane emoji (U+1F300-1FAFF, e.g. 😭), so they
+		// render as tofu rectangles. The native runTextIndexer only maps ASCII emoticons
+		// (":)") to /usr/palm/emoticons images. We do the same trick for real Unicode emoji
+		// using the bundled EmojiOne set (chosen to match the webOS smiley look).
+		// Absolute URL to the bundled emoji dir, derived from the document location so it
+		// resolves regardless of the app's document base (main is nowindow.html, no <base>).
+		_emojiBase: null,
+		getEmojiBase: function() {
+			var m = enyo.messaging.message;
+			if (m._emojiBase === null) {
+				var h = (window.location && window.location.href) || "";
+				m._emojiBase = h.replace(/[?#].*$/, "").replace(/[^\/]*$/, "") + "images/emoji/";
+			}
+			return m._emojiBase;
+		},
+		// One emoji "cluster": a flag (two regional indicators), or a base emoji (BMP symbol
+		// range or astral surrogate pair) plus optional variation selector, skin-tone
+		// modifier, and ZWJ-joined continuation parts.
+		_emojiRe: new RegExp(
+			"[\\uD83C][\\uDDE6-\\uDDFF][\\uD83C][\\uDDE6-\\uDDFF]" +
+			"|(?:(?:[\\u2600-\\u27BF\\u2300-\\u23FF\\u2B00-\\u2BFF\\u2B50\\u2B55]" +
+			"|[\\uD83C-\\uDBFF][\\uDC00-\\uDFFF])" +
+			"(?:\\uFE0F|\\uFE0E)?(?:[\\uD83C][\\uDFFB-\\uDFFF])?" +
+			"(?:\\u200D(?:[\\u2600-\\u27BF]|[\\uD83C-\\uDBFF][\\uDC00-\\uDFFF])(?:\\uFE0F)?(?:[\\uD83C][\\uDFFB-\\uDFFF])?)*)",
+			"g"),
+		// Image key for a matched cluster: its code points (dropping the FE0F/FE0E variation
+		// selectors) as lowercase hex joined with '-', which matches the bundled filenames.
+		_emojiKey: function(cluster) {
+			var keys = [], i = 0, cp;
+			while (i < cluster.length) {
+				cp = cluster.charCodeAt(i);
+				if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < cluster.length) {
+					cp = (cp - 0xD800) * 0x400 + (cluster.charCodeAt(i + 1) - 0xDC00) + 0x10000;
+					i += 2;
+				} else {
+					i += 1;
+				}
+				if (cp === 0xFE0F || cp === 0xFE0E) { continue; }
+				keys.push(cp.toString(16));
+			}
+			return keys.join("-");
+		},
+		// Replace Unicode emoji in an (already HTML-ready) string with inline <img> tags.
+		// Only call this on text that is rendered with allowHtml:true. Unmapped emoji fall
+		// back to their original character via the onerror handler, so nothing shows a
+		// broken-image icon.
+		// Turn a code point into a JS string (old WebKit lacks String.fromCodePoint).
+		_fromCodePoint: function(cp) {
+			if (cp <= 0xFFFF) { return String.fromCharCode(cp); }
+			cp -= 0x10000;
+			return String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
+		},
+		// Decode numeric HTML entities in the emoji/symbol range (&#128557; / &#x1f62d;) back to
+		// characters, leaving ASCII entities (&lt; etc.) intact. The transport stores astral emoji
+		// as numeric entities (they can't survive the device's JS runtimes as raw UTF-8), so this
+		// turns them back into real code points. Used by emojify() and by plain-text notifications.
+		decodeNumericEntities: function(text) {
+			if (!text) { return text; }
+			var m = enyo.messaging.message;
+			return text.replace(/&#(?:x([0-9a-fA-F]+)|(\d+));/g, function(ent, hex, dec) {
+				var cp = hex ? parseInt(hex, 16) : parseInt(dec, 10);
+				if (cp >= 0x2000 && cp <= 0x1FFFFF) {
+					try { return m._fromCodePoint(cp); } catch (e) { return ent; }
+				}
+				return ent;
+			});
+		},
+		emojify: function(inHtml) {
+			if (!inHtml) { return inHtml; }
+			var m = enyo.messaging.message;
+			var base = m.getEmojiBase();
+			// Decode numeric emoji entities to real code points first so the matcher sees them.
+			inHtml = m.decodeNumericEntities(inHtml);
+			return inHtml.replace(m._emojiRe, function(cluster) {
+				var key = m._emojiKey(cluster);
+				if (!key) { return cluster; }
+				return '<img class="emoji" src="' + base + key + '.png" alt="' +
+					cluster + '" onerror="enyo.messaging.message.emojiFallback(this)">';
+			});
+		},
+		// onerror: swap a missing emoji image back to its text so unmapped emoji degrade to
+		// the original character instead of a broken-image icon.
+		emojiFallback: function(img) {
+			try {
+				var t = document.createTextNode(img.getAttribute("alt") || "");
+				img.parentNode.replaceChild(t, img);
+			} catch (e) {}
+		},
+		// Emoji-render a plain-text NAME/label (buddy/thread/server/channel names, status).
+		// Names aren't HTML-sanitized and can contain <, >, & so we decode emoji entities to
+		// characters, HTML-escape the rest, THEN imageify the emoji. Use on allowHtml:true
+		// fields only. Names whose emoji were already destroyed to U+FFFD (pre-fix data) just
+		// keep the tofu - the information is gone and can't be recovered here.
+		emojifyEscaped: function(text) {
+			if (!text) { return text; }
+			var m = enyo.messaging.message;
+			return m.emojify(enyo.string.escapeHtml(m.decodeNumericEntities(text)));
+		},
+		// For plain-text contexts that can't show inline images (native notification banners):
+		// drop emoji entirely instead of leaving tofu or a literal "&#128557;". Decodes emoji
+		// entities to characters, removes astral code points / lone surrogates / U+FFFD, then
+		// tidies the whitespace and stray punctuation spacing left behind.
+		stripEmojiForPlainText: function(text) {
+			if (!text) { return text; }
+			text = enyo.messaging.message.decodeNumericEntities(text);
+			text = text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
+				.replace(/[\uD800-\uDFFF]/g, "")
+				.replace(/�/g, "");
+			return text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,!?;:])/g, "$1").replace(/^\s+|\s+$/g, "");
 		}
 	},
 	person: {

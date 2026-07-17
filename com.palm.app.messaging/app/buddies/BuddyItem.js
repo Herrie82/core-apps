@@ -13,11 +13,11 @@ enyo.kind({
 		{name: "status", className: "status status-buddy"},
 		{className:"message-summary", components: [
 			{layoutKind: "HFlexLayout", align: "center", className:"contact-name-box", components: [
-				{name: "contactName", className: "contact-name"},
+				{name: "contactName", className: "contact-name", allowHtml: true},
 				{name: "favorite", kind: "Image", showing: false, className: "favorite-icon"},
 				{name: "unreadCount", className: "unread-count", showing: false}
 			]},
-			{name: "statusMessage", className: "status-message"}
+			{name: "statusMessage", className: "status-message", allowHtml: true}
 		]}
 	],
 	create: function() {
@@ -25,13 +25,13 @@ enyo.kind({
 		this.addClass("contactItem"); 
 	},
 	updateContactName: function(inBuddy) {
-		this.$.contactName.setContent(this.getContactName(inBuddy));
+		this.$.contactName.setContent(enyo.messaging.message.emojifyEscaped(this.getContactName(inBuddy)));
 	},
 	updateStatus: function(inAvailability) {
 		this.$.status.setClassName(this.getStatus(inAvailability));
 	},
 	updateStatusMessage: function(inBuddy) {
-		this.$.statusMessage.setContent(this.getStatusMessage(inBuddy));
+		this.$.statusMessage.setContent(enyo.messaging.message.emojifyEscaped(this.getStatusMessage(inBuddy)));
 	},
 	updateContactImage: function(inPerson) {
 		//enyo.log("#@#@ inPerson: ", inPerson);
