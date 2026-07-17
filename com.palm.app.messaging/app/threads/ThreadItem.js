@@ -36,15 +36,31 @@ enyo.kind({
 		this.$.unreadCount.setShowing(hasUnread);
 		this.$.displayName.setClassName("contact-name" + (hasUnread ? " contact-name-unread" : ""));
 	},
-	updateContactImage: function(inPerson) {
-		this.$.contactImage.setAttribute("src", enyo.messaging.person.getDisplayImage(inPerson));
+	updateContactImage: function(inPerson, inThread) {
+		// webOS: 1:1 chats keep the buddy avatar; group chats (no person) show the service logo
+		// instead (like Telegram's icon), so you can tell at a glance which network a group is on.
+		if (inPerson) {
+			this.$.contactImage.setAttribute("src", enyo.messaging.person.getDisplayImage(inPerson));
+			return;
+		}
+		var svc = inThread && (inThread.serviceName || inThread.replyService);
+		var icon = this.getServiceIcon(svc);
+		this.$.contactImage.setAttribute("src", icon || enyo.messaging.person.getDisplayImage(inPerson));
+	},
+	getServiceIcon: function(serviceName) {
+		if (!serviceName || !enyo.application || !enyo.application.accountService ||
+		    !enyo.application.accountService.getIcons) { return null; }
+		var icon = enyo.application.accountService.getIcons(serviceName);
+		if (!icon) { return null; }
+		if (typeof icon === "string") { return icon; }
+		return icon.loc_48x48 || icon.loc_32x32 || null;
 	},
 	updateOutgoing: function(inFlags) {
 		this.$.outgoing.setClassName("sent-received " + (Boolean(inFlags && inFlags.outgoing) ? "message-outgoing" : ""));
 	},
 	setThread: function(inThread) {
 		this.updateStatus(inThread.status);
-		this.updateContactImage(inThread.person);
+		this.updateContactImage(inThread.person, inThread);
 		this.updateUnreadCount(inThread);
 		this.updateOutgoing(inThread.flags);
 
