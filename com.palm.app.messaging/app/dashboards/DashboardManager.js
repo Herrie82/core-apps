@@ -305,10 +305,41 @@ enyo.kind({
 		
 		return isNew;
 	},
+	// Default notification window (minutes). During initial sync the transports back-fill history
+	// with each message's ORIGINAL send time (composetime), so without this filter every synced
+	// message would fire a notification.
+	//   notifyMaxAgeMinutes  < 0  -> "All messages": age filter disabled, notify for everything
+	//                        == 0  -> "None (only future)": notify only genuinely live messages
+	//                         > 0  -> notify only messages newer than that many minutes
+	NOTIFY_MAX_AGE_MINUTES: 60,
+	// Grace window (ms) for the "None (only future)" setting: a genuinely live incoming message can
+	// arrive with a timestamp a few seconds in the past (server/processing/clock skew), so allow a
+	// small slack while still suppressing synced history.
+	NOTIFY_FUTURE_GRACE_MS: 30 * 1000,
+	// True when the message is old enough that it's almost certainly sync back-fill rather than a
+	// live incoming message. Uses localTimestamp (device ms) / timestamp as written by the transport.
+	isTooOldToNotify: function(message) {
+		var raw = (this.prefs && this.prefs.notifyMaxAgeMinutes !== undefined && this.prefs.notifyMaxAgeMinutes !== null) ?
+			this.prefs.notifyMaxAgeMinutes : this.NOTIFY_MAX_AGE_MINUTES;
+		var maxAgeMin = parseInt(raw, 10);  // ListSelector may hand back a string; normalize
+		if (isNaN(maxAgeMin)) {
+			maxAgeMin = this.NOTIFY_MAX_AGE_MINUTES;
+		}
+		if (maxAgeMin < 0) {
+			return false;  // "All messages" -> age filter disabled
+		}
+		var ts = message.localTimestamp || message.timestamp;
+		if (!ts) {
+			return false;  // no timestamp -> treat as current, notify
+		}
+		var maxAgeMs = (maxAgeMin === 0) ? this.NOTIFY_FUTURE_GRACE_MS : (maxAgeMin * 60 * 1000);
+		return (Date.now() - ts) > maxAgeMs;
+	},
 	shouldNotify: function(message) {
 		var should = this.prefs && this.prefs.enableNotification;
 		should = should && (this.displayOff || (this.appDeactivated || !this.matchFilter(this.filter, message.conversations)));
-		
+		should = should && !this.isTooOldToNotify(message);
+
 		return should;
 	},
 	getPendingNewMessages: function(newMessages) {

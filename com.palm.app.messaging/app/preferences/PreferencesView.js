@@ -21,7 +21,7 @@ enyo.kind({
 			
 			{kind: "Scroller",flex:1, components:[
 				{kind:"Control", className:"box-center", components: [
-					{kind: "RowGroup", caption: $L("New Message"), className:"accounts-group", components: [
+					{kind: "RowGroup", caption: $L("New Message"), className:"accounts-group new-message-group", components: [
 						{layoutKind: "enyo.HFlexLayout", align: "center", tapHighlight: false, components: [
 							{content: $L("Show Notifications"), flex: 1},
 							{kind: "ToggleButton", onChange: "showNotificationChange"}
@@ -35,6 +35,22 @@ enyo.kind({
 						{tapHighlight:true, kind: "HFlexBox", onclick:"showRingtonePicker", components: [
 							{name:"ringtoneName", content: $L("Tap to pick a ringtone"), flex: 1},
 							{content: $L("ringtone"), style: "color: rgb(31, 117, 191);text-transform: uppercase; "}
+						]},
+						// Limits notifications during history sync: the transports back-fill old messages
+						// with their original send time, so notify only for messages newer than this window.
+						// Laid out as a named setting row (label left, compact value dropdown right).
+						{layoutKind: "enyo.HFlexLayout", align: "center", tapHighlight: false, components: [
+							{content: $L("Past messages notification period"), flex: 1},
+							{name: "notifyAgeSelector", kind: "ListSelector", className: "notify-age-selector", onChange: "notifyAgeChange", items: [
+								{caption: $L("None (only future)"), value: 0},
+								{caption: $L("Last 1 minute"), value: 1},
+								{caption: $L("Last 5 minutes"), value: 5},
+								{caption: $L("Last 15 minutes"), value: 15},
+								{caption: $L("Last hour"), value: 60},
+								{caption: $L("Last 6 hours"), value: 360},
+								{caption: $L("Last day"), value: 1440},
+								{caption: $L("All messages"), value: -1}
+							]}
 						]}
 					]},
 					{name: "accountgroup", kind: "RowGroup", caption: $L("Accounts"), className:"accounts-group", components: [
@@ -97,6 +113,7 @@ enyo.kind({
 	updatePrefsUI: function(){
 		this.$.toggleButton.setState(this._prefs.enableNotification);
 		this.$.listSelector.setValue(this._prefs.notificationSound);
+		this.$.notifyAgeSelector.setValue(this._prefs.notifyMaxAgeMinutes === undefined ? 60 : this._prefs.notifyMaxAgeMinutes);
 		if (this._prefs.enableNotification) {
 			this._showNotification();
 		}
@@ -108,9 +125,11 @@ enyo.kind({
 	_hideNotification: function(){
 		this.$.rowGroup.hideRow(1);
 		this.$.rowGroup.hideRow(2);
+		this.$.rowGroup.hideRow(3);
 	},
 	_showNotification: function(){
 		this.$.rowGroup.showRow(1);
+		this.$.rowGroup.showRow(3);
 		if (this._prefs.notificationSound === "ringtone") {
 			if (this._prefs.ringtone && this._prefs.ringtone.name) {
 				this.$.ringtoneName.setContent(this._prefs.ringtone.name);
@@ -142,6 +161,10 @@ enyo.kind({
 		this._prefs.notificationSound = inNewValue;
 		this.mergePrefs();
 		//this._dbMerge({notificationSound:inNewValue});
+	},
+	notifyAgeChange: function(inSender, inNewValue, inOldValue){
+		this._prefs.notifyMaxAgeMinutes = inNewValue;
+		this.mergePrefs();
 	},
 	mergePrefs: function() {
 		enyo.application.prefsHandler.setPrefs(this._prefs);

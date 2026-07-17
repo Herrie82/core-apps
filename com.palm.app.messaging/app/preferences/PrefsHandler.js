@@ -52,6 +52,7 @@ enyo.kind({
 			"_kind": "com.palm.app.messagingprefs:1",
 			"enableNotification": true,
 			"notificationSound":"system",
+			"notifyMaxAgeMinutes": 60,
 			"ringtone": {},
 			"isHistoryViewSelected": true,
 			"showOnlineBuddiesOnly": true,
