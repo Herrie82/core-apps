@@ -152,87 +152,65 @@ transportPicker = {
 		}
 		for (i = 0; i < contacts.length; i++) {
 			contact = contacts[i];
-			if(contact.imBuddy){
-				for (j = 0; contact.ims && j < contact.ims.length; j++) {
-					addr = contact.ims[j];
-					if (!addr.value) {
-						enyo.error("transportpicker::setTransportsByContacts ignoring contact because IM value property is missing");
+			for (j = 0; contact.ims && j < contact.ims.length; j++) {
+				addr = contact.ims[j];
+				if (!addr.value) {
+					enyo.error("transportpicker::setTransportsByContacts ignoring contact because IM value property is missing");
+					continue;
+				}
+				// Reach this address on whatever account we have. Prefer the buddy contact's own
+				// account (correct when several accounts share one service); otherwise fall back to
+				// any account for the address's service type, so a recipient is reachable on a service
+				// we have an account for even when they aren't a synced buddy there (e.g. Signal /
+				// Telegram / WhatsApp to a phone number). Previously this required contact.imBuddy plus
+				// a matching contact.accountId, so only synced buddies (Facebook here) were offered.
+				var account = (contact.imBuddy && validAccountTypes[contact.accountId]) || validAccountTypes[addr.type];
+				if (!account) {
+					enyo.error("setTransportsByContacts ignoring service=", addr.type, " because we don't have an account for it.");
+					continue;
+				}
+				var serviceName = addr.type;
+				var normalizedValue = enyo.messaging.utils.normalizeAddress(addr.value, addr.type);
+				// de-dupe: the same service+address can be attached to more than one linked contact
+				var already = false, di;
+				for (di = 0; di < this._transports.length; di++) {
+					if (this._transports[di].serviceName === serviceName && this._transports[di].normalizedValue === normalizedValue) {
+						already = true;
+						break;
 					}
-					else if (validAccountTypes[contact.accountId] === undefined) {
-						enyo.error("setTransportsByContacts ignoring service=", addr.type," because we don't have an account for it.");
+				}
+				if (already) {
+					continue;
+				}
+				var transportEntry = {
+					label: account.loc_shortName,
+					caption: addr.value,
+					displayName: addr.value,
+					value: this.getTransportId(addr.value, serviceName, account.accountId),
+					replyAddress: addr.value,
+					normalizedValue: normalizedValue,
+					serviceName: serviceName,
+					phone: serviceName === "type_skype" ? true : undefined,
+					video: serviceName === "type_skype" ? true : undefined,
+					icon: this.availabilityIcons[enyo.messaging.im.availability.NO_PRESENCE],
+					account: account,
+					id: this.getTransportId(addr.value, serviceName, account.accountId)
+				};
+				// group transports of the same service under a single divider
+				var handled = false, k;
+				for (k = 0; k < this._transports.length; k++) {
+					if (this._transports[k].serviceName === serviceName) {
+						this._transports.splice(k + 1, 0, transportEntry);
+						handled = true;
+						break;
 					}
-					else {
-						var handled = false;
-						var serviceName = addr.type;
-						if (serviceName == this._transports[this._transports.length - 1].serviceName /*&& this._transports[this._transports.length - 1].account.loc_shortName === validAccountTypes[contact.accountId].loc_shortName*/) {
-							//no divider needed for same type
-							this._transports.push({
-								label: validAccountTypes[contact.accountId].loc_shortName,
-								caption: addr.value,//validAccountTypes[contact.accountId].loc_shortName,//addr.value,
-								displayName: addr.value, //enyo.string.escapeHtml(addr.value),
-								value: this.getTransportId(addr.value, serviceName,contact.accountId),//addr.value,
-								replyAddress: addr.value,
-								normalizedValue: enyo.messaging.utils.normalizeAddress(addr.value, addr.type),
-								serviceName: serviceName,
-								phone: serviceName === "type_skype" ? true : undefined,
-								video: serviceName === "type_skype"/* && allowVideo*/ ? true : undefined,
-								//availability: this.getBuddyAvailability(serviceName, addr.value),
-								//className: "status-offline",
-								icon: this.availabilityIcons[enyo.messaging.im.availability.NO_PRESENCE],
-								account: validAccountTypes[contact.accountId],
-								id: this.getTransportId(addr.value, serviceName, contact.accountId)
-							});
-						}
-						else {
-							var k;
-							for (k = 0; k < this._transports.length; k++) {
-								
-								if (serviceName === this._transports[k].serviceName /*&& this._transports[this._transports.length - 1].account.loc_shortName === validAccountTypes[contact.accountId].loc_shortName*/) {
-									//insert after this one
-									this._transports.splice(k, 0, {
-										label: validAccountTypes[contact.accountId].loc_shortName,
-										caption: addr.value,//validAccountTypes[contact.accountId].loc_shortName,//addr.value,
-										displayName: addr.value, //enyo.string.escapeHtml(addr.value),
-										value: this.getTransportId(addr.value, serviceName, contact.accountId),//addr.value,
-										replyAddress: addr.value,
-										normalizedValue: enyo.messaging.utils.normalizeAddress(addr.value, addr.type),
-										serviceName: serviceName,
-										phone: serviceName === "type_skype" ? true : undefined,
-										video: serviceName === "type_skype" /*&& allowVideo */? true : undefined,
-										//availability: this.getBuddyAvailability(serviceName, addr.value),
-										//className: "status-offline",
-										icon: this.availabilityIcons[enyo.messaging.im.availability.NO_PRESENCE],
-										account: validAccountTypes[contact.accountId],
-										id: this.getTransportId(addr.value, serviceName, contact.accountId)
-									});
-									handled = true;
-									break;
-								}
-							}
-							if (!handled) { //insert divider and transport
-								this._transports.push({
-									kind: "Divider",
-									caption: validAccountTypes[contact.accountId].loc_shortName
-								});
-								this._transports.push({
-									label: validAccountTypes[contact.accountId].loc_shortName,
-									caption: addr.value,//validAccountTypes[contact.accountId].loc_shortName,//addr.value,
-									displayName: addr.value, //enyo.string.escapeHtml(addr.value),
-									value: this.getTransportId(addr.value, serviceName, contact.accountId),//addr.value,
-									replyAddress: addr.value,
-									normalizedValue: enyo.messaging.utils.normalizeAddress(addr.value, addr.type),
-									serviceName: serviceName,
-									phone: serviceName === "type_skype" ? true : undefined,
-									video: serviceName === "type_skype" /*&& allowVideo */? true : undefined,
-									//availability: this.getBuddyAvailability(serviceName, addr.value),
-									//className: "status-offline",
-									icon: this.availabilityIcons[enyo.messaging.im.availability.NO_PRESENCE],
-									account: validAccountTypes[contact.accountId],
-									id: this.getTransportId(addr.value, serviceName, contact.accountId)
-								});
-							}
-						}
-					}
+				}
+				if (!handled) {
+					this._transports.push({
+						kind: "Divider",
+						caption: account.loc_shortName
+					});
+					this._transports.push(transportEntry);
 				}
 			}
 		}
