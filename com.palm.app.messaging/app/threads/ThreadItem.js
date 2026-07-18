@@ -7,7 +7,7 @@ enyo.kind({
 	layoutKind: "HFlexLayout",
 	components: [
 		{components: [
-			{className: "contact-image-border"},
+			{name: "imageBorder", className: "contact-image-border"},
 			{name: "contactImage", kind: "Image", className: "contact-image"}
 		]},
 		{kind: "VFlexBox", className: "status-box", pack: "justify", align: "center", components: [
@@ -41,11 +41,22 @@ enyo.kind({
 		// instead (like Telegram's icon), so you can tell at a glance which network a group is on.
 		if (inPerson) {
 			this.$.contactImage.setAttribute("src", enyo.messaging.person.getDisplayImage(inPerson));
+			this.setServiceIconStyle(false);
 			return;
 		}
 		var svc = inThread && (inThread.serviceName || inThread.replyService);
 		var icon = this.getServiceIcon(svc);
 		this.$.contactImage.setAttribute("src", icon || enyo.messaging.person.getDisplayImage(inPerson));
+		// A group chat shows the provider logo instead of a photo. Those logos already have their
+		// own smooth (rounded) edges, so the square photo frame clashes and the full-bleed logo
+		// reads too bright: drop the frame + soften it. Real photos keep the framed treatment.
+		this.setServiceIconStyle(Boolean(icon));
+	},
+	// Toggle the provider-logo presentation (no photo frame, softened) vs the normal framed photo.
+	// Set on every row so recycled list rows never keep a previous row's treatment.
+	setServiceIconStyle: function(isServiceIcon) {
+		this.$.imageBorder.setShowing(!isServiceIcon);
+		this.$.contactImage.addRemoveClass("contact-image-service", isServiceIcon);
 	},
 	getServiceIcon: function(serviceName) {
 		if (!serviceName || !enyo.application || !enyo.application.accountService ||

@@ -29,6 +29,8 @@ enyo.kind({
 		]},
 		// create-thread-on-tap: link a freshly-created channel thread back onto its imchannel.
 		{name: "channelMerger", kind: "DbService", dbKind: "com.palm.db", method: "merge"},
+		// join-on-open: ask the transport to join the channel so the prpl fetches its history.
+		{name: "channelOpener", kind: "PalmService", service: "palm://com.palm.imlibpurple/", method: "openChannel"},
 		{name: "mockThreadGetter", kind: "ServersMockDb", dbKind: "serverchannels_threads/com.palm.chatthread:1", method: "get", onSuccess: "threadFetched", onFailure: "threadFetchFailed"}
 	],
 	initComponents: function() {
@@ -95,6 +97,10 @@ enyo.kind({
 		}
 		this.selectedRecord = record;
 		this.$.list.refresh();
+		// join-on-open: fetch this channel's history via the transport (idempotent if already joined).
+		if (record.serviceName && record.remoteId) {
+			this.$.channelOpener.call({serviceName: record.serviceName, channel: record.remoteId});
+		}
 		if (record.chatThreadId) {
 			// Resolve the channel's chatthread (created by the chatthreader on the channel's first
 			// message) and hand it up exactly like a thread selection.

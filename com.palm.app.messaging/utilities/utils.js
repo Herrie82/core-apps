@@ -741,8 +741,23 @@ enyo.messaging = {
 				}
 			} else {
 				// Ignore email addresses
-				// TODO: Strip out '.'s from email addresses, trim whitespace, 
+				// TODO: Strip out '.'s from email addresses, trim whitespace,
 				normalizedAddress = normalizedAddress.toLowerCase();
+			}
+			// webOS WhatsApp: unify the address variants so an outgoing "+<phone>" and an incoming
+			// "<phone>@s.whatsapp.net" (and a bare "<phone>") match the SAME conversation instead of
+			// splitting. The opaque "<id>@lid" (a LinkedID with no phone) is left as-is. Must mirror
+			// the messaging.library framework copy the chatthreader uses to key threads.
+			if (serviceName === "type_whatsapp") {
+				var waAddr = normalizedAddress.toLowerCase();
+				var waAt = waAddr.indexOf("@");
+				if (waAt !== -1 && waAddr.substring(waAt) === "@s.whatsapp.net") {
+					waAddr = waAddr.substring(0, waAt);
+				}
+				if (waAddr.charAt(0) === "+") {
+					waAddr = waAddr.substring(1);
+				}
+				normalizedAddress = waAddr;
 			}
 			//enyo.log("***normalizeAddress after ", normalizedAddress);
 			return normalizedAddress;

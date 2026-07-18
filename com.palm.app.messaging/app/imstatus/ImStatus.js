@@ -197,7 +197,11 @@ enyo.kind({
 		enyo.messaging.keyboard.setKeyboardAutoMode();
 		if (this.loginStates.length === 0) {
 			this.doAddAccount();
-		} else if (!this.$.spinner.getShowing()) {
+		} else {
+			// Open the account selector even while an account is still "Signing in..." (spinner
+			// showing). Previously this was gated on !spinner.getShowing(), so a slow or looping
+			// sign-in on ONE account blocked the user from opening the list to manage or log into
+			// any OTHER account.
 			this.$.accounts.openAtControl(inSender);
 			this.$.accounts.setLoginStates(this.loginStates);
 			this.$.accounts.setAccountsState(this.accountsState);

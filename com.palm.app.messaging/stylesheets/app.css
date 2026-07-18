@@ -270,6 +270,18 @@ Thread/Buddy List
 	width: 52px;
 	background: url(../images/list-view-avatar-frame.png) left top no-repeat;
 }
+/* Group-chat provider logos (Discord/Telegram/...) already carry their own smooth rounded edges,
+ * so ThreadItem hides the square photo frame for them (it clashed) and tags them with this class.
+ * Keep them the SAME 50x50 footprint as real user photos (inherited from .contact-image) so the
+ * two line up; just tone the logo down a touch so it reads soft rather than full-brightness. */
+.contact-image.contact-image-service {
+	opacity: 0.82;
+	/* People render at the 52px avatar-frame footprint; the frameless provider logos looked a
+	 * touch small at the base 50px, so match the framed size and nudge to the frame's origin. */
+	height: 52px;
+	width: 52px;
+	margin: 0 0 -4px 0;
+}
 .unread-count {
 	padding:0 6px;
 	color: #f2f2f2;
