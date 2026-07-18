@@ -150,6 +150,48 @@ enyo.kind({
         this.personShouldBeFavorite = undefined;
         this.renderContact();
     },
+    create                         : function () {
+        this.inherited(arguments);
+        // Populate the IM type picker from the messaging account templates actually
+        // installed on the device (Telegram, Signal, WhatsApp, Google Chat, Facebook, ...)
+        // instead of the frozen legacy list (AIM/ICQ/GaduGadu/...). Fetched once per app
+        // run and cached statically on the kind.
+        if (!Edit._imServiceOptions) {
+            this.fetchIMServices();
+        }
+    },
+    // Query com.palm.service.accounts for every installed template that provides a
+    // MESSAGING capability, and cache the {value:serviceName, label:loc_name} list.
+    // get-templates could also be used, but a direct call keeps this self-contained.
+    fetchIMServices                : function () {
+        return PalmCall.call("palm://com.palm.service.accounts/", "listAccountTemplates", {"capability": "MESSAGING"}).then(this, function (future) {
+            var options = [],
+                seen = {},
+                results;
+            try {
+                results = future.result && future.result.results;
+            } catch (e) {
+                enyo.warn("Edit.fetchIMServices: listAccountTemplates failed: " + e);
+                return;
+            }
+            (results || []).forEach(function (tmpl) {
+                (tmpl.capabilityProviders || []).forEach(function (cp) {
+                    if (cp && cp.capability === "MESSAGING" && cp.serviceName && !seen[cp.serviceName]) {
+                        seen[cp.serviceName] = true;
+                        options.push({value: cp.serviceName, label: cp.loc_name || tmpl.loc_name || cp.serviceName});
+                    }
+                });
+            });
+            options.sort(function (a, b) { return a.label.localeCompare(b.label); });
+            Edit._imServiceOptions = options;
+            // If the IM group is already on screen showing the static fallback, refresh it
+            // now that the real service list has arrived. Safe: personChanged just built the
+            // scene from this.person and the user has not interacted with it yet.
+            if (this.person && this.$ && this.$.imGroup) {
+                this.$.imGroup.setFields(this.person.getIms().getArray());
+            }
+        });
+    },
     personChanged                  : function () {
         // this.hasNoLinkedContacts will only be set to true in the case that the person doesn't have any linked contacts.
         // The only known situation for this is when the user has a plaxo account and then deletes the sample plaxo app.
@@ -578,7 +620,41 @@ enyo.kind({
     },
 
     getIMAddressFieldTypeOptions: function (inSender, contact) {
-        return this.addCaptionFromLabels(ContactsLib.IMAddress.Labels.getPopupLabels());
+        var dynamic = Edit._imServiceOptions,
+            options = [],
+            seen = {},
+            existing, i, type, label;
+
+        // Templates not loaded yet (first render, async fetch still in flight): fall back
+        // to the framework's static list so the picker is never empty. create()'s fetch
+        // refreshes this group once the real list arrives.
+        if (!dynamic || !dynamic.length) {
+            return this.addCaptionFromLabels(ContactsLib.IMAddress.Labels.getPopupLabels());
+        }
+
+        // 1. Installed IM services — what's actually available on the device.
+        for (i = 0; i < dynamic.length; i += 1) {
+            options.push({value: dynamic[i].value, label: dynamic[i].label});
+            seen[dynamic[i].value] = true;
+        }
+
+        // 2. Preserve any type THIS contact already carries but that isn't installed
+        //    (e.g. a legacy type_icq). Keeping it in the list means it still displays and
+        //    the selector never silently rewrites it to the first installed service.
+        //    Legacy types are still labelled by the framework's static label table.
+        if (this.person && this.person.getIms) {
+            existing = this.person.getIms().getArray();
+            for (i = 0; i < existing.length; i += 1) {
+                type = existing[i].getType && existing[i].getType();
+                if (type && !seen[type]) {
+                    seen[type] = true;
+                    label = ContactsLib.IMAddress.Labels.getLabel(type) || type;
+                    options.push({value: type, label: label});
+                }
+            }
+        }
+
+        return this.addCaptionFromLabels(options);
     },
 
     getAddressFieldTypeOptions: function (inSender, contact) {

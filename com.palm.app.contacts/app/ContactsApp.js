@@ -18,7 +18,7 @@
 
 /*jslint white: true, onevar: true, undef: true, eqeqeq: true, plusplus: true, bitwise: true,
  regexp: true, newcap: true, immed: true, nomen: false, maxerr: 500 */
-/*global ContactsLib, document, Foundations, enyo, console, AccountsList:true, AppPrefs:true, com, $L, DefaultAccountId:true, window, runningInBrowser, Edit, launchParams:true */
+/*global ContactsLib, document, Foundations, enyo, console, AccountsList:true, AppPrefs:true, com, $L, DefaultAccountId:true, window, runningInBrowser, Edit, launchParams:true, PalmCall */
 enyo.VirtualList.prototype.accelerated = true;
 
 enyo.kind({
@@ -59,8 +59,54 @@ enyo.kind({
     ],
     ready                  : function () {
     },
+    // Wrap ContactsLib.IMAddress.getDisplayType so IM types coming from the messaging account
+    // templates installed on the device (Telegram/Signal/WhatsApp/Google Chat/...) display their
+    // real service name instead of the framework's generic "IM" fallback. Legacy types still
+    // resolve through the original framework label table.
+    installDynamicIMLabels : function () {
+        var IMAddress = ContactsLib.IMAddress,
+            origGetDisplayType;
+        if (!IMAddress || IMAddress._dynamicLabelsInstalled) {
+            return;
+        }
+        IMAddress._dynamicLabelsInstalled = true;
+        IMAddress._dynamicLabels = {};
+        origGetDisplayType = IMAddress.getDisplayType;
+        IMAddress.getDisplayType = function (type) {
+            var label = type && IMAddress._dynamicLabels[type];
+            return label || origGetDisplayType.call(this, type);
+        };
+        PalmCall.call("palm://com.palm.service.accounts/", "listAccountTemplates", {"capability": "MESSAGING"}).then(this, function (future) {
+            var results, map = {}, opts = [], seen = {};
+            try {
+                results = future.result && future.result.results;
+            } catch (e) {
+                enyo.warn("ContactsApp.installDynamicIMLabels: listAccountTemplates failed: " + e);
+                return;
+            }
+            (results || []).forEach(function (tmpl) {
+                (tmpl.capabilityProviders || []).forEach(function (cp) {
+                    var label;
+                    if (cp && cp.capability === "MESSAGING" && cp.serviceName && !seen[cp.serviceName]) {
+                        seen[cp.serviceName] = true;
+                        label = cp.loc_name || tmpl.loc_name || cp.serviceName;
+                        map[cp.serviceName] = label;
+                        opts.push({value: cp.serviceName, label: label});
+                    }
+                });
+            });
+            opts.sort(function (a, b) { return a.label.localeCompare(b.label); });
+            IMAddress._dynamicLabels = map;
+            // Share the list with the Edit picker so it reuses this fetch instead of its own.
+            if (typeof Edit !== "undefined") {
+                Edit._imServiceOptions = opts;
+            }
+        });
+    },
     create                 : function () {
         this.inherited(arguments);
+
+        this.installDynamicIMLabels();
 
         this.$.getAccounts.getAccounts({capability: "CONTACTS"});
 
