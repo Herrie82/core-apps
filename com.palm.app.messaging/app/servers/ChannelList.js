@@ -26,18 +26,21 @@ enyo.kind({
 		]},
 		{kind: "DbService", dbKind: "com.palm.chatthread:1", components: [
 			{name: "threadGetter", method: "get", onSuccess: "threadFetched", onFailure: "threadFetchFailed"},
+			{name: "threadFinder", method: "find", onSuccess: "threadSearchResult", onFailure: "threadFetchFailed"},
 			{name: "threadPutter", method: "put", onSuccess: "threadCreated", onFailure: "threadFetchFailed"}
 		]},
 		// create-thread-on-tap: link a freshly-created channel thread back onto its imchannel.
 		{name: "channelMerger", kind: "DbService", dbKind: "com.palm.db", method: "merge"},
 		// join-on-open: ask the transport to join the channel so the prpl fetches its history.
 		{name: "channelOpener", kind: "PalmService", service: "palm://com.palm.imlibpurple/", method: "openChannel"},
-		{name: "mockThreadGetter", kind: "ServersMockDb", dbKind: "serverchannels_threads/com.palm.chatthread:1", method: "get", onSuccess: "threadFetched", onFailure: "threadFetchFailed"}
+		{name: "mockThreadGetter", kind: "ServersMockDb", dbKind: "serverchannels_threads/com.palm.chatthread:1", method: "get", onSuccess: "threadFetched", onFailure: "threadFetchFailed"},
+		{name: "mockThreadFinder", kind: "ServersMockDb", dbKind: "serverchannels_threads/com.palm.chatthread:1", method: "find", onSuccess: "threadSearchResult", onFailure: "threadFetchFailed"}
 	],
 	initComponents: function() {
 		this.inherited(arguments);
 		if (!window.PalmSystem) {
 			this.$.threadGetter = this.$.mockThreadGetter;
+			this.$.threadFinder = this.$.mockThreadFinder;
 		}
 	},
 	create: function() {
@@ -142,26 +145,54 @@ enyo.kind({
 			// message) and hand it up exactly like a thread selection.
 			this.$.threadGetter.call({ids: [record.chatThreadId]});
 		} else {
-			// create-thread-on-tap: an enumerated channel with no messages yet has no chatthread.
-			// Create one now - the same shape the chatthreader uses on a channel's first message
-			// (replyAddress = the channel key, channelId/serverId denormalized) - then link it onto
-			// the imchannel and open it. A later real message re-uses this same thread via the
-			// imchannel.chatThreadId link (findOrCreateChannelThread), so no duplicate is created.
+			// No chatThreadId link yet. DO NOT create blindly - a thread for this conversation may
+			// already exist (created by the message-driven chatthreader, or a prior tap after the
+			// imchannel's link was lost to a re-sync). Blind create-on-tap was the app-side source of
+			// the duplicate chatthreads. Search by the stable normalizedAddress first; reuse+relink if
+			// found, otherwise create. See threadSearchResult / createChannelThread.
 			this.pendingChannel = record;
-			var thread = {
-				_kind: "com.palm.chatthread:1",
-				timestamp: (new Date()).getTime(),
-				summary: "",
-				flags: { visible: true, outgoing: false },
-				displayName: record.displayName || record.name || record.remoteId,
-				replyAddress: record.remoteId,
-				normalizedAddress: enyo.messaging.utils.normalizeAddress(record.remoteId, record.serviceName),
-				replyService: record.serviceName,
-				channelId: record._id,
-				serverId: record.serverId
-			};
-			this.$.threadPutter.call({objects: [thread]});
+			this.$.threadFinder.call({query: {where: [{prop: "normalizedAddress", op: "=",
+				val: enyo.messaging.utils.normalizeAddress(record.remoteId, record.serviceName)}]}});
 		}
+	},
+	// Result of the pre-create lookup. If a thread for this conversation already exists (same
+	// normalizedAddress + service), link it onto the imchannel and open it - no new thread. Only
+	// create when none exists. This makes opening an unlinked channel idempotent.
+	threadSearchResult: function(inSender, inResponse) {
+		var results = (inResponse && inResponse.results) || [];
+		var svc = this.pendingChannel && this.pendingChannel.serviceName;
+		var match = null;
+		for (var i = 0; i < results.length; i++) {
+			if (!svc || results[i].replyService === svc) { match = results[i]; break; }
+		}
+		if (match && this.pendingChannel) {
+			// Relink the imchannel to the existing thread so future taps/messages reuse it too.
+			this.$.channelMerger.call({objects: [{_kind: "com.palm.imchannel:1", _id: this.pendingChannel._id, chatThreadId: match._id}]});
+			this.pendingChannel = null;
+			this.doSelectThread(match);
+		} else {
+			this.createChannelThread();
+		}
+	},
+	// Create the channel's chatthread (same shape the chatthreader uses on a channel's first message:
+	// replyAddress = the channel key, channelId/serverId denormalized), then link + open it via
+	// threadCreated. Only reached when no existing thread matched.
+	createChannelThread: function() {
+		var record = this.pendingChannel;
+		if (!record) { return; }
+		var thread = {
+			_kind: "com.palm.chatthread:1",
+			timestamp: (new Date()).getTime(),
+			summary: "",
+			flags: { visible: true, outgoing: false },
+			displayName: record.displayName || record.name || record.remoteId,
+			replyAddress: record.remoteId,
+			normalizedAddress: enyo.messaging.utils.normalizeAddress(record.remoteId, record.serviceName),
+			replyService: record.serviceName,
+			channelId: record._id,
+			serverId: record.serverId
+		};
+		this.$.threadPutter.call({objects: [thread]});
 	},
 	threadCreated: function(inSender, inResponse) {
 		var newId = inResponse && inResponse.results && inResponse.results[0] && inResponse.results[0].id;
