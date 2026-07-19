@@ -704,9 +704,51 @@ enyo.messaging = {
 						var phonefmt = new enyo.g11n.PhoneFmt({style: "default"});
 						formattedAddress = phonefmt.format(numberObj);
 					}
+				} else {
+					// webOS: WhatsApp/Signal are phone-based, but the stored value is the routable id -
+					// a WhatsApp JID "<phone>@s.whatsapp.net" or a Signal E.164/UUID. Show the human phone
+					// number instead of the internal address. If no phone can be recovered (WhatsApp
+					// "<id>@lid", a Signal UUID), leave the value untouched.
+					var phone = this.phoneFromImAddress(address, serviceName);
+					if (phone) {
+						formattedAddress = phone;
+					}
 				}
 			}
 			return formattedAddress;
+		},
+		// webOS: recover a human-readable "+<country><number>" from a phone-based IM routable id, or
+		// return "" when the id carries no phone (WhatsApp @lid, Signal UUID). Display-only - the stored
+		// value / replyAddress keeps the routable id so sending is unaffected.
+		phoneFromImAddress: function(address, serviceName){
+			if (serviceName !== "type_whatsapp" && serviceName !== "type_signal") {
+				return "";
+			}
+			var s = String(address).toLowerCase();
+			var at = s.indexOf("@");
+			if (at !== -1) {
+				// WhatsApp JID: only "<phone>@s.whatsapp.net" carries a number; "<id>@lid" does not.
+				if (s.substring(at) !== "@s.whatsapp.net") {
+					return "";
+				}
+				s = s.substring(0, at);
+			}
+			// A Signal UUID (e.g. "8f2c...-...-...") contains dashes/hex letters - not a phone number.
+			if (/[a-z\-]/.test(s)) {
+				return "";
+			}
+			var digits = s.replace(/[^0-9]/g, "");
+			if (digits.length < 7) {
+				return "";  // too short to be a real phone number
+			}
+			var e164 = "+" + digits;
+			try {
+				var numberObj = new enyo.g11n.PhoneNumber(e164);
+				if (numberObj.subscriberNumber) {
+					return (new enyo.g11n.PhoneFmt({style: "default"})).format(numberObj);
+				}
+			} catch (e) { /* fall through to plain e164 */ }
+			return e164;
 		},
 		// (function included in unit testing)
 		normalizeAddress: function(address, serviceName){

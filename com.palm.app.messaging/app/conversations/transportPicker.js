@@ -179,13 +179,35 @@ transportPicker = {
 						break;
 					}
 				}
+				// webOS Telegram: a single user often exposes two identifiers - the numeric "id<userId>"
+				// and an "@username" alias (or duplicate id forms across re-syncs) - which otherwise land
+				// as two entries for one person. Collapse to a single Telegram entry, preferring the
+				// canonical numeric id (always routable) over an alias.
+				if (!already && serviceName === "type_telegram") {
+					for (di = 0; di < this._transports.length; di++) {
+						if (this._transports[di].serviceName !== "type_telegram") {
+							continue;
+						}
+						var existingIsId = /^id\d+$/.test(this._transports[di].normalizedValue);
+						var newIsId = /^id\d+$/.test(normalizedValue);
+						if (newIsId && !existingIsId) {
+							this._transports.splice(di, 1); // drop the alias; add the canonical id below
+						} else {
+							already = true; // keep the existing (canonical, or first-seen) Telegram entry
+						}
+						break;
+					}
+				}
 				if (already) {
 					continue;
 				}
+				// Show a human-readable address (WhatsApp/Signal phone number instead of the routable
+				// JID/UUID); replyAddress/value below keep the routable id so sending is unaffected.
+				var displayAddr = enyo.messaging.utils.formatAddress(addr.value, serviceName);
 				var transportEntry = {
 					label: account.loc_shortName,
-					caption: addr.value,
-					displayName: addr.value,
+					caption: displayAddr,
+					displayName: displayAddr,
 					value: this.getTransportId(addr.value, serviceName, account.accountId),
 					replyAddress: addr.value,
 					normalizedValue: normalizedValue,

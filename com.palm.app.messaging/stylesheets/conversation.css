@@ -62,7 +62,7 @@ RichText Bottom
 	max-height: 192px;
 }
 .conversation-bottom .enyo-input {
-	margin-left:67px;
+	margin-left:6px;
 	margin-right:11px;
 }
 
@@ -86,6 +86,63 @@ RichText Bottom
 .footer-shadow {
 	bottom: 0;
 	background:transparent url('../images/light_chrome_drop_shadow_footer.png') top repeat-x;
+}
+/*----------------------
+  Staged attachment chip (shown above the input once a file is picked)
+----------------------*/
+.attachment-chip {
+	display: -webkit-box;
+	-webkit-box-align: center;
+	padding: 6px 10px;
+	background-color: #e8edf2;
+	border-top: 1px solid rgba(0,0,0,0.12);
+	border-bottom: 1px solid rgba(0,0,0,0.12);
+}
+.attachment-chip-thumb {
+	width: 40px;
+	height: 40px;
+	margin-right: 8px;
+	border-radius: 4px;
+	background-size: cover;
+	background-position: center;
+}
+.attachment-chip-label {
+	-webkit-box-flex: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: 15px;
+	color: #333;
+}
+/* Attachment (paperclip, left of input) + Send (arrow, right of input) buttons. Rendered as bare,
+   transparent icons like the slide handle - strip the default .enyo-button box (border-image chrome,
+   4px border, rounded corners, translucent-white fill) in both rest and pressed states, keeping only
+   the icon (the press state still flips to the sprite's bottom half via .enyo-button-down). */
+.conversation-attach-btn,
+.conversation-send-btn {
+	-webkit-box-flex: 0;
+	-webkit-align-self: flex-end;
+	align-self: flex-end;
+	-webkit-border-image: none;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	background-color: transparent;
+	box-shadow: none;
+	min-width: 0;
+	margin: 0 2px 4px 2px;
+}
+.conversation-attach-btn.enyo-button-down,
+.conversation-send-btn.enyo-button-down {
+	-webkit-border-image: none;
+	border: 0;
+	background: transparent;
+	background-color: transparent;
+}
+/* Paperclip sits just to the right of the absolutely-positioned 46px slide handle so it doesn't
+   overlap it (the input's small left margin then follows the paperclip). */
+.conversation-attach-btn {
+	margin-left: 50px;
 }
 .header-app-shadow,
 .footer-app-shadow,

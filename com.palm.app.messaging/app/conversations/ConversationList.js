@@ -52,8 +52,20 @@ enyo.kind({
 				]}
 			]},
 			{className:"footer-shadow"},
+			// Attachment send: a staged-attachment chip shown above the input once the user picks a
+			// file. Hidden until an attachment is chosen; the decline icon clears it. The picked file's
+			// absolute path rides along on the outgoing immessage as "filePath" (see sendMessage).
+			{name: "attachmentChip", showing: false, className: "attachment-chip", components: [
+				{name: "attachmentChipThumb", kind: "Image", className: "attachment-chip-thumb"},
+				{name: "attachmentChipLabel", kind: "Control", className: "attachment-chip-label"},
+				{name: "attachmentChipRemove", kind: "IconButton", icon: "images/icon-decline.png", onclick: "clearAttachment"}
+			]},
 			{name:"footer", kind: "Toolbar", className:"enyo-toolbar-light conversation-bottom", components: [
 				{name: "slidingDrag", slidingHandler: true, kind: "GrabButton" },
+				// Paperclip LEFT of the input (clear of the absolute slide handle - see CSS margin);
+				// send arrow on the RIGHT (restores the explicit Send button from webOS 2.2.x, Enter
+				// still sends). Both are bare transparent icons (no button box) - see conversation.css.
+				{name: "attachButton", kind: "IconButton", icon: "images/menu-icon-attach.png", onclick: "openAttachmentPicker", className: "conversation-attach-btn"},
 				/* Watch keyup because the default action of a key (printing/deleting a character)
 				 * is done before keyup, which means the input will have resized.
 				 * Watch keypress because pressing & holding a key generates
@@ -61,7 +73,8 @@ enyo.kind({
 				 */
 				{name: "scroller", kind: "BasicScroller", style: "max-height: 155px;", flex: 1, horizontal: false, autoHorizontal: false,  components: [
 				    {name: "richText", kind: "RichText", hint:$L("Enter message here..."), richContent: false, alwaysLooksFocused:true, onkeydown: "checkKey", autoEmoticons: true, onfocus: "setKeyboardMannualMode"}
-				]}
+				]},
+				{name: "sendButton", kind: "IconButton", icon: "images/menu-icon-send.png", onclick: "sendButtonClicked", className: "conversation-send-btn"}
 			]},
 		{name: "detailsDialog", kind: "com.palm.library.contactsui.detailsDialog", style: "height: 425px", onCancelClicked: "closeDetailsDialog", onEdit: "closeDetailsDialog", onDone :"closeDetailsDialog", onAddToNew: "closeDetailsDialog", onAddToExisting: "closeDetailsDialog", onBeforeOpen: "onBeforeOpenDetailsDialog"},
         {name: "deleteDialog",  kind: "PopupDialog", onAccept: "deleteConversation"},
@@ -70,7 +83,10 @@ enyo.kind({
 		{name: "blockService",  kind: "BlockPersonService"},
 		{name: "connectPhoneDialog", kind: "ConnectPhoneDialog"},
 		{name: "systemPrefs", kind: enyo.SystemService, method: "getPreferences", subscribe: true, onSuccess: "gotSystemPrefs", onFailure: "gotSystemPrefsFailure"},
-		{name: "chatThreadWatch", kind: "DbService", dbKind: "com.palm.chatthread:1", method: "find", onSuccess: "gotChatThread", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "chatThraedFailure"}
+		{name: "chatThreadWatch", kind: "DbService", dbKind: "com.palm.chatthread:1", method: "find", onSuccess: "gotChatThread", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "chatThraedFailure"},
+		// Attachment send: system file picker (images for now). onPickFile returns an array of
+		// {name, fullPath, ...}; attachmentChosen stages result[0] on this.outboundAttachment.
+		{name: "attachmentPicker", kind: "FilePicker", fileType: ["image"], onPickFile: "attachmentChosen"}
 	],
 	create: function() {
 		this.inherited(arguments);
@@ -126,8 +142,19 @@ enyo.kind({
 		enyo.messaging.keyboard.setKeyboardAutoMode();
 
 		if (!this.chatThread.flags.locked) {
-			this.$.detailsDialog.openAtCenter();			
-		}			
+			this.$.detailsDialog.openAtCenter();
+		}
+	},
+	// The header Control has allowHtml:false, so setContent() escapes what it is given. Some thread
+	// displayNames arrive ALREADY html-escaped (e.g. a Teams channel named "LuneOS & webOS-OSE" is
+	// stored as "LuneOS &amp; webOS-OSE"), which then double-escapes into a literal "&amp;". Decode
+	// entities first so the single escape on setContent renders correctly; raw names are unaffected.
+	decodeEntities: function(inText){
+		if (!inText) { return ""; }
+		return String(inText)
+			.replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+			.replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+			.replace(/&amp;/g, "&");
 	},
 	// scroll list to bottom when we resize.
 	resize: function() {
@@ -364,8 +391,8 @@ enyo.kind({
 //		this.$.richText.setValue("");
 		this.getDraftMessage(this.chatThread._id);
 		
-		//update header and status 
-		this.$.header.setContent(this.chatThread.displayName || "");
+		//update header and status
+		this.$.header.setContent(this.decodeEntities(this.chatThread.displayName));
 		this.$.status.setClassName("status status-no-presence");
 		
 		//get default avartar image
@@ -505,7 +532,7 @@ enyo.kind({
 				this.$.list.refresh();
 			}
 						
-			var displayName = enyo.messaging.person.getDisplayName(person);
+			var displayName = this.decodeEntities(enyo.messaging.person.getDisplayName(person));
 			if (displayName !== this.$.header.getContent() && enyo.messaging.person.isNotBlank(displayName)) {
 				this.$.header.setContent(displayName);
 			}
@@ -611,8 +638,8 @@ enyo.kind({
 			inEvent.preventDefault();
 			messageText = this.$.richText.getValue();
 
-			// Only send non-empty messages
-			if (messageText) {
+			// Only send non-empty messages - or an attachment-only message (a staged file with no text).
+			if (messageText || (this.outboundAttachment && this.outboundAttachment.path)) {
 				this.considerForSend();
 				enyo.log(" ENYO PERF: TRANSITION DONE time: "+ Date.now());
 			}
@@ -644,6 +671,7 @@ enyo.kind({
 					"smsType",
 					"callbackNumber",
 					"mmsAttachmentsFolder",
+					"filePath",
 					"mmsType",
 					"priority",
 					"serviceName",
@@ -774,6 +802,56 @@ enyo.kind({
 			}
 		}*/
 	},
+	// Explicit send button (right of the input, webOS 2.2.x style). Same gate as Enter/checkKey:
+	// send when there is text or a staged attachment; ignore an empty tap.
+	sendButtonClicked: function() {
+		var messageText = this.$.richText.getValue();
+		if (messageText || (this.outboundAttachment && this.outboundAttachment.path)) {
+			this.considerForSend();
+		}
+	},
+	// Attachment send ---------------------------------------------------------
+	// Open the system file picker. Only IM transports can actually transmit a file (the libpurple
+	// transport handles filePath; SMS/MMS does not), so guard against staging one on an SMS thread.
+	openAttachmentPicker: function() {
+		var selectedTransport = transportPicker.getSelectedTransport();
+		if (selectedTransport && enyo.messaging.utils.isTextMessage(selectedTransport.serviceName)) {
+			enyo.warn("ConversationList.openAttachmentPicker: attachments are only supported on IM transports");
+			return;
+		}
+		this.$.attachmentPicker.pickFile();
+	},
+	// FilePicker callback: stash the chosen file and show the chip. inFiles is an array of
+	// {name, fullPath, iconPath, attachmentType, size} (see enyo FilePicker).
+	attachmentChosen: function(inSender, inFiles) {
+		if (!inFiles || inFiles.length === 0) {
+			return;
+		}
+		var file = inFiles[0];
+		this.outboundAttachment = {
+			path: file.fullPath,
+			name: file.name,
+			type: file.attachmentType
+		};
+		this.$.attachmentChipLabel.setContent(file.name || file.fullPath);
+		// Preview the picked image inline in the chip (local path -> file URL).
+		if (this.$.attachmentChipThumb.setSrc) {
+			this.$.attachmentChipThumb.setSrc(this.fileUrlFromPath(file.fullPath));
+		}
+		this.$.attachmentChip.setShowing(true);
+	},
+	// Drop the staged attachment (decline icon on the chip).
+	clearAttachment: function() {
+		this.outboundAttachment = undefined;
+		this.$.attachmentChip.setShowing(false);
+	},
+	// Build a file:// URL from an absolute device path for local <img> preview.
+	fileUrlFromPath: function(path) {
+		if (!path) {
+			return "";
+		}
+		return (path.indexOf("file://") === 0) ? path : ("file://" + path);
+	},
 	sendMessage: function() {
 		//safty net to clear unread count for current chat thread in case system crashes
 		if (this.chatThread && this.chatThread._id) {
@@ -852,6 +930,14 @@ enyo.kind({
 			kind = enyo.messaging.message.SMS.dbKind;
 			params.serviceName = "sms";
 		}
+		// Attachment send: carry the staged file's absolute path on the outgoing immessage. Only IM
+		// transports can transmit it (the libpurple transport reads "filePath"); SMS/MMS ignores it,
+		// so never stamp it on a text-message record.
+		if (this.outboundAttachment && this.outboundAttachment.path &&
+			!enyo.messaging.utils.isTextMessage(params.serviceName)) {
+			params.filePath = this.outboundAttachment.path;
+		}
+
 		// Manually add the message to the thread and update the chat thread record
 		// since it takes too long to load the chatthreader.
 		var conversation = enyo.messaging.thread.create({_id: this.chatThread._id});
@@ -865,6 +951,10 @@ enyo.kind({
 		params.localTimestamp = Date.now();
 		this.$.messageServicePutOutbox.call({objects: [params]});//revealListBottom
 		this.$.richText.setValue("");
+		// Attachment send: the staged file has been committed to this message; clear the chip.
+		if (this.outboundAttachment) {
+			this.clearAttachment();
+		}
 		
 		// play a sound for sending message
 		this.playSoundNotification({ isSent: true });

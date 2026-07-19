@@ -109,9 +109,16 @@ enyo.kind({
 		// Render inline images: Discord/Telegram/etc. deliver photos as image URLs in the body,
 		// which otherwise only show as a link. If the message body is nothing but image URLs, show
 		// just the image(s); otherwise show the (linkified) text with the image(s) beneath it.
+		// Attachment send: an outgoing message can carry a local file path (the file we just sent).
+		// Preview it inline (image files) so the sender sees what they sent, mirroring received images.
+		var localAttachmentHtml = "";
+		if (inMessage.filePath && this.isImagePath(inMessage.filePath)) {
+			localAttachmentHtml = this.buildLocalImageHtml(inMessage.filePath);
+		}
+
 		var images = this.extractImageUrls(raw);
 		if (images.length > 0 && this.isOnlyImages(raw)) {
-			this.$.messageText.setContent(this.buildImageHtml(images));
+			this.$.messageText.setContent(this.buildImageHtml(images) + localAttachmentHtml);
 			return;
 		}
 
@@ -121,6 +128,7 @@ enyo.kind({
 		if (images.length > 0) {
 			inText += this.buildImageHtml(images);
 		}
+		inText += localAttachmentHtml;
 		// Render real Unicode emoji (😭 etc.) as inline images - no device font covers them,
 		// so otherwise they show as tofu rectangles. Runs last so it operates on the final
 		// HTML (after linkification) and messageText has allowHtml:true.
@@ -128,7 +136,7 @@ enyo.kind({
 	},
 	// Pull http(s) image URLs (by extension) out of a message body.
 	extractImageUrls: function(text) {
-		var re = /https?:\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi;
+		var re = /(?:https?|file):\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi;
 		var urls = [], seen = {}, m;
 		while ((m = re.exec(text)) !== null) {
 			var url = m[0].replace(/&amp;/g, "&");
@@ -138,16 +146,32 @@ enyo.kind({
 	},
 	// True when the body is only image URLs (plus whitespace) - i.e. a pure photo message.
 	isOnlyImages: function(text) {
-		var stripped = text.replace(/https?:\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi, "");
+		var stripped = text.replace(/(?:https?|file):\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi, "");
 		return stripped.replace(/\s|<br>|\\r|\\n|\r|\n/g, "") === "";
 	},
 	buildImageHtml: function(urls) {
 		var html = "";
 		for (var i = 0; i < urls.length; i++) {
 			var u = urls[i].replace(/"/g, "%22");
+			// Local file:// images (received attachments) aren't useful to open in a browser card - render bare.
+			if (u.indexOf("file://") === 0) {
+				html += '<br><img class="message-image" src="' + u + '"/>';
+				continue;
+			}
 			html += '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"/></a>';
 		}
 		return html;
+	},
+	// Attachment send: is this local path an image we can preview inline?
+	isImagePath: function(path) {
+		return /\.(?:jpg|jpeg|png|gif|webp|bmp)$/i.test(path || "");
+	},
+	// Attachment send: inline <img> for a local (just-sent) image file. path is an absolute device
+	// path; turn it into a file:// URL for the WebKit <img> src.
+	buildLocalImageHtml: function(path) {
+		var url = (path.indexOf("file://") === 0) ? path : ("file://" + path);
+		url = url.replace(/"/g, "%22");
+		return '<br><img class="message-image" src="' + url + '"/>';
 	},
 	updateContactImage: function(personImage) {
 		this.$.contactImage.setAttribute("src", personImage);
