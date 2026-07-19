@@ -48,6 +48,55 @@ enyo.kind({
 	}
 });
 
+// Live-subscribed feed of the unread counts carried on channel chatthreads. Channel/server
+// chatthreads denormalize channelId + serverId (see ChannelList's create-thread-on-tap and the
+// chatthreader), so a single subscribe over the visible chatthreads - the SAME flags.visible index
+// ThreadList already uses - lets the Servers tab tally unread per channel and per server without any
+// new db index. ServerList aggregates by serverId; ChannelList keys by channelId (falling back to the
+// imchannel.chatThreadId link). Mirrors ServerService/ChannelService structure.
+enyo.kind({
+	name: "UnreadService",
+	kind: enyo.Service,
+	requestKind: "UnreadRequest",
+	events: {
+		onWatch: ""
+	}
+});
+
+enyo.kind({
+	name: "UnreadRequest",
+	kind: enyo.Request,
+	events: {
+		onWatch: "doWatch"
+	},
+	components: [
+		{kind: "DbService", onFailure: "fail", components: [
+			{name: "threads", dbKind: "com.palm.chatthread:1", method: "find", subscribe: true, onSuccess: "gotThreads", onWatch: "doWatch"}
+		]},
+		{name: "mockThreads", kind: "ServersMockDb", dbKind: "chatthreads/com.palm.chatthread:1", method: "find", onSuccess: "gotThreads", onFailure: "fail", onWatch: "doWatch"}
+	],
+	initComponents: function() {
+		this.inherited(arguments);
+		if (!window.PalmSystem) {
+			this.$.threads = this.$.mockThreads;
+		}
+	},
+	finish: function() {
+		// keep the subscribe watch alive
+	},
+	call: function() {
+		this.$.threads.cancel();
+		this.$.threads.call(this.params);
+	},
+	fail: function(inSender, inResponse) {
+		enyo.error("UnreadRequest DbService fail: ", inResponse);
+		this.receive({returnValue: false, results: []});
+	},
+	gotThreads: function(inSender, inResponse) {
+		this.receive(inResponse);
+	}
+});
+
 enyo.kind({
 	name: "ChannelService",
 	kind: enyo.Service,

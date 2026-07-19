@@ -148,13 +148,21 @@ TabGroup Buttons
 ----------------------*/
 .messaging-radiobuttons.enyo-radiogroup {
 	margin-top:0;
+	/* Keep the framework's -webkit-box layout (do NOT override display - inline-block broke the tab
+	 * cells). The buttons looked left-packed because the box was only as wide as its content, giving
+	 * box-pack:center (set via pack:"center" in Messaging.js) no room. Force the strip full-width so
+	 * the centering has space to work. */
+	width: 100%;
+	-webkit-box-sizing: border-box;
 }
 .messaging-radiobuttons .enyo-tabbutton {
 	padding: 10px 0px 7px;
 }
 .messaging-radiobuttons .enyo-button-icon {
 	display: block;
-	margin: 0 14px;
+	/* Center the fixed-width icon within its tab cell. margin:0 14px pinned it 14px from the left,
+	 * so in a cell wider than the icon it read as off-centre; auto L/R margins centre it. */
+	margin: 0 auto;
 	width:44px;
 	background-size: auto auto;
 }
@@ -170,6 +178,9 @@ TabGroup Buttons
 }
 .chat-button-text {
 	color:#fff;
+	/* Prelude is the webOS system face; the count text was inheriting a fallback face inside the
+	 * button chrome, so pin it explicitly (same stack as dashboards/class0.css). */
+	font-family: Prelude, 'Prelude Medium', 'Segoe UI', Arial, Helvetica, sans-serif;
 	font-size: 15px;
 	padding-top:4px;
 	margin-left:-1px;
@@ -287,12 +298,29 @@ Thread/Buddy List
 	color: #f2f2f2;
 	text-align: center;
 	vertical-align: middle;
+	/* Pin Prelude: the badge number was inheriting a fallback face and reading as a different font. */
+	font-family: Prelude, 'Prelude Medium', 'Segoe UI', Arial, Helvetica, sans-serif;
 	font-size: 15px;
 	line-height: 23px;
 	height: 24px;
 	width:24px;
 	-webkit-border-radius: 12px;
 	background: url(../images/list-unread.png) center center no-repeat;
+}
+/* Server/channel rows put the unread badge flush right (the flex:1 title column pushes it over).
+ * Aggregate server counts run large ("99+"), which clips inside the fixed 24px list-unread.png
+ * circle - so render these as a grey PILL that grows with its content (auto width + min-width),
+ * replacing the fixed-size background image. Keeps the light text from .unread-count. */
+.server-unread,
+.channel-unread {
+	margin-left: 8px;
+	margin-right: 8px;
+	width: auto;
+	min-width: 24px;
+	padding: 0 9px;
+	-webkit-box-sizing: border-box;
+	background: #8f8f8f;
+	-webkit-border-radius: 12px;
 }
 
 .favorite-icon{

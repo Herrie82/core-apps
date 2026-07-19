@@ -17,7 +17,7 @@ enyo.kind({
 		{kind:"Toolbar", className:"enyo-toolbar-light messaging-availability", components: [
 			{name: "imStatus", kind: "ImStatus", onLoginStatesChange: "loginStatesChange", onAddAccount: "doAddAccount"}
 		]},
-		{kind: "TabGroup", onChange: "menuToggle", className:"messaging-radiobuttons", components: [
+		{kind: "TabGroup", onChange: "menuToggle", className:"messaging-radiobuttons", pack: "center", components: [
 			// NOTE: keep this in value order (0..3). RadioButton.getValue() returns
 			// `value || indexOfControl`, so the value:0 (Chats) button MUST stay at DOM index 0 or
 			// its value resolves to its position and taps route to the wrong pane. The Servers tab
@@ -58,6 +58,10 @@ enyo.kind({
 	loginStatesChange: function(inSender, inStates){
 		this.doLoginStatesChange(inStates);
 		this.$.buddyList.setLoginStates(inStates);
+		// Servers show each account's online dot from these states, AND resolve their connector logo
+		// from the account-types hash (empty until accounts load - Telegram first showed the generic
+		// glyph). setLoginStates stores the availabilities and repaints the rows, covering both.
+		this.$.serverList.setLoginStates(inStates);
 	},
 	workaroundListVisibilityBug: function(inValue) {
 		// this object loses scrollTop when it goes invisible, this hack restores scrollTop

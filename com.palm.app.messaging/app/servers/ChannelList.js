@@ -17,6 +17,7 @@ enyo.kind({
 	},
 	components: [
 		{kind: "ChannelService", onSuccess: "gotChannels", onWatch: "channelsWatch"},
+		{kind: "UnreadService", onSuccess: "gotUnread", onWatch: "unreadWatch"},
 		{name: "search", kind: "SearchInput", hint: $L("Search channels"), className: "enyo-middle", onchange: "filterList", onCancel: "filterList", changeOnInput: true, autoCapitalize: "lowercase"},
 		{className: "header-shadow header-app-shadow"},
 		{name: "emptyMessage", content: "", className: "messageTexts", showing: false},
@@ -38,6 +39,36 @@ enyo.kind({
 		if (!window.PalmSystem) {
 			this.$.threadGetter = this.$.mockThreadGetter;
 		}
+	},
+	create: function() {
+		this.inherited(arguments);
+		this.channelUnread = {};   // imchannel._id -> unreadCount (chatthread.channelId link)
+		this.threadUnread = {};    // chatthread._id  -> unreadCount (imchannel.chatThreadId link)
+		this.callUnread();
+	},
+	// Subscribe to visible chatthreads; the subscription drives the per-channel unread badges.
+	callUnread: function() {
+		this.$.unreadService.call({query: {
+			where: [{prop: "flags.visible", op: "=", val: true}],
+			select: ["_id", "channelId", "unreadCount"]
+		}});
+	},
+	unreadWatch: function() {
+		this.callUnread();
+	},
+	// Key unread both ways so a channel resolves whether its chatthread carries channelId (tap-created)
+	// or we only have the imchannel.chatThreadId link. Repaint the visible rows.
+	gotUnread: function(inSender, inResponse) {
+		var byChannel = {}, byThread = {};
+		var rows = (inResponse && inResponse.results) || [];
+		for (var i = 0, t; t = rows[i]; i++) {
+			var n = Number(t.unreadCount) || 0;
+			if (t.channelId) { byChannel[t.channelId] = n; }
+			if (t._id) { byThread[t._id] = n; }
+		}
+		this.channelUnread = byChannel;
+		this.threadUnread = byThread;
+		this.$.list.refresh();
 	},
 	// Point this list at a server: stash its id, retarget the search hint, and re-run the query.
 	setServer: function(inServer) {
@@ -88,6 +119,11 @@ enyo.kind({
 		this.$.channelItem.setChannel(inChannel);
 		var selected = (this.selectedRecord && this.selectedRecord._id === inChannel._id) ||
 			(this.selectedChatThread && inChannel.chatThreadId && this.selectedChatThread._id === inChannel.chatThreadId);
+		// The open channel is being read, so suppress its badge (mirrors ThreadItem's selected-row rule).
+		var unread = selected ? 0 :
+			((this.channelUnread && this.channelUnread[inChannel._id]) ||
+			 (this.threadUnread && inChannel.chatThreadId && this.threadUnread[inChannel.chatThreadId]) || 0);
+		this.$.channelItem.setUnread(unread);
 		this.$.channelItem.addRemoveClass("enyo-item-selected", selected ? true : false);
 	},
 	selectChannel: function(inSender, inEvent) {
@@ -148,6 +184,10 @@ enyo.kind({
 	},
 	updateList: function() {
 		this.$.list.update();
+	},
+	// Re-render visible rows without re-querying (connector logos resolve once accounts are loaded).
+	refreshRows: function() {
+		this.$.list.refresh();
 	},
 	resetList: function() {
 		this.$.list.reset();
