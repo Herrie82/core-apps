@@ -136,7 +136,7 @@ enyo.kind({
 	},
 	// Pull http(s) image URLs (by extension) out of a message body.
 	extractImageUrls: function(text) {
-		var re = /(?:https?|file):\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi;
+		var re = /(?:https?|file):\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?|https?:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/[^\s<>"']+/gi;
 		var urls = [], seen = {}, m;
 		while ((m = re.exec(text)) !== null) {
 			var url = m[0].replace(/&amp;/g, "&");
@@ -146,7 +146,7 @@ enyo.kind({
 	},
 	// True when the body is only image URLs (plus whitespace) - i.e. a pure photo message.
 	isOnlyImages: function(text) {
-		var stripped = text.replace(/(?:https?|file):\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi, "");
+		var stripped = text.replace(/(?:https?|file):\/\/[^\s<>"']+?\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?|https?:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/[^\s<>"']+/gi, "");
 		return stripped.replace(/\s|<br>|\\r|\\n|\r|\n/g, "") === "";
 	},
 	buildImageHtml: function(urls) {
