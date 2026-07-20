@@ -67,7 +67,7 @@ enyo.kind({
                     {name: "linkPanel", kind: "enyo.Drawer", open: false},
                     {name: "phoneGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "phoneFieldClick", onGetActionIcon: "phoneGetActionIcon", onActionIconClick: "phoneActionIconClick"},
                     {name: "emailGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "emailFieldClick"},
-                    {name: "imGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "imFieldClick", onShowArrow: "showImDropdownArrow"},
+                    {name: "imGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "imFieldClick", onGetFieldValue: "getImFieldValue", onShowArrow: "showImDropdownArrow"},
                     {name: "addressGroup", kind: "com.palm.library.contactsui.FieldGroup", onGetFieldValue: "getAddressFieldValue", onFieldClick: "addressFieldClick"},
                     {name: "urlGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "urlFieldClick"},
                     {name: "notesGroup", kind: "com.palm.library.contactsui.FieldGroup", onGetFieldValue: "getNotesFieldValue"},
@@ -416,6 +416,55 @@ enyo.kind({
     },
     getAddressFieldValue: function (inSender, inField) {
         return inField.getDisplayValue();
+    },
+
+    // webOS: WhatsApp/Signal IM addresses store a routable id (a WhatsApp JID "<phone>@s.whatsapp.net"
+    // or a Signal E.164/UUID). The framework FieldGroup shows that raw value, so a WhatsApp contact's
+    // card displays "31611745571@s.whatsapp.net" (or a bare +E164 with no grouping) instead of a
+    // human phone number. Recover and format the phone here; fall back to the raw value untouched for
+    // everything else (Skype/AIM/@lid/Signal UUID), so nothing else changes.
+    getImFieldValue: function (inSender, inField) {
+        var value = (inField && inField.value) || (inField && inField.getDisplayValue && inField.getDisplayValue()) || "";
+        var type = (inField && inField.getType && inField.getType()) || "";
+        var phone = this.phoneFromImAddress(value, type);
+        return phone || value;
+    },
+    // Recover "+<country><number>" (formatted) from a phone-based IM routable id, or "" when the id
+    // carries no phone. Mirrors com.palm.app.messaging utilities/utils.js phoneFromImAddress so both
+    // apps agree. Display-only - the stored value is unchanged.
+    phoneFromImAddress: function (address, serviceName) {
+        var s = String(address || "").toLowerCase();
+        // Trust the service type, but also treat an unmistakable WhatsApp JID as WhatsApp even if the
+        // field type didn't resolve to "type_whatsapp".
+        var isWhatsApp = (serviceName === "type_whatsapp") || (s.indexOf("@s.whatsapp.net") !== -1);
+        var isSignal = (serviceName === "type_signal");
+        if (!isWhatsApp && !isSignal) {
+            return "";
+        }
+        var at = s.indexOf("@");
+        if (at !== -1) {
+            // Only "<phone>@s.whatsapp.net" carries a number; "<id>@lid" does not.
+            if (s.substring(at) !== "@s.whatsapp.net") {
+                return "";
+            }
+            s = s.substring(0, at);
+        }
+        // A Signal UUID (e.g. "8f2c...-...-...") contains dashes/hex letters - not a phone number.
+        if (/[a-z\-]/.test(s)) {
+            return "";
+        }
+        var digits = s.replace(/[^0-9]/g, "");
+        if (digits.length < 7) {
+            return "";  // too short to be a real phone number
+        }
+        var e164 = "+" + digits;
+        try {
+            var numberObj = new enyo.g11n.PhoneNumber(e164);
+            if (numberObj.subscriberNumber) {
+                return (new enyo.g11n.PhoneFmt({style: "default"})).format(numberObj);
+            }
+        } catch (e) { /* fall through to plain e164 */ }
+        return e164;
     },
 
     getNotesFieldValue   : function (inSender, inField) {
