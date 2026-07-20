@@ -25,7 +25,8 @@ enyo.kind({
 					{name: "buddyStatusServiceWatch", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", method: "find", onSuccess: "gotStatus", subscribe: true, resubscribe: true, reCallWatches: true},
 					{name: "status", className: "status"},
 					{kind:"Control", name: "header", className: "conversation-header-content", flex: 1, onclick: "handleHeaderTap"},
-					{kind: "Button", className:"conversation-header-type", components:[ 
+					{name: "videoCallButton", kind: "IconButton", icon: "images/video-icon.png", showing: false, onclick: "videocall", className: "conversation-header-type"},
+					{kind: "Button", className:"conversation-header-type", components:[
 						{name: "personServiceWatch", kind: "DbService", dbKind: "com.palm.person:1", method: "find", onSuccess: "gotPerson", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "personFailure"},
 						{name: "contactServiceGet", kind: "DbService", dbKind: "com.palm.contact:1", method: "get", onSuccess: "gotContacts", onFailure: "contactFailure"},
 						{name: "transportselector", kind: "TransportSelector",onPhoneClick:"dial", onVideoClick: "videocall", label: $L("."), hideCaption: true, align: "center", onChange: "transportChange"}
@@ -393,6 +394,7 @@ enyo.kind({
 		
 		//update header and status
 		this.$.header.setContent(this.decodeEntities(this.chatThread.displayName));
+		this.updateVideoButton();
 		this.$.status.setClassName("status status-no-presence");
 		
 		//get default avartar image
@@ -1143,11 +1145,34 @@ enyo.kind({
 		this.$.blockService.blockPerson();
 		this.deleteConversation();
 	},
+	// Show the header video-call button only for a 1:1 conversation (any service can get a room URL).
+	updateVideoButton: function(){
+		if (this.$.videoCallButton) {
+			this.$.videoCallButton.setShowing(!!(this.chatThread && !this.chatThread.groupChatId));
+		}
+	},
 	dial: function(inSender, inReplyAddress){
 		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: inReplyAddress, transport: "com.palm.skype.call", video: false}});
 	},
-	videocall: function(inSender, inReplyAddress, inServiceName){
-		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: inReplyAddress, transport: "com.palm.skype.call", video: true}});
+	// webOS: video calling via the Atlas browser's built-in WebRTC (getUserMedia + webrtcbin +
+	// ICE/DTLS/SRTP are all confirmed present and working on device). The old skype/phone-app video
+	// path is dead, so instead we spin up a unique Jitsi Meet room: invite the peer with the join
+	// link (a normal outgoing message they can tap on any platform), then open the room locally in
+	// Atlas. No native media code, no signalling server. Self-contained from the current 1:1 thread.
+	videocall: function(){
+		if (!this.chatThread || this.chatThread.groupChatId) { return; }
+		var peer = String(this.chatThread.replyAddress || "call").replace(/[^a-zA-Z0-9]/g, "");
+		var room = "webosVC" + peer.slice(-10) + Date.now().toString(36).slice(-4);
+		var url = "https://meet.jit.si/" + room;
+		// Best-effort: send the peer the join link through the current conversation transport.
+		try {
+			this.$.richText.setValue($L("📹 Video call — tap to join: ") + url);
+			this.sendMessage();
+		} catch (e) {
+			enyo.warn("videocall: could not send invite link: " + e);
+		}
+		// Open the room in the browser (Atlas is the registered http handler -> WebRTC call).
+		this.$.launchApp.call({target: url});
 	},
     gotSystemPrefs: function(from, response) {
         // System preferences (timeFormat) service success response handler.
