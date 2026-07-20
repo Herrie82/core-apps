@@ -71,6 +71,11 @@ enyo.kind({
 		this.$.emptyMessage.show();
 	},
 	threadsWatch: function() {
+		// enyo.Service.call() creates a NEW request (3 subscribed finds) each time and
+		// ThreadRequest.finish() is overridden not to self-destroy, so without this the watch
+		// leaks 3 db8 watches per fire (chatthread/person/imbuddystatus) — hundreds under a busy
+		// channel. cancel() -> destroyComponents() releases the prior request + its subscriptions.
+		this.$.threadService.cancel();
 		this.$.list.reset();
 	},
 	selectThread: function(inSender, inEvent) {

@@ -26,6 +26,9 @@ enyo.kind({
 	],
 	buddiesWatch: function() {
 		//enyo.log("#@#@ buddies list is updating......");
+		// Release the prior request + its subscriptions before re-querying, else each watch fire
+		// leaks db8 watches (BuddyService holds subscribed chatthread/person/status finds). See ThreadList.
+		this.$.buddyService.cancel();
 		this.$.list.reset();
 	},
 	showOfflineChanged: function() {

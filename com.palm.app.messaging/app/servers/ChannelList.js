@@ -51,6 +51,9 @@ enyo.kind({
 	},
 	// Subscribe to visible chatthreads; the subscription drives the per-channel unread badges.
 	callUnread: function() {
+		// Release the prior request + its chatthread subscription before re-arming, else each
+		// unreadWatch fire (every visible-chatthread change) leaks a db8 watch. See ThreadList.
+		this.$.unreadService.cancel();
 		this.$.unreadService.call({query: {
 			where: [{prop: "flags.visible", op: "=", val: true}],
 			select: ["_id", "channelId", "unreadCount"]
