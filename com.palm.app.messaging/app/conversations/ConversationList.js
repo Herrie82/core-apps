@@ -1163,7 +1163,9 @@ enyo.kind({
 		if (!this.chatThread || this.chatThread.groupChatId) { return; }
 		var peer = String(this.chatThread.replyAddress || "call").replace(/[^a-zA-Z0-9]/g, "");
 		var room = "webosVC" + peer.slice(-10) + Date.now().toString(36).slice(-4);
-		var url = "https://meet.jit.si/" + room;
+		// Lightweight PeerJS WebRTC page (github.com/Herrie82/webos-vc) - Jitsi's SPA OOM-crashes the
+		// old browser; this is a ~5KB page. Room rides in the URL hash so both sides meet.
+		var url = "https://herrie82.github.io/webos-vc/#" + room;
 		// Best-effort: send the peer the join link through the current conversation transport.
 		try {
 			this.$.richText.setValue($L("📹 Video call — tap to join: ") + url);
@@ -1171,8 +1173,9 @@ enyo.kind({
 		} catch (e) {
 			enyo.warn("videocall: could not send invite link: " + e);
 		}
-		// Open the room in the browser (Atlas is the registered http handler -> WebRTC call).
-		this.$.launchApp.call({target: url});
+		// Open in ATLAS explicitly (not the default http handler = old com.palm.app.browser) and in
+		// Atlas "simple"/viewport mode (MODE 2) so the WebRTC page isn't laid into the tall scroll buffer.
+		this.$.launchApp.call({id: "org.webosports.app.atlas", params: {mode: "simple", target: url}});
 	},
     gotSystemPrefs: function(from, response) {
         // System preferences (timeFormat) service success response handler.
