@@ -45,14 +45,16 @@ enyo.kind({
 					{name: "skypeCaption", layoutkind: "HFlexBox", className:"skype-captions", pack: "center", 
 						content: $L("Add a Skype account to view video contact list")}, 
 					{align: "center", pack: "center", components: [
-						{kind: "Button", name: "skypeAccBtn", className:"enyo-notification-button", width:"150px", caption: $L("Add Account"), onclick: "skypeAcctClick"},
+						{kind: "Button", name: "skypeAccBtn", className:"enyo-notification-button", width:"200px", caption: $L("Start Video Call"), onclick: "startVideoCall"},
 						{name: "spinner", kind: "Spinner", showing: false, pack: "center", shownWhenSpinning: true} 
 					]},
 					
 				]}
 			]}, 
-			{name: "accountsView", kind: "AccountsUI", capability: "PHONE", onAccountsUI_Done: "accountsDone", lazy: true}, 
-		]}			
+			{name: "accountsView", kind: "AccountsUI", capability: "PHONE", onAccountsUI_Done: "accountsDone", lazy: true},
+		]},
+		// webOS: launch the Atlas browser (registered http handler) for a Jitsi WebRTC video call.
+		{name: "launchVideo", kind: enyo.PalmService, service: "palm://com.palm.applicationManager/", method: "open"}
 	],
 	create: function() {
 		this.inherited(arguments);
@@ -101,7 +103,35 @@ enyo.kind({
 	},
 	
 	updateContactLookupUI: function(params) {
-		if (enyo.application.Cache.hasSkypeAcct === true) {		
+		// webOS: the Skype video service is dead (it's why this tab said "Retrieving..." forever).
+		// Repurposed as a simple WebRTC video-call launcher: a room name + Start button that opens a
+		// Jitsi Meet room in the Atlas browser (whose WebRTC stack + camera are confirmed working).
+		// Enter a room and share it with who you're calling, or tap Start and share the resulting link.
+		this.$.spinner.setShowing(false);
+		if (this.$.videoAddressingList) { this.$.videoAddressingList.hide(); }
+		this.$.group.show();
+		this.$.controlNoSkype.show();
+		this.$.skypeAccBtn.setCaption($L("Start Video Call"));
+		this.$.skypeAccBtn.show();
+		if (!this.$.textVInput.getValue()) { this.$.textVInput.setValue(this.suggestRoom()); }
+		this.$.skypeCaption.setContent($L("Enter a room name and share it with who you're calling, then start the call."));
+		return;
+	},
+	suggestRoom: function() {
+		var t = (typeof Date.now === "function") ? Date.now().toString(36) : ("" + (1 + Math.floor(Math.random() * 1e9)).toString(36));
+		return "webosVC" + t.slice(-6);
+	},
+	// Open the Jitsi room in Atlas (the registered http handler) -> WebRTC video call.
+	startVideoCall: function() {
+		var room = String(this.$.textVInput.getValue() || this.suggestRoom()).replace(/[^a-zA-Z0-9]/g, "");
+		if (!room) { room = this.suggestRoom(); }
+		this.$.textVInput.setValue(room);
+		var url = "https://meet.jit.si/" + room;
+		this.$.skypeCaption.setContent($L("In call. Share this link to invite: ") + url);
+		this.$.launchVideo.call({target: url});
+	},
+	updateContactLookupUI_dead: function(params) {
+		if (enyo.application.Cache.hasSkypeAcct === true) {
 			//is skype account signed in?
 			this.$.controlNoSkype.hide(); 
 			enyo.log("debug: skype acct exist, status "+enyo.application.Cache.skypeStatus);
