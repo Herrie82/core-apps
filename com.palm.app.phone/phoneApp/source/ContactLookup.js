@@ -126,9 +126,11 @@ enyo.kind({
 		var room = String(this.$.textVInput.getValue() || this.suggestRoom()).replace(/[^a-zA-Z0-9]/g, "");
 		if (!room) { room = this.suggestRoom(); }
 		this.$.textVInput.setValue(room);
-		var url = "https://meet.jit.si/" + room;
+		// Lightweight PeerJS WebRTC page (github.com/Herrie82/webos-vc) - Jitsi is too heavy for the
+		// old browser. Open ATLAS explicitly in "simple"/viewport mode (not the default com.palm.app.browser).
+		var url = "https://herrie82.github.io/webos-vc/#" + room;
 		this.$.skypeCaption.setContent($L("In call. Share this link to invite: ") + url);
-		this.$.launchVideo.call({target: url});
+		this.$.launchVideo.call({id: "org.webosports.app.atlas", params: {mode: "simple", target: url}});
 	},
 	updateContactLookupUI_dead: function(params) {
 		if (enyo.application.Cache.hasSkypeAcct === true) {
