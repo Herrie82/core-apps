@@ -127,10 +127,12 @@ enyo.kind({
 		if (!room) { room = this.suggestRoom(); }
 		this.$.textVInput.setValue(room);
 		// Lightweight PeerJS WebRTC page (github.com/Herrie82/webos-vc) - Jitsi is too heavy for the
-		// old browser. Open ATLAS explicitly in "simple"/viewport mode (not the default com.palm.app.browser).
-		var url = "https://herrie82.github.io/webos-vc/#" + room;
+		// old browser. Open ATLAS explicitly by id (not the default com.palm.app.browser). No mode:simple:
+		// on a running Atlas it reuses an existing card without the URL (about:blank); a plain target
+		// navigates the current card. ?room= (query) survives the launch where a #fragment can be dropped.
+		var url = "https://herrie82.github.io/webos-vc/?room=" + room;
 		this.$.skypeCaption.setContent($L("In call. Share this link to invite: ") + url);
-		this.$.launchVideo.call({id: "org.webosports.app.atlas", params: {mode: "simple", target: url}});
+		this.$.launchVideo.call({id: "org.webosports.app.atlas", params: {target: url}});
 	},
 	updateContactLookupUI_dead: function(params) {
 		if (enyo.application.Cache.hasSkypeAcct === true) {
