@@ -25,7 +25,8 @@ enyo.kind({
 					{name: "buddyStatusServiceWatch", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", method: "find", onSuccess: "gotStatus", subscribe: true, resubscribe: true, reCallWatches: true},
 					{name: "status", className: "status"},
 					{kind:"Control", name: "header", className: "conversation-header-content", flex: 1, onclick: "handleHeaderTap"},
-					{name: "videoCallButton", kind: "IconButton", icon: "images/video-icon.png", showing: false, onclick: "videocall", className: "conversation-header-type"},
+					{name: "videoCallButton", kind: "IconButton", icon: "images/video-icon2.png", showing: false, onclick: "videocall", className: "conversation-header-type"},
+					{name: "phoneCallButton", kind: "IconButton", icon: "images/phone-icon.png", showing: false, onclick: "voicecall", className: "conversation-header-type"},
 					{kind: "Button", className:"conversation-header-type", components:[
 						{name: "personServiceWatch", kind: "DbService", dbKind: "com.palm.person:1", method: "find", onSuccess: "gotPerson", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "personFailure"},
 						{name: "contactServiceGet", kind: "DbService", dbKind: "com.palm.contact:1", method: "get", onSuccess: "gotContacts", onFailure: "contactFailure"},
@@ -1145,11 +1146,16 @@ enyo.kind({
 		this.$.blockService.blockPerson();
 		this.deleteConversation();
 	},
-	// Show the header video-call button only for a 1:1 conversation (any service can get a room URL).
+	// Show the header call buttons (video + voice) only for a 1:1 conversation.
 	updateVideoButton: function(){
-		if (this.$.videoCallButton) {
-			this.$.videoCallButton.setShowing(!!(this.chatThread && !this.chatThread.groupChatId));
-		}
+		var show = !!(this.chatThread && !this.chatThread.groupChatId);
+		if (this.$.videoCallButton) { this.$.videoCallButton.setShowing(show); }
+		if (this.$.phoneCallButton) { this.$.phoneCallButton.setShowing(show); }
+	},
+	// Voice call: hand off to the Phone app's call flow for the current 1:1 peer.
+	voicecall: function(){
+		if (!this.chatThread || this.chatThread.groupChatId) { return; }
+		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: this.chatThread.replyAddress, transport: this.chatThread.replyService, video: false}});
 	},
 	dial: function(inSender, inReplyAddress){
 		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: inReplyAddress, transport: "com.palm.skype.call", video: false}});
