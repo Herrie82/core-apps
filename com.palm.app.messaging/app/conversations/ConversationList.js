@@ -25,7 +25,7 @@ enyo.kind({
 					{name: "buddyStatusServiceWatch", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", method: "find", onSuccess: "gotStatus", subscribe: true, resubscribe: true, reCallWatches: true},
 					{name: "status", className: "status"},
 					{kind:"Control", name: "header", className: "conversation-header-content", flex: 1, onclick: "handleHeaderTap"},
-					{name: "videoCallButton", kind: "IconButton", icon: "images/video-icon2.png", showing: false, onclick: "videocall", className: "conversation-header-type"},
+					{name: "videoCallButton", kind: "IconButton", icon: "images/video-call-icon.png", showing: false, onclick: "videocall", className: "conversation-header-type"},
 					{name: "phoneCallButton", kind: "IconButton", icon: "images/phone-icon.png", showing: false, onclick: "voicecall", className: "conversation-header-type"},
 					{kind: "Button", className:"conversation-header-type", components:[
 						{name: "personServiceWatch", kind: "DbService", dbKind: "com.palm.person:1", method: "find", onSuccess: "gotPerson", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "personFailure"},
