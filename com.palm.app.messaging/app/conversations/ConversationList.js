@@ -1170,8 +1170,9 @@ enyo.kind({
 		var peer = String(this.chatThread.replyAddress || "call").replace(/[^a-zA-Z0-9]/g, "");
 		var room = "webosVC" + peer.slice(-10) + Date.now().toString(36).slice(-4);
 		// Lightweight PeerJS WebRTC page (github.com/Herrie82/webos-vc) - Jitsi's SPA OOM-crashes the
-		// old browser; this is a ~5KB page. Room rides in the URL hash so both sides meet.
-		var url = "https://herrie82.github.io/webos-vc/#" + room;
+		// old browser; this is a ~5KB page. Room rides in ?room= (a query param survives Atlas's launch
+		// where a #fragment can be dropped).
+		var url = "https://herrie82.github.io/webos-vc/?room=" + room;
 		// Best-effort: send the peer the join link through the current conversation transport.
 		try {
 			this.$.richText.setValue($L("📹 Video call — tap to join: ") + url);
@@ -1179,9 +1180,11 @@ enyo.kind({
 		} catch (e) {
 			enyo.warn("videocall: could not send invite link: " + e);
 		}
-		// Open in ATLAS explicitly (not the default http handler = old com.palm.app.browser) and in
-		// Atlas "simple"/viewport mode (MODE 2) so the WebRTC page isn't laid into the tall scroll buffer.
-		this.$.launchApp.call({id: "org.webosports.app.atlas", params: {mode: "simple", target: url}});
+		// Open in ATLAS explicitly (id) - NOT the default http handler (old com.palm.app.browser), and
+		// NOT mode:"simple": when Atlas is already running, the simple path reuses an existing card
+		// without the new URL (-> about:blank); a plain target takes Atlas's else-branch which navigates
+		// the current card to the URL. The page is a single fixed viewport, so it doesn't need MODE 2.
+		this.$.launchApp.call({id: "org.webosports.app.atlas", params: {target: url}});
 	},
     gotSystemPrefs: function(from, response) {
         // System preferences (timeFormat) service success response handler.
