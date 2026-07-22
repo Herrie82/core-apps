@@ -201,7 +201,16 @@ enyo.kind({
 		var slash = p.lastIndexOf("/");
 		var name = slash >= 0 ? p.substring(slash + 1) : p;
 		try { name = decodeURIComponent(name); } catch (e) {}
-		// A bare "<hash>.data" (WhatsApp voice note) has no meaningful name - label it plainly.
+		// A bare "<hash>.<ext>" attachment (WhatsApp media with no real filename - the hash IS the
+		// name) has nothing meaningful to show, so label it by kind instead of a raw hash: audio ->
+		// "Voice message", video -> "Video", else a generic "Attachment". A named file (e.g. a
+		// document "report.pdf") isn't pure-hash and falls through to show its real name.
+		if (/^[0-9a-f]{16,}\.[a-z0-9]+$/i.test(name)) {
+			if (/\.(mp4|3gp|3gpp|mov|m4v|webm|mkv|avi)$/i.test(name)) { return $L("Video"); }
+			if (/\.(ogg|opus|mp3|m4a|aac|amr|wav|data)$/i.test(name)) { return $L("Voice message"); }
+			return $L("Attachment");
+		}
+		// Legacy: a bare "<hash>.data" WhatsApp voice note that isn't pure-hash-named.
 		if (/\.data$/i.test(name)) { return $L("Voice message"); }
 		if (!name) { return $L("Attachment"); }
 		// Cap long names (e.g. Discord filenames) so the chip stays tidy, keeping the extension.
