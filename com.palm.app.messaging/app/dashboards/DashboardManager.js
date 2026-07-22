@@ -395,7 +395,10 @@ enyo.kind({
 		layer._message = message;
 		layer._messageCount = 1;
 		if (message.from) {
-			layer._from = layer.title = this.getDisplayName(message);
+			// A banner title is native plain text (no inline images, no emoji font), so strip emoji
+			// from the sender/chat name the same way getDisplayText does for the body - otherwise the
+			// title shows a literal "&#128049;" entity or tofu instead of the emoji.
+			layer._from = layer.title = enyo.messaging.message.stripEmojiForPlainText(this.getDisplayName(message));
 		} else {
 			layer.title = "";
 			enyo.error("Message ", message._id, " is missing Sender information, message len= ", (message.messageText && message.messageText.length));

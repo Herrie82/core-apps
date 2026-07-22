@@ -24,7 +24,7 @@ enyo.kind({
 				{kind: "Toolbar", className:"enyo-toolbar-light conversation-header", layoutKind: "HFlexLayout", align: "center", components: [
 					{name: "buddyStatusServiceWatch", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", method: "find", onSuccess: "gotStatus", subscribe: true, resubscribe: true, reCallWatches: true},
 					{name: "status", className: "status"},
-					{kind:"Control", name: "header", className: "conversation-header-content", flex: 1, onclick: "handleHeaderTap"},
+					{kind:"Control", name: "header", className: "conversation-header-content", allowHtml: true, flex: 1, onclick: "handleHeaderTap"},
 					{name: "videoCallButton", kind: "IconButton", icon: "images/video-call-icon.png", showing: false, onclick: "videocall", className: "conversation-call-btn"},
 					{name: "phoneCallButton", kind: "IconButton", icon: "images/phone-icon.png", showing: false, onclick: "voicecall", className: "conversation-call-btn"},
 					{kind: "Button", className:"conversation-header-type", components:[
@@ -157,6 +157,18 @@ enyo.kind({
 			.replace(/&lt;/g, "<").replace(/&gt;/g, ">")
 			.replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
 			.replace(/&amp;/g, "&");
+	},
+	// Set the conversation header title, rendering any Unicode emoji as inline images so the
+	// header matches the thread list on the left (which uses emojifyEscaped too). The header
+	// Control is allowHtml:true, so we imageify emoji and HTML-escape the rest. decodeEntities
+	// first undoes any pre-escaping (Teams "&amp;") so emojifyEscaped's single escape is correct;
+	// it also leaves numeric emoji entities (&#128049;) for emojifyEscaped to decode+imageify.
+	// The plain (un-imageified) name is stashed on _headerName so gotPerson can compare against
+	// it instead of the emoji HTML that getContent() would return.
+	setHeaderName: function(inName){
+		var plain = this.decodeEntities(inName);
+		this._headerName = plain;
+		this.$.header.setContent(enyo.messaging.message.emojifyEscaped(plain));
 	},
 	// scroll list to bottom when we resize.
 	resize: function() {
@@ -394,7 +406,7 @@ enyo.kind({
 		this.getDraftMessage(this.chatThread._id);
 		
 		//update header and status
-		this.$.header.setContent(this.decodeEntities(this.chatThread.displayName));
+		this.setHeaderName(this.chatThread.displayName);
 		this.updateVideoButton();
 		this.$.status.setClassName("status status-no-presence");
 		
@@ -536,8 +548,8 @@ enyo.kind({
 			}
 						
 			var displayName = this.decodeEntities(enyo.messaging.person.getDisplayName(person));
-			if (displayName !== this.$.header.getContent() && enyo.messaging.person.isNotBlank(displayName)) {
-				this.$.header.setContent(displayName);
+			if (displayName !== this._headerName && enyo.messaging.person.isNotBlank(displayName)) {
+				this.setHeaderName(enyo.messaging.person.getDisplayName(person));
 			}
 			
 			if (!this.chatThread.person || this.isDifferent(person.contactIds, this.chatThread.person.contactIds) || this.isDifferent(person.phoneNumbers, this.chatThread.person.phoneNumbers)) {
@@ -1180,11 +1192,13 @@ enyo.kind({
 		} catch (e) {
 			enyo.warn("videocall: could not send invite link: " + e);
 		}
-		// Open in ATLAS explicitly (id) - NOT the default http handler (old com.palm.app.browser), and
-		// NOT mode:"simple": when Atlas is already running, the simple path reuses an existing card
-		// without the new URL (-> about:blank); a plain target takes Atlas's else-branch which navigates
-		// the current card to the URL. The page is a single fixed viewport, so it doesn't need MODE 2.
-		this.$.launchApp.call({id: "org.webosports.app.atlas", params: {target: url}});
+		// Open in ATLAS explicitly (id) - NOT the default http handler (old com.palm.app.browser).
+		// Prefix the target with "atlas-simple:" so the card is BORN in MODE 2 (viewport, 1-screen
+		// render buffer -> ~4x less display readback CPU): Atlas BrowserApp.js maps the prefix to
+		// _launchSimple, and BrowserServer rebuilds the pre-warmed WebView at mult=1 for it. The call
+		// page is a single fixed viewport that never scrolls, so MODE 2 is ideal. (The prefix survives
+		// atlasOpenCard where the mode= param does not; the old about:blank warmup no longer defeats it.)
+		this.$.launchApp.call({id: "org.webosports.app.atlas", params: {target: "atlas-simple:" + url}});
 	},
     gotSystemPrefs: function(from, response) {
         // System preferences (timeFormat) service success response handler.
