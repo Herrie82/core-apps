@@ -46,7 +46,12 @@ enyo.kind({
 	},
 	getBannerMessage: function(latestMessage) {
 		enyo.log("Latest message for banner: ", latestMessage);
-		return this.dashboard.getDisplayName(latestMessage) + ": " + this.dashboard.getDisplayText(latestMessage);
+		// The banner is native plain text (no inline emoji images, no emoji font). getDisplayText
+		// already strips emoji from the body, but getDisplayName returns the raw sender/chat name,
+		// which for e.g. a Telegram contact "🐱🐶 Name" would otherwise show literal "&#128049;"
+		// entities in the banner. Strip it the same way the dashboard title does (DashboardManager).
+		return enyo.messaging.message.stripEmojiForPlainText(this.dashboard.getDisplayName(latestMessage)) +
+			": " + this.dashboard.getDisplayText(latestMessage);
 	},
 	clearBannerMessages: function(filter) {
 		var ids = this.bannerWidgetIds;
