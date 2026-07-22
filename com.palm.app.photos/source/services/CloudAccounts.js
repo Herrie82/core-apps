@@ -45,6 +45,9 @@ enyo.kind({
 				alias: a.alias,
 				accountId: a._id,
 				templateId: a.templateId,
+				// Keep the account's own icon path so the Library panel can render it
+				// directly (dynamic) instead of needing a per-service CSS rule + asset.
+				iconPath: (a.icon && (a.icon.loc_48x48 || a.icon.loc_32x32)) || null,
 				sortOrder: sortOrder
 			}
 		});

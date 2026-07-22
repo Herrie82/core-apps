@@ -146,6 +146,31 @@ enyo.kind({
 			item.$.icon.addClass('library-navigation-icon-' + item.type);
 		});
 
+		// webos-synergy-revival: render each cloud provider's Library icon DYNAMICALLY from its
+		// own account-template artwork (account.iconPath = icon.loc_48x48), so a new Synergy
+		// connector never needs a per-service syn-<x>.png asset + CSS rule. We inject one style
+		// block keyed by `type`, which every icon call-site (this source list, the PanelHeader,
+		// AlbumMode) resolves through its `library-navigation-icon[-20x20|-40x40]-<type>` class.
+		var css = '';
+		accounts.forEach(function(a) {
+			if (!a || !a.accountType || a.accountType === 'local' || !a.iconPath) { return; }
+			var t = a.accountType.split('.').pop(), u = 'url(' + a.iconPath + ')';
+			var bg = 'background-image:' + u + ';background-repeat:no-repeat;background-position:center;' +
+				'-webkit-background-size:contain;background-size:contain;';
+			// Bare class (the source list) also needs its box size, like the stock type classes do.
+			css += '.library-navigation-icon-' + t + '{' + bg + 'width:40px;height:40px;}';
+			// Header/album variants get their size from the base -20x20/-40x40 class; add only the image.
+			css += '.library-navigation-icon-20x20-' + t + ',.library-navigation-icon-40x40-' + t + '{' + bg + '}';
+		});
+		var styleEl = document.getElementById('syn-dyn-libicons');
+		if (!styleEl) {
+			styleEl = document.createElement('style');
+			styleEl.id = 'syn-dyn-libicons';
+			styleEl.type = 'text/css';
+			(document.head || document.getElementsByTagName('head')[0]).appendChild(styleEl);
+		}
+		styleEl.innerHTML = css;
+
 		// Set the selected source.  Either re-select the same source as before,
 		// or if it is no longer available, fallback to "All Photos & Videos".
 		var newSelectedSource = items[0];

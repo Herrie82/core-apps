@@ -7,6 +7,7 @@ enyo.kind({
 	accountType: null,
 	iconSmall: null,
 	iconBig: null,
+	iconPath: null,	// account-template icon (loc_48x48); used to render the Library icon dynamically
 	published: {
 		syncStatus: 'idle'
 	},
@@ -187,6 +188,7 @@ enyo.kind({
 				accountType: acct.templateId, // eg: 'com.palm.facebook'
 				iconSmall: icon + '_20x20.png',
 				iconLarge: icon + '_40x40.png',
+				iconPath: acct.iconPath || null, // account-template artwork, for the dynamic Library icon
 				// If we don't have an explicit sync-state stored, use the default.
 				syncStatus: (this._syncStatuses[acct.accountId] || 'idle')
 			});
