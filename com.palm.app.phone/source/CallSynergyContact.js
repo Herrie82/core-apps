@@ -68,6 +68,10 @@ enyo.kind({
 		}
 	},
 	dispatchCallbacks: function() {
+		// Surface WHICH network the call uses (Telegram / WhatsApp / Signal / Cellular) as the
+		// secondary label on the in-call screen, so it is always visible which service is dialing.
+		var net = enyo.application.Utils.callNetworkName(this.transport);
+		if (net) { this.labelFormatted = net; }
 		if ( ! this.isDecorated ) {
 			this.isDecorated = true;
 			this.decoratedCallbacks.forEach(function(c) { c() });
@@ -94,19 +98,33 @@ enyo.kind({
 	
 		// currently a late update can only affect an unknown contact
 		if ( ! this.personId ) {
-			this.name = this.displayName;
+			this.name = this._hasRealDisplayName() ? this.displayName : $L("Unknown Caller");
 		}
 
 		if(this.isDecorated == true) { //if already decorated other don't bother
 			this.dispatchContactState("");
 		}
 	},
+	// A discovered IM transport (Telegram, Signal, ...) whose address is an IM id/@handle/UUID, not a
+	// phone number. Excludes cellular (TIL) and the VoIP slot (WhatsApp, whose addresses ARE numbers).
+	_isImTransport: function() {
+		var T = enyo.application.CallSynergizer.TRANSPORTS;
+		return this.transport !== T.TIL && this.transport !== T.VOIP
+			&& !!(enyo.application.CallSynergizer.transports && enyo.application.CallSynergizer.transports[this.transport]);
+	},
 	_formatAddress: function() {
-		if ( this.transport == enyo.application.CallSynergizer.TRANSPORTS.TIL || this.isIntlNumber === true) {
+		if ( this._isImTransport() ) {
+			// IM id/@handle/UUID (e.g. Telegram "id8823012961", a Signal UUID): show it verbatim, do
+			// NOT format it as a phone number.
+			this.addressFormatted = this.address;
+			this.normalizedAddress = Utils.PersonFind.normalizeIm(this.address);
+		} else if ( this.transport == enyo.application.CallSynergizer.TRANSPORTS.TIL || this.isIntlNumber === true) {
 			this.addressFormatted = enyo.application.Utils.FormatPhoneNumber(this.address) || enyo.application.Messages.unknownNumber;
 			this.normalizedAddress = Utils.PersonFind.normalizePhoneNumber(this.address);
 		} else {
-			this.addressFormatted = this.address;
+			// VoIP/IM addresses are usually phone numbers (WhatsApp) -> format them; a genuine
+			// non-numeric handle yields "" from FormatPhoneNumber, so we fall back to the raw address.
+			this.addressFormatted = enyo.application.Utils.FormatPhoneNumber(this.address) || this.address;
 			this.normalizedAddress = Utils.PersonFind.normalizeIm(this.address);
 		}
 	},
@@ -126,6 +144,20 @@ enyo.kind({
 		} else if ( this.person && this.person._id ) {
 			this._personLookupComplete(this,{person:this.person});
 			
+		// CASE: discovered IM transport (Telegram / Signal / ...). The mediator already provided the
+		// displayName, and the address is an IM id/@handle/UUID, NOT a phone number. Use the name as-is
+		// and let dispatchCallbacks label the call by network (callNetworkName -> "Telegram"); skip the
+		// phone/person lookup that otherwise mislabels the call "Mobile" and formats the id as a number.
+		// Falls back to the raw address (e.g. "id8823012961") when no real name was sent.
+		} else if ( this._isImTransport() ) {
+			enyo.error("CALLSYN_DIAG IMCONTACT address=" + this.address + " displayName=" + this.displayName + " addressFormatted=" + this.addressFormatted + " hasReal=" + this._hasRealDisplayName() + " person=" + this.person + " personId=" + this.personId);
+			this.name = this._hasRealDisplayName() ? this.displayName : this.address;
+			// Also try to link a saved address-book Person by IM address, so a stored contact's name/
+			// photo wins over the raw Telegram display name (proper name lookup).
+			if ( this.$.personLookupQuery && this.$.personLookupQuery.findByIm ) {
+				this.$.personLookupQuery.findByIm(this.address);
+			}
+			this.dispatchCallbacks();
 		// CASE: we are a phone number
 		} else if ( this.transport == enyo.application.CallSynergizer.TRANSPORTS.TIL || this.isIntlNumber === true) {
 			if (enyo.application.Utils.isEmergencyNumber(this.address)){
@@ -138,8 +170,14 @@ enyo.kind({
 				this.$.personLookupQuery.findByPhone(this.address);
 			}
 		// CASE: we are skype IM
-		} else if ( this.transport == enyo.application.CallSynergizer.TRANSPORTS.SKYPE ) {
-			this.$.personLookupQuery.findByIm(this.address);
+		} else if ( this.transport == enyo.application.CallSynergizer.TRANSPORTS.VOIP ) {
+			// WhatsApp callers are identified by phone number -> look them up by phone so a saved
+			// contact's NAME wins. Non-numeric handles (e.g. a Signal UUID) fall back to an IM lookup.
+			if ( enyo.application.Utils.isValidNumber(this.address) ) {
+				this.$.personLookupQuery.findByPhone(this.address);
+			} else {
+				this.$.personLookupQuery.findByIm(this.address);
+			}
 		
 		// DEFAULT: we're something else
 		// todo how do we reverse lookup 3rd party addresses?
@@ -149,7 +187,7 @@ enyo.kind({
 			this.labelFormatted = $L("Skype");
 			
 			// temp: need findPersonByIM
-			this.name = this.address;
+			this.name = $L("Unknown Caller");
 			this.dispatchCallbacks();
 		}
 	},
@@ -251,15 +289,25 @@ enyo.kind({
 		this.dispatchCallbacks();
 	},
 		
+	// True only if the mediator handed us a real NAME - not a bare phone number, a Signal UUID, or the
+	// address echoed back. Those are not names, so the caller is "Unknown Caller" (with the formatted
+	// number, when there is one, shown on the line below via addressFormatted).
+	_hasRealDisplayName: function() {
+		var dn = this.displayName;
+		return !!(dn && dn.match(/[^\s]/) && dn != "unknown"
+			&& dn !== this.address && dn !== this.addressFormatted
+			&& !enyo.application.Utils.isValidNumber(dn));
+	},
+
 	_formatWithoutPerson: function() {
 		// for unknown phone numbers only, eg "N. California"
 		this.locationFormatted = enyo.application.Utils.locationForAddress(this.address, this.transport) || "";
-		
-		// first use display name
-		if ( this.displayName && this.displayName.match(/[^\s]/) && this.displayName != "unknown"){
+
+		// A real display name (e.g. a WhatsApp push-name) wins; a bare number/UUID is not a name.
+		if ( this._hasRealDisplayName() ){
 			this.name = this.displayName;
 			this.dispatchCallbacks();
-			
+
 		} else if ( this.transport == enyo.application.CallSynergizer.TRANSPORTS.TIL ) {
 			this.$.carrierLookupQuery.call({
 				query: {
@@ -267,13 +315,30 @@ enyo.kind({
 				}
 			});
 		} else {
-			// todo handle skype
+			// VoIP/unknown caller with no resolvable name -> "Unknown Caller"; the formatted number
+			// (if the address is a phone number) shows beneath it via addressFormatted.
+			this.name = $L("Unknown Caller");
 			this.dispatchCallbacks();
-		}								
+		}
 	},
 	
 	displayNameChanged: function() {
 		enyo.log("CallSynergyContact displayNameChanged " + this.displayName);
+	},
+
+	// Apply a display name that arrived AFTER the contact was created. On an outgoing call the dial-time
+	// contact is built with no name, then the mediator sends the real one ("Alan Morford") in a later
+	// callStateQuery push - without this the card kept showing the raw id. Re-resolves the shown name and
+	// refreshes the card (mirrors cnapChanged). A linked Person's name still wins.
+	setLateDisplayName: function(dn) {
+		if ( !dn || dn === this.displayName ) { return; }
+		this.displayName = dn;
+		if ( ! this.personId ) {
+			this.name = this._hasRealDisplayName() ? this.displayName
+			          : ( this._isImTransport() ? this.address : $L("Unknown Caller") );
+		}
+		if ( this.isDecorated == true ) { this.dispatchContactState(""); }
+		else { this.dispatchCallbacks(); }
 	},
 	
 	genericFailure: function(inSender, response) {
@@ -329,11 +394,11 @@ enyo.kind({
 	        var newContact = {};
 	        var PseudoDetail = {};
 
-	        if (this.transport == enyo.application.CallSynergizer.TRANSPORTS.TIL || this.transport === enyo.application.CallSynergizer.TRANSPORTS.SKYPE) {
+	        if (this.transport == enyo.application.CallSynergizer.TRANSPORTS.TIL || this.transport === enyo.application.CallSynergizer.TRANSPORTS.VOIP) {
 	            newContact.phoneNumbers = [{
 	                value: this.address
 	            }];
-	        } else if (this.transport === enyo.application.CallSynergizer.TRANSPORTS.SKYPE) {
+	        } else if (this.transport === enyo.application.CallSynergizer.TRANSPORTS.VOIP) {
 	            newContact.ims = [{
 	                value: this.address
 	            }];

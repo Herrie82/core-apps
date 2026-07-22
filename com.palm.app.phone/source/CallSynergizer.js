@@ -10,7 +10,7 @@ enyo.kind({
 	// Cant be static because they need to be retrieved from other cards off the enyo.application object
 	TRANSPORTS: {
 		TIL: "com.palm.telephony",
-		SKYPE: "com.palm.skype"
+		VOIP: "com.palm.whatsapp"
 	},
 	STATES: {
 		INCOMING: "incoming",
@@ -104,7 +104,8 @@ enyo.kind({
 		// gather transports and register callStateQuery
 		payload.results.forEach(function(account) {
 			account.capabilityProviders.forEach(function(cap) {
-				if ( cap.capability == CallSynergizer.PHONE_CAPABILITY ) {					
+				if ( cap.capability == CallSynergizer.PHONE_CAPABILITY ) {
+					enyo.error("CALLSYN_DIAG PHONE-account=" + account.templateId + " impl=" + cap.implementation + " alreadyHave=" + !!(this.transports[account.templateId] && this.transports[account.templateId]._subs));
 					// include accountId with capability
 					if (this.transports[account.templateId] && this.transports[account.templateId]._accountId != account._id) {
 						this.transports[account.templateId]._accountId = account._id;
@@ -122,7 +123,7 @@ enyo.kind({
 							service: cap.implementation,
 							method: "callStateQuery",
 							subscribe: true,
-							resubscribe: (account.templateId == this.TRANSPORTS.TIL), // only resubscribe to the TIL. If skype returns a bad response, ignore it
+							resubscribe: true, // always resubscribe: whatsapp mediator may restart; TIL too. Bad responses are ignored downstream
 							onSuccess: "_callStateQueryResponse",
 							onFailure: "_callStateQueryResponseFailure",
 							transport: account.templateId
@@ -134,7 +135,7 @@ enyo.kind({
 						}
 
                                                 // monitor for skype call quality
-						if ( account.templateId == this.TRANSPORTS.SKYPE ) {
+						if ( account.templateId == this.TRANSPORTS.VOIP ) {
 						    // skypem is able to provide call quality data for skype
 						    // register qualInfoQuery
                                                     enyo.log("registering for skype call quality monitoring");
@@ -173,12 +174,13 @@ enyo.kind({
 				}
 			}, this);
 		}, this);
-		
+		enyo.error("CALLSYN_DIAG discovered transports=[" + Object.keys(this.transports).join(",") + "]");
+
 		// todo only call on first response
 		this.$.capabilitiesWatch.call();
 		
 		//Hack: store skype account information for faster loading
-		this.$.getAccounts.getAccounts({capability: "PHONE"});//{templateId: enyo.application.CallSynergizer.TRANSPORTS.SKYPE}
+		this.$.getAccounts.getAccounts({capability: "PHONE"});//{templateId: enyo.application.CallSynergizer.TRANSPORTS.VOIP}
 	},
 	_capabilitiesWatch: function(inSender, payload) {
 		payload.results.forEach(function(cap) {
@@ -218,8 +220,8 @@ enyo.kind({
 		this.$.transportsCallbacks.dispatch(this.transports);
 	},
 	onAccountsAvailable: function (inSender, inResponse) {
-		if(inResponse && inResponse.accounts && this.transports[this.TRANSPORTS.SKYPE]) {
-			var skypeAcc = this.transports[this.TRANSPORTS.SKYPE]._accountId;
+		if(inResponse && inResponse.accounts && this.transports[this.TRANSPORTS.VOIP]) {
+			var skypeAcc = this.transports[this.TRANSPORTS.VOIP]._accountId;
 			for(var i = 0; i < inResponse.accounts.length; i++) {
 				if(inResponse.accounts[i]._id == skypeAcc) {
 					enyo.application.Cache.skypeAccount = inResponse.accounts[i];
@@ -232,9 +234,13 @@ enyo.kind({
 	_emergencyModeQuery: function(inSender, payload) {
 		enyo.application.UI.event("emergency", payload.enabled);		
 	},
-	_callStateQueryResponse: function(inSender, payload) {	
+	_callStateQueryResponse: function(inSender, payload) {
 		var lines, transport, autoAcceptVideoCalls, allowVideoCalls, isIncoming, isVideo;
-		
+
+		// DIAG (remove after confirmation): full payload so we can see address/displayName/transport
+		// the card actually got (debugging "Unknown Caller"/"Mobile"/number-formatted-id on TG dial).
+		enyo.error("CALLSYN_DIAG CSQRESP transport=" + (inSender && inSender.transport) + " PAYLOAD=" + enyo.json.stringify(payload));
+
 		// ignore "{returnValue: true}" initial response
 		if ( ! enyo.isArray(payload.lines) ) {
 			return;
@@ -321,7 +327,7 @@ enyo.kind({
 			}
 			
 			//Workaround DFISH-17886
-			if ( transport == this.TRANSPORTS.SKYPE && line.state != this.STATES.ACTIVE ) {
+			if ( transport == this.TRANSPORTS.VOIP && line.state != this.STATES.ACTIVE ) {
 				enyo.application.Cache.skypeCallRequestedForHold = false;
 			}
 			
@@ -362,6 +368,9 @@ enyo.kind({
 				
 				call.ignored = (oldCall && oldCall.ignored);
 				call.contact = (oldCall && oldCall.contact) || new CallSynergyContact({address: call.address, transport: transport, displayName: call.displayName});
+				// A reused (dial-time) contact may have been created before the mediator sent the name;
+				// apply a display name that arrives in a later push so the card shows it, not the raw id.
+				if ( call.displayName && call.contact.setLateDisplayName ) { call.contact.setLateDisplayName(call.displayName); }
 				call.isVideo = isVideo || (oldCall && oldCall.isVideo); // Keep isVideo set to true if video was ever used during the call	
 				
 				// TODO: late displayName updates are TIL only for now
@@ -562,11 +571,11 @@ enyo.kind({
 		},this);
 		
 		if ( activeLine ) {	
-			if(enyo.application.Cache.skypeCallRequestedForHold == true && activeLine.calls[0].transport != this.TRANSPORTS.SKYPE) {
+			if(enyo.application.Cache.skypeCallRequestedForHold == true && activeLine.calls[0].transport != this.TRANSPORTS.VOIP) {
 				enyo.warn("......Not sending Hold to other transport as skype Hold request is still pending.....");	
 			} else {
 				this.callSwap(undefined /*put all calls on hold*/, activeLine.calls[0].transport);
-				if(activeLine.calls[0].transport == this.TRANSPORTS.SKYPE) {
+				if(activeLine.calls[0].transport == this.TRANSPORTS.VOIP) {
 					enyo.application.Cache.skypeCallRequestedForHold = true;
 				}
 			}
@@ -654,8 +663,14 @@ enyo.kind({
 			this.callSwap(otherLineToMakeActive.calls[0].id, otherLineToMakeActive.calls[0].transport);
 		}
 
+		// A user-initiated hangup (callDisconnect) must announce a normal "Call ended", never the
+		// "Call dropped"/Redial popup - the mediator may report a non-"normal" cause for a deliberate hangup.
+		this.userHangupCalls = this.userHangupCalls || {};
+		var userInitiatedHangup = !!(line.calls[0] && line.calls[0].id && this.userHangupCalls[line.calls[0].id]);
+		if (line.calls[0] && line.calls[0].id) { delete this.userHangupCalls[line.calls[0].id]; }
+
 		// debounce two disconnected calls: if the first call's original state was disconnected, don't log it
-		if ( line.calls.length == 0 || (line.calls[0].transport === this.TRANSPORTS.SKYPE && line.calls[0].firstState == this.STATES.DISCONNECTED )) {
+		if ( line.calls.length == 0 || (line.calls[0].transport === this.TRANSPORTS.VOIP && line.calls[0].firstState == this.STATES.DISCONNECTED )) {
 
                         // DFISH-17498: Skypem sends the cause code in the 2nd disconnect sometimes ...
 		        if (line.calls[0] && ! line.calls[0].ignored && line.disconnectDetails && line.disconnectDetails.cause && line.disconnectDetails.cause == enyo.application.CallSynergizer.DISCONNECTDETAILS.NOCREDIT) {
@@ -683,8 +698,8 @@ enyo.kind({
 			enyo.application.openPhoneAppPopup("NoCreditSkype", "noCreditSkypePopup", {"line": line}, height);
 
 
-		} // CASE: abnormal disconnect
-		else if (line.calls[0] && ! line.calls[0].ignored && line.disconnectDetails && line.disconnectDetails.cause && line.disconnectDetails.cause !== enyo.application.CallSynergizer.DISCONNECTDETAILS.NORMAL) {
+		} // CASE: abnormal disconnect (but NOT if the user deliberately hung up)
+		else if (!userInitiatedHangup && line.calls[0] && ! line.calls[0].ignored && line.disconnectDetails && line.disconnectDetails.cause && line.disconnectDetails.cause !== enyo.application.CallSynergizer.DISCONNECTDETAILS.NORMAL) {
 			enyo.error("abnormal disconnect: " + enyo.json.stringify(line.disconnectDetails));
 			var height = line.calls[0].contact.canBeCalled() ? 165 : 145;
 			enyo.application.openPhoneAppPopup("DroppedCall", "droppedCallPopup", {"line": line}, height);	
@@ -807,6 +822,15 @@ enyo.kind({
 	},
 	// debounce: disallow a second dial call if received within 1.5 sec of first (and both calls pass 'debounce')
 	dial: function(address, video, audio, transport /*optional*/, personId /*optional*/, debounce /*optional*/, manualDial /*optional*/) {
+		// A dial can arrive with the IM serviceName ("type_telegram") instead of the account templateId
+		// ("com.palm.telegram"). this.transports is keyed by templateId (each entry carries its serviceName),
+		// so translate here - ONE agnostic place that works for any current/future service, no per-service code.
+		if (transport && transport.indexOf("type_") === 0) {
+			for (var _tid in this.transports) {
+				if (this.transports[_tid] && this.transports[_tid].serviceName === transport) { transport = _tid; break; }
+			}
+		}
+		enyo.error("CALLSYN_DIAG PLACECALL transport=" + transport + " known=" + !!(this.transports && this.transports[transport]));
 		if ( debounce ) {
 			if ( ! this.debounceDial ) {
 				this.$.dialProxy.placeCall(address, video, audio, transport, personId, manualDial);
@@ -837,7 +861,7 @@ enyo.kind({
 				if (!enyo.application.Cache.wan || enyo.application.Cache.wan.state !== "connected"){
 					bDial = false; 
 					this.redialOnNetworkService = {
-						transport: this.TRANSPORTS.SKYPE,
+						transport: this.TRANSPORTS.VOIP,
 						address: address
 					}						
 					//wan is not available either, push network alerts
@@ -881,7 +905,7 @@ enyo.kind({
 					defaultAreaCode: defaultAreaCode
 				});
 			}
-		} else if (transport == this.TRANSPORTS.SKYPE && enyo.application.Utils.isValidNumber(address) && (enyo.application.Utils.isInternationalNumber(address) || enyo.application.Utils.isDomesticNumber(address))) {
+		} else if (transport == this.TRANSPORTS.VOIP && enyo.application.Utils.isValidNumber(address) && (enyo.application.Utils.isInternationalNumber(address) || enyo.application.Utils.isDomesticNumber(address))) {
 			addressObj = new enyo.g11n.PhoneNumber(address, {
 				mcc: enyo.application.TelephonyStatusInterface.mcc
 			});
@@ -901,7 +925,7 @@ enyo.kind({
 		}
 		enyo.log("normalizedAddress = " + normalizedAddress);
 
-                if ((this.TRANSPORTS.SKYPE == transport) && (normalizedAddress[0] == '+')) {
+                if ((this.TRANSPORTS.VOIP == transport) && (normalizedAddress[0] == '+')) {
                     //enyo.log(" skypeout call ");
                     enyo.application.Cache.IsSkypeoutCall = true;
                 } else {
@@ -984,7 +1008,7 @@ enyo.kind({
 				break;
 				
 				case 16: 
-				if (request.details.transport === this.TRANSPORTS.SKYPE) {
+				if (request.details.transport === this.TRANSPORTS.VOIP) {
 					//if we get an error code for skype "notloggedin", ask user what they want to do
 					//if airplaneMode is on and wifi is not on, we pop the dialog, still waiting to see the 
 					//flow if wifi is off and airplanemode is off as well
@@ -993,7 +1017,7 @@ enyo.kind({
 						enyo.log("error getting here 16, no connection");
 						//enyo.application.openPhoneAppPopup("AirplaneMode", "airplaneModePopup", {
 							redialParams: {
-								transport: enyo.application.CallSynergizer.TRANSPORTS.SKYPE,
+								transport: enyo.application.CallSynergizer.TRANSPORTS.VOIP,
 								address: request.details.address
 							}
 						});//
@@ -1028,8 +1052,8 @@ enyo.kind({
 		enyo.warn("Guessing transport.....");
 			
 		if(enyo.application.isTablet) {
-			if (enyo.application.Cache.hasSkypeAcct && !enyo.application.Cache.hasPairedPhone) {
-				return this.TRANSPORTS.SKYPE;
+			if (enyo.application.Cache.hasVoipAcct && !enyo.application.Cache.hasPairedPhone) {
+				return this.TRANSPORTS.VOIP;
 			}
 		}
 	
@@ -1151,6 +1175,15 @@ enyo.kind({
 			if ( isLine && isNotDisconnected ) {
 				lines.push(this.callStateLines[transport][i]);
 				this.markLineDisconnectPending(this.callStateLines[transport][i]);
+				// Remember this was a USER-initiated hangup, so its disconnect is announced as a
+				// normal "Call ended" rather than the "Call dropped" (network-drop) popup + Redial.
+				// VoIP mediators (WhatsApp/Signal/Telegram) may report a non-"normal" cause even for a
+				// deliberate hangup, which would otherwise wrongly trigger the DroppedCall popup.
+				this.userHangupCalls = this.userHangupCalls || {};
+				var _dc = this.callStateLines[transport][i].calls || [];
+				for (var _dj = 0; _dj < _dc.length; _dj++) {
+					if (_dc[_dj] && _dc[_dj].id) { this.userHangupCalls[_dc[_dj].id] = true; }
+				}
 			}
 		}
 		
@@ -1448,7 +1481,7 @@ enyo.kind({
         // this code on the phone must return an error to the tablet.
 	isSkypeCallBarredFromBt: function(params) {
 		if(!enyo.application.isTablet && params.bluetooth && params.number && enyo.application.Utils.isValidNumber(params.number)) {
-			if ( ( enyo.application.Utils.isInternationalNumber(params.number) && ( enyo.application.Cache.phonePreferredIntlPhoneService == "none" || enyo.application.Cache.phonePreferredIntlPhoneService == this.TRANSPORTS.SKYPE ) ) /* || ( enyo.application.Utils.isDomesticNumber(params.number) &&( enyo.application.Cache.phonePreferredDomesticPhoneService == "none" || enyo.application.Cache.phonePreferredDomesticPhoneService == this.TRANSPORTS.SKYPE ) )*/ ) {
+			if ( ( enyo.application.Utils.isInternationalNumber(params.number) && ( enyo.application.Cache.phonePreferredIntlPhoneService == "none" || enyo.application.Cache.phonePreferredIntlPhoneService == this.TRANSPORTS.VOIP ) ) /* || ( enyo.application.Utils.isDomesticNumber(params.number) &&( enyo.application.Cache.phonePreferredDomesticPhoneService == "none" || enyo.application.Cache.phonePreferredDomesticPhoneService == this.TRANSPORTS.VOIP ) )*/ ) {
 				var params = {"event":"disconnected", "call" :{"callState":"hangupdial","number":params.number,"causeErrorCode":30}};
 				this.$.informBTPrefServiceError.call(params);
 				return true;

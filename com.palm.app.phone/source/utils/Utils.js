@@ -343,7 +343,7 @@ Utils.getDefaultContactPoint = function (contact, bPrefixWithType) {
 		// undefined transport so that if it's a int'l # the user will have the option to use skype (Refer to preferredPhoneService and DialProxy)
 		return { "contactPointAddress": defaultPhoneNum, "contactPointTransport": undefined };
 	} else if (ims) {
-		return { "contactPointAddress": ims, "contactPointTransport": enyo.application.CallSynergizer.TRANSPORTS.SKYPE };
+		return { "contactPointAddress": ims, "contactPointTransport": enyo.application.CallSynergizer.TRANSPORTS.VOIP };
 	}
 
 	//note: because contact library does not have picker library ready, we work around to use the first address or
@@ -365,7 +365,7 @@ Utils.getDefaultContactPoint = function (contact, bPrefixWithType) {
 		} else {
 			address = skypeIMs[0].value;
 		}
-		return { "contactPointAddress": address, "contactPointTransport": enyo.application.CallSynergizer.TRANSPORTS.SKYPE };
+		return { "contactPointAddress": address, "contactPointTransport": enyo.application.CallSynergizer.TRANSPORTS.VOIP };
 	}
 };
 
@@ -838,6 +838,31 @@ Utils.contactPointLabels = {
 	"type_skype": [$L("Skype"), $L("S")]
 };
 
+// Display name for a PHONE-transport call ("service" == the account templateId used at dial time).
+// Today every VoIP call routes through the single repurposed Skype PHONE slot (TRANSPORTS.VOIP),
+// which now hosts WhatsApp calling -> show "WhatsApp". To add another network (Telegram, Signal, ...)
+// either register its own PHONE account/template and branch on its templateId here, or have the
+// mediator tag each call with a network name stored in the call-log record and return that.
+// Keep this the ONE place that names the VoIP transport.
+Utils.callNetworkName = function(service) {
+	// service == the account templateId of the PHONE transport used for the call.
+	if (!service) { return ""; }
+	if (service === enyo.application.CallSynergizer.TRANSPORTS.TIL || service === "com.palm.telephony") {
+		return $L("Cellular");
+	}
+	if (service === enyo.application.CallSynergizer.TRANSPORTS.VOIP) {   // repurposed Skype slot -> WhatsApp
+		return $L("WhatsApp");
+	}
+	// SERVICE-AGNOSTIC for IM transports: do NOT hardcode each service. Prefer the registered PHONE
+	// account's own network name if it exposes one, else derive it from the transport id's last
+	// segment (com.palm.telegram -> "Telegram", com.palm.signal -> "Signal", com.palm.discord ->
+	// "Discord"). Adding a new IM calling service needs NO change here.
+	var t = enyo.application.CallSynergizer.transports && enyo.application.CallSynergizer.transports[service];
+	if (t && t.networkName) { return t.networkName; }
+	var seg = String(service).split(".").pop();
+	return seg ? (seg.charAt(0).toUpperCase() + seg.slice(1)) : service;
+};
+
 // returns list of emergency numbers from the til, or if none provided, from a default list
 // guaranteed to return at least one element
 Utils.getEmergencyNumbers = function() {
@@ -906,7 +931,7 @@ Utils.canBeCalled = function(transport, address) {
 	enyo.require(transport, "no service passed to CallSynergyContact.canBeCalled");
 	enyo.require(address != undefined, "CallSynergyContact.canBeCalled requires an address");
 
-	return (transport == enyo.application.CallSynergizer.TRANSPORTS.TIL && address.match(/\d/)) || (transport == enyo.application.CallSynergizer.TRANSPORTS.SKYPE);
+	return (transport == enyo.application.CallSynergizer.TRANSPORTS.TIL && address.match(/\d/)) || (transport == enyo.application.CallSynergizer.TRANSPORTS.VOIP);
 };
 
 // returns true if transport and address can be messaged
@@ -915,7 +940,7 @@ Utils.canBeMessaged = function(transport, address) {
 	enyo.require(address != undefined, "CallSynergyContact.canBeMessaged requires an address");
 	
 	// CASE: can always message skype
-	if ( transport == enyo.application.CallSynergizer.TRANSPORTS.SKYPE ) {
+	if ( transport == enyo.application.CallSynergizer.TRANSPORTS.VOIP ) {
 		return true;
 	}
 	
