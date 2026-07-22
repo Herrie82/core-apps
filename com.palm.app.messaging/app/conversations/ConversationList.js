@@ -41,6 +41,7 @@ enyo.kind({
 				]},
 				{kind: "ConversationService", onSuccess: "gotMessages", onWatch: "messagesWatch"},
 				{name: "launchApp", kind: "PalmService", service: "palm://com.palm.applicationManager/", method: "open"},
+				{name: "appLauncher", kind: "PalmService", service: "palm://com.palm.applicationManager/", method: "launch"},
 				{name: "errorDialog", kind: "PopupDialog", onAccept: "retryMessage"},
 				{name: "buddyOfflineDialog", kind: "PopupDialog", onAccept: "sendAny"},
 				{kind: "PopupSelect", onSelect: "popupMenuSelect"},
@@ -50,7 +51,7 @@ enyo.kind({
 						{name: "deleteButton", kind: "Button", caption: $L("Delete Conversation"), className:"enyo-button-light deleteconversation-bt", onclick: "promptDelete", flex: 1}
 					]},
 					{kind: "Divider", icon: "images/default_transport_splitter.png", className: "conversationDivider", caption: ""},
-					{kind: "ConversationItem", style: "border: none;", onConfirm: "swipeDelete", onclick: "handleMessageTap", onError: "showErrorDialog", onCancel: "disableKeyboardMannualMode", onSelectSender: "senderRowSelected"}
+					{kind: "ConversationItem", style: "border: none;", onConfirm: "swipeDelete", onclick: "handleMessageTap", onError: "showErrorDialog", onCancel: "disableKeyboardMannualMode", onSelectSender: "senderRowSelected", onOpenAttachment: "openAttachment"}
 				]}
 			]},
 			{className:"footer-shadow"},
@@ -1021,6 +1022,31 @@ enyo.kind({
 			serviceName: message.serviceName,
 			displayName: (message.from.name || message.from.addr)
 		});
+		return true;
+	},
+	// A message attachment chip/link was tapped (ConversationItem.messageTapped). Route by kind:
+	// - audio -> Atlas: WhatsApp voice notes are Opus, which the system media pipeline (used by the
+	//   stock video player) can't decode, but Atlas bundles the Opus codec. Open our small local
+	//   player.html (a REAL file, not a data: URL - that sticks at about:blank) whose <audio> element
+	//   plays the note - no Opus->WAV transcode (which would bloat the file ~16x). "atlas-simple:"
+	//   is the reliable invocation (a fresh MODE-2 card) - the same one the video-call button uses.
+	// - everything else -> stock video player (hardware-decoded). Launched (NOT opened - it lives on
+	//   the luna bus and reads params.target); streams remote http(s) or plays local file:// directly.
+	openAttachment: function(inSender, inEvent){
+		var target = inEvent && inEvent.target;
+		if (!target) { return true; }
+		if (inEvent.kind === "audio" && this.$.launchApp) {
+			var base = window.location.href.replace(/[^\/]*(?:\?.*)?$/, "");
+			var player = base + "player.html?type=audio&src=" + encodeURIComponent(target);
+			this.$.launchApp.call({id: "org.webosports.app.atlas", params: {target: "atlas-simple:" + player}});
+			return true;
+		}
+		if (this.$.appLauncher) {
+			var title = target.split("?")[0].split("#")[0];
+			title = title.substring(title.lastIndexOf("/") + 1);
+			try { title = decodeURIComponent(title); } catch (e) {}
+			this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
+		}
 		return true;
 	},
 	handleMessageTap: function(inSender, inEvent){
