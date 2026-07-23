@@ -45,13 +45,29 @@ enyo.kind({
 				{name: "errorDialog", kind: "PopupDialog", onAccept: "retryMessage"},
 				{name: "buddyOfflineDialog", kind: "PopupDialog", onAccept: "sendAny"},
 				{kind: "PopupSelect", onSelect: "popupMenuSelect"},
+				// Reaction picker: short tap (handleMessageTap) or short right-swipe (handleReactSwipe)
+				// on a message opens this quick emoji row. Tapping an emoji reacts (optimistic merge onto
+				// the row's reactions array); the trailing "..." opens the full message menu (openMessageMenu).
+				// Emoji are stored as HTML numeric entities so they survive the db8/JS round-trip and
+				// render via emojify() (astral emoji are tofu otherwise). Button contents set in create().
+				{name: "reactRow", kind: "Popup", scrim: false, dismissWithClick: true, className: "reaction-picker-popup", components: [
+					{name: "reactRowBox", layoutKind: "HFlexLayout", align: "center", components: [
+						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#10084;&#65039;", onclick: "reactPicked"},
+						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128077;", onclick: "reactPicked"},
+						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128518;", onclick: "reactPicked"},
+						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128558;", onclick: "reactPicked"},
+						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128546;", onclick: "reactPicked"},
+						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128591;", onclick: "reactPicked"},
+						{kind: "Control", className: "reaction-pick reaction-more", allowHtml: true, content: "⋯", onclick: "reactMore"}
+					]}
+				]},
 				{flex: 1, name: "list", kind: "FlyweightDbList", pageSize: 20, style: "border: none;", desc: true, bottomUp: true, onQuery: "listQuery", onSetupRow: "listSetupRow", components: [
 					{name: "listButtons", layoutKind: "HFlexLayout", flex: 1, showing: false, className:"block-delete-box", components: [
 						{name: "blockButton", kind: "Button", caption: $L("Block Sender"), className:"enyo-button-light blocksender-bt", onclick: "promptBlock", flex: 1},
 						{name: "deleteButton", kind: "Button", caption: $L("Delete Conversation"), className:"enyo-button-light deleteconversation-bt", onclick: "promptDelete", flex: 1}
 					]},
 					{kind: "Divider", icon: "images/default_transport_splitter.png", className: "conversationDivider", caption: ""},
-					{kind: "ConversationItem", style: "border: none;", onConfirm: "swipeDelete", onclick: "handleMessageTap", onError: "showErrorDialog", onCancel: "disableKeyboardMannualMode", onSelectSender: "senderRowSelected", onOpenAttachment: "openAttachment"}
+					{kind: "ConversationItem", style: "border: none;", onConfirm: "swipeDelete", onclick: "handleMessageTap", onReact: "handleReactSwipe", onError: "showErrorDialog", onCancel: "disableKeyboardMannualMode", onSelectSender: "senderRowSelected", onOpenAttachment: "openAttachment"}
 				]}
 			]},
 			{className:"footer-shadow"},
@@ -93,6 +109,16 @@ enyo.kind({
 	],
 	create: function() {
 		this.inherited(arguments);
+		// Render the reaction-picker emoji as inline images (emojify) so astral emoji show up instead
+		// of tofu. Each button carries its emoji as an HTML numeric entity in reactionValue.
+		if (this.$.reactRowBox && this.$.reactRowBox.getControls) {
+			var picks = this.$.reactRowBox.getControls();
+			for (var p = 0; p < picks.length; p++) {
+				if (picks[p].reactionValue) {
+					picks[p].setContent(enyo.messaging.message.emojify(picks[p].reactionValue));
+				}
+			}
+		}
 		if (window.PalmSystem) {
 			this.$.systemPrefs.call ({keys: ["timeFormat"]});
 		}
@@ -1056,6 +1082,8 @@ enyo.kind({
 		this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
 		return true;
 	},
+	// Short TAP on a message => open the quick reaction emoji row (was: the message menu, which now
+	// lives behind the row's "..." button / a short right-swipe also opens the row - handleReactSwipe).
 	handleMessageTap: function(inSender, inEvent){
 		enyo.messaging.keyboard.setKeyboardAutoMode();
 		if (inEvent.target.nodeName == "A") {
@@ -1064,37 +1092,76 @@ enyo.kind({
 		var index = inEvent.rowIndex;
 		var message = this.$.list.fetch(index);
 		this.selectedMessage = message;
-		
-		var messageId = message._id;
-		var messageType = message._kind;
-			
-		if (messageType === enyo.messaging.message.MMS.dbKind) {
-				//todo: special command for mms
-				//this.showMmsContextPopupMenu(event, eventTarget, chatRowTarget);
-			// Only display popup for standard message types (those that are part of the inbox or outbox)
-		} else if (message.folder === enyo.messaging.message.FOLDERS.INBOX || message.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
-			var popupItems = [];
-			//todo:phone only feature
-			/*var deliveryReceiptMsg = MessagingUtils.getDeliveryReceiptMsg(event.item);
-			if(deliveryReceiptMsg !== undefined) {
-				popupItems = [{caption: $L(deliveryReceiptMsg), value: "", disabled: true}];
-			}*/
-			popupItems = popupItems.concat([
-				{caption: $L("Forward"), value: "forward-cmd"},
-				{caption: $L("Forward Via Email"), value: "forward-as-email-cmd"},
-				{caption: $L("Copy Text"), value: "copy-cmd"},
-				{caption: $L("Delete"), value: "delete-cmd"}
-			]);
-			if(message.errorCategory && (message.status === enyo.messaging.message.MESSAGE_STATUS.FAILED || message.status === enyo.messaging.message.MESSAGE_STATUS.UNDELIVERABLE)) {
-				popupItems.push( {caption: $L("View Error"), value: "view-error"} );
-			}
-			this.$.popupSelect.setItems(popupItems);
-			this.$.popupSelect.openAtEvent(inEvent);
+		if (message._kind === enyo.messaging.message.MMS.dbKind) {
+			return;
 		}
+		if (message.folder === enyo.messaging.message.FOLDERS.INBOX || message.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
+			this.openReactRow(inEvent);
+		}
+	},
+	// Short RIGHT-swipe on a message (ConversationItem.onReact) => same reaction row.
+	handleReactSwipe: function(inSender, inIndex){
+		enyo.messaging.keyboard.setKeyboardAutoMode();
+		var message = this.$.list.fetch(inIndex);
+		if (!message) { return; }
+		this.selectedMessage = message;
+		if (message.folder === enyo.messaging.message.FOLDERS.INBOX || message.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
+			this.openReactRow();
+		}
+	},
+	openReactRow: function(inEvent){
+		if (inEvent && this.$.reactRow.openAtEvent) { this.$.reactRow.openAtEvent(inEvent); }
+		else { this.$.reactRow.openAtCenter(); }
+	},
+	// An emoji in the quick row was tapped: react. Increment 1 is optimistic-only (merge onto the
+	// row's reactions array so the badge shows immediately); actually transmitting the reaction to the
+	// network is the transport sendReaction verb + per-plugin wiring (later increments).
+	reactPicked: function(inSender, inEvent){
+		this.$.reactRow.close();
+		var emoji = inSender && inSender.reactionValue;
+		if (!emoji || !this.selectedMessage) { return; }
+		var message = this.selectedMessage;
+		var rx = (message.reactions && message.reactions.slice) ? message.reactions.slice() : [];
+		var out = [];
+		for (var i = 0; i < rx.length; i++) {
+			// replace any prior reaction from me (mirror the transport's per-sender replace)
+			if (!(rx[i] && rx[i].sender === "me")) { out.push(rx[i]); }
+		}
+		out.push({emoji: emoji, sender: "me"});
+		message.reactions = out;
+		this.$.dbMerge.call({objects: [{_id: message._id, reactions: out}]});
+		this.$.list.refresh();
+	},
+	// The "..." button in the reaction row: open the full message menu (Reply / Forward / Copy / Delete).
+	reactMore: function(inSender, inEvent){
+		this.$.reactRow.close();
+		this.openMessageMenu();
+	},
+	openMessageMenu: function(){
+		var message = this.selectedMessage;
+		if (!message) { return; }
+		var popupItems = [
+			{caption: $L("Reply"), value: "reply-cmd"},
+			{caption: $L("Forward"), value: "forward-cmd"},
+			{caption: $L("Forward Via Email"), value: "forward-as-email-cmd"},
+			{caption: $L("Copy Text"), value: "copy-cmd"},
+			{caption: $L("Delete"), value: "delete-cmd"}
+		];
+		if(message.errorCategory && (message.status === enyo.messaging.message.MESSAGE_STATUS.FAILED || message.status === enyo.messaging.message.MESSAGE_STATUS.UNDELIVERABLE)) {
+			popupItems.push( {caption: $L("View Error"), value: "view-error"} );
+		}
+		this.$.popupSelect.setItems(popupItems);
+		this.$.popupSelect.openAtCenter();
 	},
 	popupMenuSelect: function(inSender, inSelected) {
 		var value = inSelected.getValue();
-		if (value === "forward-cmd") {
+		if (value === "reply-cmd") {
+			// Increment 1: prefill the composer with the quoted text. Native reply (carrying the
+			// target message id to the network) arrives with the transport/backend reply verb.
+			var quoted = enyo.messaging.message.unescapeText(this.selectedMessage.messageText || "");
+			this.$.richText.setValue("> " + quoted + "\n");
+			if (this.$.richText.forceFocus) { this.$.richText.forceFocus(); }
+		} else if (value === "forward-cmd") {
 			var composeParams = {
 				messageText: enyo.messaging.message.unescapeText(this.selectedMessage.messageText)
 			};

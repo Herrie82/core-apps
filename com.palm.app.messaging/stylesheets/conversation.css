@@ -340,20 +340,31 @@ Custom Balloon
   reaction with a count. Rendered by ConversationItem.buildReactions from the message's
   `reactions` array - instead of a separate "reacted with X" message.
 ----------------------*/
+/* Float the reaction badges over the bottom-right of the bubble (offset parent is .message,
+ * which carries position:relative via .chat-balloon-sent/received) instead of taking their own
+ * line below the text. Out of flow => they no longer add row height. The timestamp is bottom-LEFT,
+ * so they don't collide. */
 .message-reactions {
-	margin-top: 3px;
-	line-height: 20px;
+	position: absolute;
+	right: 5px;
+	bottom: 3px;
+	margin: 0;
+	line-height: normal;
+	white-space: nowrap;
+	z-index: 1;
 }
 .reaction-badge {
 	display: inline-block;
-	margin: 2px 4px 0 0;
-	padding: 1px 7px;
-	background-color: rgba(0,0,0,0.10);
-	border: 1px solid rgba(0,0,0,0.10);
-	border-radius: 11px;
-	font-size: 15px;
+	margin: 0 0 0 3px;
+	padding: 0 6px;
+	background-color: rgba(255,255,255,0.75);
+	border: 1px solid rgba(0,0,0,0.14);
+	border-radius: 10px;
+	font-size: 14px;
+	line-height: 18px;
 	vertical-align: middle;
 	white-space: nowrap;
+	-webkit-box-shadow: 0 1px 1px rgba(0,0,0,0.12);
 }
 .reaction-badge img {
 	height: 16px;
@@ -365,6 +376,34 @@ Custom Balloon
 	font-size: 13px;
 	color: #555;
 	vertical-align: middle;
+}
+/* Quick reaction picker row (short tap / short right-swipe on a message). */
+.reaction-picker-popup {
+	padding: 4px 6px;
+	-webkit-border-radius: 22px;
+	border-radius: 22px;
+}
+.reaction-pick {
+	display: inline-block;
+	padding: 5px 8px;
+	font-size: 26px;
+	line-height: 30px;
+	cursor: pointer;
+}
+.reaction-pick img {
+	height: 30px;
+	width: 30px;
+	vertical-align: middle;
+}
+.reaction-pick.reaction-more {
+	color: #666;
+	font-weight: bold;
+}
+.reaction-pick.active,
+.reaction-pick:active {
+	background-color: rgba(0,0,0,0.10);
+	-webkit-border-radius: 16px;
+	border-radius: 16px;
 }
 
 /*----------------------

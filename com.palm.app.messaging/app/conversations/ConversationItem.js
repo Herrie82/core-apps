@@ -12,8 +12,15 @@ enyo.kind({
 	events: {
 		onError: "",
 		onSelectSender: "",
-		onOpenAttachment: ""
+		onOpenAttachment: "",
+		// Fired for a SHORT right-swipe on a message (react). Left / long-right swipes still fire
+		// onConfirm (delete) via the inherited SwipeableItem confirm prompt. See dragfinishHandler.
+		onReact: ""
 	},
+	// Swipe distance bands (fraction of row width). Right swipe: short => react, long => delete.
+	// Left swipe of any length => delete. See dragfinishHandler.
+	reactMinPx: 45,
+	deleteRatio: 0.55,
 	components: [
 		{name: "imageContainer", className:"conversationContactImage", components: [
 			{className: "contact-image-border"},
@@ -41,6 +48,27 @@ enyo.kind({
 		this.inherited(arguments);
 		this.messageChanged();
 		this.addClass("chat-balloon");
+	},
+	// Override SwipeableItem's finish (which fires delete on any swipe past ~35% width) to add
+	// distance bands: SHORT right swipe => react (onReact); LONG right swipe or ANY left swipe =>
+	// delete (the inherited confirm prompt via handleSwipe). Tiny drags snap back. this.index and
+	// this.handlingDrag are set by the inherited dragstartHandler.
+	dragfinishHandler: function(inSender, inEvent) {
+		if (!this.handlingDrag) {
+			return this.fire("ondragfinish", inEvent);
+		}
+		var dx = this.getDx(inEvent);
+		var w = (this.getBounds && this.getBounds().width) || 0;
+		var deletePx = Math.floor(w * this.deleteRatio);
+		inEvent.preventClick();
+		this.handlingDrag = false;
+		this.resetPosition();
+		if (dx <= -this.reactMinPx || dx >= deletePx) {
+			this.handleSwipe();            // left swipe, or long right swipe -> delete confirm
+		} else if (dx >= this.reactMinPx) {
+			this.doReact(this.index);      // short right swipe -> react
+		}
+		return true;
 	},
 	messageChanged: function() {
 		this.updateSenderName(this.message);
