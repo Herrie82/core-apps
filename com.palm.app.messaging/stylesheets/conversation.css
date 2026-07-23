@@ -420,6 +420,87 @@ Custom Balloon
 	font-size: 15px;
 	color: #234766;
 }
+/* Inline voice-note player: custom play/pause button + label; the <audio> is hidden and driven by
+   messageTapped (old WebKit doesn't render native <audio controls>). Plays via the system Opus
+   pipeline right in the bubble. */
+audio.msg-audio { display: none; }
+.msg-audio-player {
+	display: -webkit-box;
+	-webkit-box-orient: horizontal;
+	-webkit-box-align: center;
+	max-width: 100%;
+	margin-top: 6px;
+	padding: 6px 12px 6px 6px;
+	-webkit-box-sizing: border-box;
+	background-color: rgba(255,255,255,0.7);
+	border: 1px solid rgba(0,0,0,0.15);
+	border-radius: 8px;
+}
+.msg-audio-btn {
+	-webkit-box-flex: 0;
+	width: 34px;
+	height: 34px;
+	margin-right: 10px;
+	border-radius: 50%;
+	background-color: #4a90d9;
+	position: relative;
+}
+/* play triangle */
+.msg-audio-btn:after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin: -8px 0 0 -5px;
+	border-style: solid;
+	border-width: 8px 0 8px 13px;
+	border-color: transparent transparent transparent #fff;
+}
+/* pause = two vertical bars when playing (two pseudo-elements, no box-shadow) */
+.msg-audio-btn.playing:after {
+	margin: -7px 0 0 1px;
+	width: 4px;
+	height: 14px;
+	border: 0;
+	background: #fff;
+}
+.msg-audio-btn.playing:before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin: -7px 0 0 -5px;
+	width: 4px;
+	height: 14px;
+	background: #fff;
+}
+.msg-audio-body {
+	-webkit-box-flex: 1;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-box-pack: center;
+	min-width: 120px;
+}
+.msg-audio-track {
+	position: relative;
+	height: 5px;
+	border-radius: 3px;
+	background-color: rgba(0,0,0,0.15);
+	overflow: hidden;
+}
+.msg-audio-fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 0%;
+	background-color: #4a90d9;
+}
+.msg-audio-time {
+	margin-top: 3px;
+	font-size: 12px;
+	color: #888888;
+}
 
 /* Inline Unicode-emoji images (EmojiOne set). Sized to sit on the text baseline like a
    glyph, never picking up the block/border styling of message-image above. */

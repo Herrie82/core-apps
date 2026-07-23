@@ -1024,29 +1024,18 @@ enyo.kind({
 		});
 		return true;
 	},
-	// A message attachment chip/link was tapped (ConversationItem.messageTapped). Route by kind:
-	// - audio -> Atlas: WhatsApp voice notes are Opus, which the system media pipeline (used by the
-	//   stock video player) can't decode, but Atlas bundles the Opus codec. Open our small local
-	//   player.html (a REAL file, not a data: URL - that sticks at about:blank) whose <audio> element
-	//   plays the note - no Opus->WAV transcode (which would bloat the file ~16x). "atlas-simple:"
-	//   is the reliable invocation (a fresh MODE-2 card) - the same one the video-call button uses.
-	// - everything else -> stock video player (hardware-decoded). Launched (NOT opened - it lives on
-	//   the luna bus and reads params.target); streams remote http(s) or plays local file:// directly.
+	// A message attachment chip/link was tapped (ConversationItem.messageTapped). Play it in the
+	// stock video player - it hardware-decodes video and, now that we've backported a gstreamer-0.10
+	// Opus plugin (libgstopus + opus-aware libgstogg) into the system media pipeline, it plays
+	// WhatsApp/Telegram/Signal voice notes (Opus-in-Ogg) natively too. Launched (NOT opened - it
+	// lives on the luna bus and reads params.target); streams remote http(s) or plays local file://.
 	openAttachment: function(inSender, inEvent){
 		var target = inEvent && inEvent.target;
-		if (!target) { return true; }
-		if (inEvent.kind === "audio" && this.$.launchApp) {
-			var base = window.location.href.replace(/[^\/]*(?:\?.*)?$/, "");
-			var player = base + "player.html?type=audio&src=" + encodeURIComponent(target);
-			this.$.launchApp.call({id: "org.webosports.app.atlas", params: {target: "atlas-simple:" + player}});
-			return true;
-		}
-		if (this.$.appLauncher) {
-			var title = target.split("?")[0].split("#")[0];
-			title = title.substring(title.lastIndexOf("/") + 1);
-			try { title = decodeURIComponent(title); } catch (e) {}
-			this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
-		}
+		if (!target || !this.$.appLauncher) { return true; }
+		var title = target.split("?")[0].split("#")[0];
+		title = title.substring(title.lastIndexOf("/") + 1);
+		try { title = decodeURIComponent(title); } catch (e) {}
+		this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
 		return true;
 	},
 	handleMessageTap: function(inSender, inEvent){

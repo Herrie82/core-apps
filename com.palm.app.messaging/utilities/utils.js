@@ -415,6 +415,43 @@ enyo.messaging = {
 				img.parentNode.replaceChild(t, img);
 			} catch (e) {}
 		},
+		// Inline voice-note player helpers. The <audio> in a .msg-audio-player carries these as inline
+		// event handlers (old WebKit renders no native controls) so playback drives a custom progress
+		// bar + M:SS time readout. Called as enyo.messaging.message.audioX(this) - `this` is the module.
+		audioFmt: function(s) {
+			s = (s && isFinite(s)) ? Math.floor(s) : 0;
+			var m = Math.floor(s / 60), r = s % 60;
+			return m + ":" + (r < 10 ? "0" : "") + r;
+		},
+		audioMeta: function(a) {
+			try {
+				var t = a.parentNode.getElementsByClassName("msg-audio-time")[0];
+				if (t) { t.innerHTML = enyo.messaging.message.audioFmt(a.duration); }
+			} catch (e) {}
+		},
+		audioTime: function(a) {
+			try {
+				var p = a.parentNode, m = enyo.messaging.message,
+					f = p.getElementsByClassName("msg-audio-fill")[0],
+					t = p.getElementsByClassName("msg-audio-time")[0];
+				if (f && a.duration) { f.style.width = (a.currentTime / a.duration * 100) + "%"; }
+				if (t) { t.innerHTML = m.audioFmt(a.currentTime) + " / " + m.audioFmt(a.duration); }
+			} catch (e) {}
+		},
+		audioEnded: function(a) {
+			try {
+				// Pause first: seeking currentTime while still "playing" makes old WebKit resume and
+				// loop. Leave the position at the end; the play button re-seeks to 0 on the next tap.
+				a.pause();
+				var p = a.parentNode,
+					b = p.getElementsByClassName("msg-audio-btn")[0],
+					f = p.getElementsByClassName("msg-audio-fill")[0],
+					t = p.getElementsByClassName("msg-audio-time")[0];
+				if (b) { b.className = "msg-audio-btn"; }
+				if (f) { f.style.width = "0%"; }
+				if (t) { t.innerHTML = enyo.messaging.message.audioFmt(a.duration); }
+			} catch (e) {}
+		},
 		// Emoji-render a plain-text NAME/label (buddy/thread/server/channel names, status).
 		// Names aren't HTML-sanitized and can contain <, >, & so we decode emoji entities to
 		// characters, HTML-escape the rest, THEN imageify the emoji. Use on allowHtml:true

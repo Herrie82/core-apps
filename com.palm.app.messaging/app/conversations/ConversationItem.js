@@ -258,6 +258,23 @@ enyo.kind({
 		var open = (/^(?:https?|file):/i.test(item.url)) ? item.url : ("file://" + item.url);
 		var openAttr = open.replace(/&/g, "&amp;").replace(/"/g, "%22");
 		var name = enyo.string.escapeHtml(item.name);
+		// Audio (voice notes) plays INLINE in the bubble via an HTML5 <audio> element (the app webview
+		// is a file:// origin, same-origin as the local note, and the system pipeline now has Opus).
+		// The old WebKit doesn't render native <audio controls> (just a blank box), so we draw our own
+		// play/pause button; messageTapped toggles the hidden <audio>. No navigation = no crash.
+		if (item.kind === "audio") {
+			return '<div class="msg-audio-player">' +
+				'<div class="msg-audio-btn" data-audio-toggle="1"></div>' +
+				'<div class="msg-audio-body">' +
+					'<div class="msg-audio-track"><div class="msg-audio-fill"></div></div>' +
+					'<div class="msg-audio-time">0:00</div>' +
+				'</div>' +
+				'<audio class="msg-audio" preload="metadata"' +
+					' onloadedmetadata="enyo.messaging.message.audioMeta(this)"' +
+					' ontimeupdate="enyo.messaging.message.audioTime(this)"' +
+					' onended="enyo.messaging.message.audioEnded(this)"' +
+					' src="' + openAttr + '"></audio></div>';
+		}
 		return '<div class="msg-attachment" data-open="' + openAttr + '" data-kind="' + item.kind + '">' +
 			'<div class="msg-attachment-icon msg-attachment-' + item.kind + '"></div>' +
 			'<div class="msg-attachment-name">' + name + '</div></div>';
@@ -284,6 +301,25 @@ enyo.kind({
 		while (node && node !== root) {
 			if (node.getAttribute) {
 				var name = (node.nodeName || node.tagName || "").toUpperCase();
+				// Inline voice-note play/pause: toggle the <audio> sibling in this player box.
+				if (node.getAttribute("data-audio-toggle")) {
+					var box = node.parentNode;
+					var audio = box && box.getElementsByTagName ? box.getElementsByTagName("audio")[0] : null;
+					if (audio) {
+						if (audio.paused) {
+							// Replay from the start if it had finished (we leave the position at the end).
+							if (audio.ended || (audio.duration && audio.currentTime >= audio.duration - 0.15)) {
+								try { audio.currentTime = 0; } catch (e) {}
+							}
+							audio.play();
+							node.className = "msg-audio-btn playing";
+						} else {
+							audio.pause();
+							node.className = "msg-audio-btn";
+						}
+					}
+					return true;
+				}
 				var target = node.getAttribute("data-open") || (name === "A" ? node.getAttribute("href") : null);
 				if (target) {
 					// Cancel the browser's own navigation to the href before handing off.
