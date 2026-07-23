@@ -264,12 +264,24 @@ enyo.kind({
 		// is a file:// origin, same-origin as the local note, and the system pipeline now has Opus).
 		// The old WebKit doesn't render native <audio controls> (just a blank box), so we draw our own
 		// play/pause button; messageTapped toggles the hidden <audio>. No navigation = no crash.
-		// Video plays INLINE too (same WebKit media path as audio; the webOS media server / stock
-		// video player can't do WebM). Custom play button overlays the <video>; tap toggles it.
+		// Video plays INLINE too (same media path as audio: WebKit's MediaPlayerPrivatePalm hands the
+		// URI to the media server, which decodes it). WebKit's supportsType() has no video/webm or
+		// video/x-matroska, so a bare <video src=".webm"> never loads - but the media server DOES decode
+		// WebM/VP9 (its decodebin typefinds the real bytes; playbin2 plays our samples, and Opus voice
+		// notes already prove the gst-0.10 plugin path). So for the containers WebKit rejects we hand it
+		// a <source> mime it accepts (video/ogg); WebKit picks its engine, then the media server sniffs
+		// the actual bytes and plays the WebM. mp4-family declares its true type and routes to fullscreen.
 		if (item.kind === "video") {
+			var vext = this.urlExt(item.url).toLowerCase();
+			var vtype = /^(?:webm|mkv)$/.test(vext) ? "video/ogg"
+				: /^(?:3gp|3gpp)$/.test(vext) ? "video/3gpp"
+				: /^(?:mov)$/.test(vext) ? "video/quicktime"
+				: "video/mp4";
 			return '<div class="msg-video-player" data-video-toggle="1" data-open="' + openAttr + '">' +
-				'<video class="msg-video" preload="none" src="' + openAttr + '"' +
-					' onended="enyo.messaging.message.videoEnded(this)"></video>' +
+				'<video class="msg-video" preload="none"' +
+					' onended="enyo.messaging.message.videoEnded(this)">' +
+					'<source src="' + openAttr + '" type="' + vtype + '"></source>' +
+				'</video>' +
 				'<div class="msg-video-btn"></div></div>';
 		}
 		if (item.kind === "audio") {
