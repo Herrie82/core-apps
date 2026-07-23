@@ -420,6 +420,49 @@ Custom Balloon
 	font-size: 15px;
 	color: #234766;
 }
+/* Inline video player (WebKit media path; the webOS video player can't do WebM). Big centered play
+   button overlays the <video>; tap the video to toggle, button hides while playing. */
+.msg-video-player {
+	position: relative;
+	display: inline-block;
+	margin-top: 6px;
+	max-width: 100%;
+}
+.msg-video {
+	display: block;
+	width: 260px;
+	max-width: 100%;
+	/* FIXED height (not max-height): the message list is a virtual list, so a row whose height
+	   changes late - when the <video>'s metadata loads and it gets its intrinsic size - makes the
+	   list re-lay-out and snap back to the video, blocking scroll to newer messages below it. A
+	   fixed box keeps the row height deterministic; the video letterboxes inside it on the black bg. */
+	height: 180px;
+	border-radius: 8px;
+	background: #000;
+}
+.msg-video-btn {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 48px;
+	height: 48px;
+	margin: -24px 0 0 -24px;
+	border-radius: 50%;
+	background-color: rgba(0,0,0,0.5);
+	pointer-events: none;
+}
+.msg-video-btn:after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin: -11px 0 0 -6px;
+	border-style: solid;
+	border-width: 11px 0 11px 18px;
+	border-color: transparent transparent transparent #fff;
+}
+.msg-video-player.playing .msg-video-btn { display: none; }
+
 /* Inline voice-note player: custom play/pause button + label; the <audio> is hidden and driven by
    messageTapped (old WebKit doesn't render native <audio controls>). Plays via the system Opus
    pipeline right in the bubble. */
