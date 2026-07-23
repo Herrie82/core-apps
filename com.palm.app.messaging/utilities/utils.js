@@ -439,7 +439,13 @@ enyo.messaging = {
 			} catch (e) {}
 		},
 		videoEnded: function(a) {
-			try { a.pause(); a.parentNode.className = "msg-video-player"; } catch (e) {}
+			// Keep fullscreen open (if it was) but drop "playing" so the play button reappears - the
+			// user can replay or close with the X. Otherwise reset to the inline preview.
+			try {
+				a.pause();
+				var p = a.parentNode;
+				if (p) { p.className = (p.className.indexOf("fullscreen") >= 0) ? "msg-video-player fullscreen" : "msg-video-player"; }
+			} catch (e) {}
 		},
 		audioEnded: function(a) {
 			try {

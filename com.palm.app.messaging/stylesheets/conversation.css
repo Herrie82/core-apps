@@ -454,6 +454,51 @@ Custom Balloon
 	pointer-events: none;
 }
 .msg-video-player.playing .msg-video-btn { display: none; }
+/* Tapped-open full-viewport overlay (native WebKit video fullscreen isn't usable here). */
+.msg-video-player.fullscreen {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	background: #000;
+	z-index: 9999;
+	display: -webkit-box;
+	-webkit-box-pack: center;
+	-webkit-box-align: center;
+}
+.msg-video-player.fullscreen .msg-video {
+	width: 100%;
+	height: 100%;
+	border-radius: 0;
+}
+/* X close button, only in fullscreen */
+.msg-video-close { display: none; }
+.msg-video-player.fullscreen .msg-video-close {
+	display: block;
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: rgba(0,0,0,0.5);
+	z-index: 10000;
+}
+.msg-video-close:before,
+.msg-video-close:after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 22px;
+	height: 3px;
+	margin: -1px 0 0 -11px;
+	background: #fff;
+}
+.msg-video-close:before { -webkit-transform: rotate(45deg); }
+.msg-video-close:after { -webkit-transform: rotate(-45deg); }
 
 /* Inline voice-note player: custom play/pause button + label; the <audio> is hidden and driven by
    messageTapped (old WebKit doesn't render native <audio controls>). Plays via the system Opus

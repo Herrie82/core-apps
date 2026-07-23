@@ -267,7 +267,7 @@ enyo.kind({
 		// Video plays INLINE too (same WebKit media path as audio; the webOS media server / stock
 		// video player can't do WebM). Custom play button overlays the <video>; tap toggles it.
 		if (item.kind === "video") {
-			return '<div class="msg-video-player" data-video-toggle="1">' +
+			return '<div class="msg-video-player" data-video-toggle="1" data-open="' + openAttr + '">' +
 				'<video class="msg-video" preload="none" src="' + openAttr + '"' +
 					' onended="enyo.messaging.message.videoEnded(this)"></video>' +
 				'<div class="msg-video-btn"></div></div>';
@@ -312,17 +312,28 @@ enyo.kind({
 			if (node.getAttribute) {
 				var name = (node.nodeName || node.tagName || "").toUpperCase();
 				// Inline video play/pause: toggle the <video> sibling; the button hides while playing.
+				// Tap a video. mp4-family plays FULLSCREEN in the stock video player (media server
+				// handles those); WebM/MKV plays inline (the media server can't decode those, and
+				// fullscreen isn't possible in this webview - <video> renders on a hardware layer
+				// behind the webview and there's no working HTML5 fullscreen API here).
 				if (node.getAttribute("data-video-toggle")) {
+					var vtarget = node.getAttribute("data-open");
+					if (vtarget && /^(?:mp4|m4v|mov|3gp|avi)$/i.test(this.urlExt(vtarget))) {
+						var de = (inEvent && inEvent.preventDefault) ? inEvent : (inEvent && inEvent.domEvent);
+						if (de && de.preventDefault) { de.preventDefault(); }
+						this.doOpenAttachment({ target: vtarget.replace(/&amp;/g, "&"), kind: "video" });
+						return true;
+					}
 					var video = node.getElementsByTagName ? node.getElementsByTagName("video")[0] : null;
 					if (video) {
 						if (video.paused) {
 							if (video.ended || (video.duration && video.currentTime >= video.duration - 0.15)) {
 								try { video.currentTime = 0; } catch (e) {}
 							}
-							video.play();
+							try { video.play(); } catch (e) {}
 							node.className = "msg-video-player playing";
 						} else {
-							video.pause();
+							try { video.pause(); } catch (e) {}
 							node.className = "msg-video-player";
 						}
 					}
