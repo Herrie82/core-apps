@@ -699,6 +699,7 @@ enyo.kind({
 					"to",
 					"channelName",
 					"chatType",
+					"reactions",
 					"locked"
 				];
 			return this.$.conversationService.call({query: inQuery});
