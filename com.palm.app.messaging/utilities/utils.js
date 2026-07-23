@@ -438,6 +438,9 @@ enyo.messaging = {
 				if (t) { t.innerHTML = m.audioFmt(a.currentTime) + " / " + m.audioFmt(a.duration); }
 			} catch (e) {}
 		},
+		videoEnded: function(a) {
+			try { a.pause(); a.parentNode.className = "msg-video-player"; } catch (e) {}
+		},
 		audioEnded: function(a) {
 			try {
 				// Pause first: seeking currentTime while still "playing" makes old WebKit resume and

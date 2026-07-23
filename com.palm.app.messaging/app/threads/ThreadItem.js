@@ -108,11 +108,28 @@ enyo.kind({
 			} else {
 				summary = inThread.summary;
 			}
+			summary = this.summarizeMedia(summary);
 		}
 		else {
 			summary = "";
 		}
 		return summary;
+	},
+	// A voice note / photo / video / file arrives with the media URL as the message body, so the
+	// thread preview would otherwise show a raw "file:///..." path. When the body is just a media
+	// URL, show a friendly emoji label instead; if there's real text too, keep the text.
+	summarizeMedia: function(text){
+		if (!text) { return text; }
+		var re = /(?:https?|file):\/\/[^\s<>"']+?\.(jpg|jpeg|png|gif|webp|bmp|mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|mp4|m4v|mov|webm|mkv|3gp|data)(?:\?[^\s<>"']*)?/gi;
+		var m = re.exec(text);
+		if (!m) { return text; }
+		var stripped = text.replace(re, "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+		if (stripped) { return stripped; }
+		var ext = m[1].toLowerCase();
+		if (/^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext)) { return "📷 " + $L("Photo"); }
+		if (/^(mp4|m4v|mov|webm|mkv|3gp)$/.test(ext)) { return "🎥 " + $L("Video"); }
+		if (/^(mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|data)$/.test(ext)) { return "🎤 " + $L("Voice message"); }
+		return "📎 " + $L("Attachment");
 	},
 	isThreadSelected: function(inThread) {
 		return (enyo.application.selectedThread && inThread._id === enyo.application.selectedThread._id && enyo.application.messageDashboardManager.getAppDeactivated() === false);

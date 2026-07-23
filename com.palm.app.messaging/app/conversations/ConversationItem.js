@@ -262,6 +262,14 @@ enyo.kind({
 		// is a file:// origin, same-origin as the local note, and the system pipeline now has Opus).
 		// The old WebKit doesn't render native <audio controls> (just a blank box), so we draw our own
 		// play/pause button; messageTapped toggles the hidden <audio>. No navigation = no crash.
+		// Video plays INLINE too (same WebKit media path as audio; the webOS media server / stock
+		// video player can't do WebM). Custom play button overlays the <video>; tap toggles it.
+		if (item.kind === "video") {
+			return '<div class="msg-video-player" data-video-toggle="1">' +
+				'<video class="msg-video" preload="metadata" src="' + openAttr + '"' +
+					' onended="enyo.messaging.message.videoEnded(this)"></video>' +
+				'<div class="msg-video-btn"></div></div>';
+		}
 		if (item.kind === "audio") {
 			return '<div class="msg-audio-player">' +
 				'<div class="msg-audio-btn" data-audio-toggle="1"></div>' +
@@ -301,6 +309,23 @@ enyo.kind({
 		while (node && node !== root) {
 			if (node.getAttribute) {
 				var name = (node.nodeName || node.tagName || "").toUpperCase();
+				// Inline video play/pause: toggle the <video> sibling; the button hides while playing.
+				if (node.getAttribute("data-video-toggle")) {
+					var video = node.getElementsByTagName ? node.getElementsByTagName("video")[0] : null;
+					if (video) {
+						if (video.paused) {
+							if (video.ended || (video.duration && video.currentTime >= video.duration - 0.15)) {
+								try { video.currentTime = 0; } catch (e) {}
+							}
+							video.play();
+							node.className = "msg-video-player playing";
+						} else {
+							video.pause();
+							node.className = "msg-video-player";
+						}
+					}
+					return true;
+				}
 				// Inline voice-note play/pause: toggle the <audio> sibling in this player box.
 				if (node.getAttribute("data-audio-toggle")) {
 					var box = node.parentNode;
