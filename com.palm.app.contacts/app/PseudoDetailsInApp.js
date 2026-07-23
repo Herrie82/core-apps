@@ -425,7 +425,10 @@ enyo.kind({
     // everything else (Skype/AIM/@lid/Signal UUID), so nothing else changes.
     getImFieldValue: function (inSender, inField) {
         var value = (inField && inField.value) || (inField && inField.getDisplayValue && inField.getDisplayValue()) || "";
-        var type = (inField && inField.getType && inField.getType()) || "";
+        // Prefer the raw ims db type (reliable) over getType(), which — as noted below — does not
+        // always resolve to the service ("type_gometa"/"type_whatsapp"/...) on a linked contact.
+        var dbo = (inField && inField.getDBObject && inField.getDBObject()) || null;
+        var type = (dbo && dbo.type) || (inField && inField.getType && inField.getType()) || "";
         var phone = this.phoneFromImAddress(value, type);
         return phone || value;
     },
@@ -433,29 +436,39 @@ enyo.kind({
     // carries no phone. Mirrors com.palm.app.messaging utilities/utils.js phoneFromImAddress so both
     // apps agree. Display-only - the stored value is unchanged.
     phoneFromImAddress: function (address, serviceName) {
-        var s = String(address || "").toLowerCase();
-        // Trust the service type, but also treat an unmistakable WhatsApp JID as WhatsApp even if the
-        // field type didn't resolve to "type_whatsapp".
-        var isWhatsApp = (serviceName === "type_whatsapp") || (s.indexOf("@s.whatsapp.net") !== -1);
-        var isSignal = (serviceName === "type_signal");
-        if (!isWhatsApp && !isSignal) {
+        var raw = String(address || "");
+        // Facebook (E2EE / gometa) handles are numeric Meta user IDs, NOT phone numbers — never
+        // phone-format them (a bare id like "744870190" would otherwise show as a bogus
+        // "+7 44870190"). Other messaging services legitimately carry phones (WhatsApp/Signal/
+        // Telegram) and stay formatted below.
+        if (serviceName === "type_gometa") {
             return "";
         }
+        var s = raw.toLowerCase();
         var at = s.indexOf("@");
-        if (at !== -1) {
-            // Only "<phone>@s.whatsapp.net" carries a number; "<id>@lid" does not.
-            if (s.substring(at) !== "@s.whatsapp.net") {
-                return "";
-            }
-            s = s.substring(0, at);
-        }
-        // A Signal UUID (e.g. "8f2c...-...-...") contains dashes/hex letters - not a phone number.
-        if (/[a-z\-]/.test(s)) {
+        var isWaJid = (at !== -1) && (s.substring(at) === "@s.whatsapp.net");
+        // Reject any @-address that is not a WhatsApp JID (e.g. WhatsApp "<id>@lid", XMPP JIDs).
+        if (at !== -1 && !isWaJid) {
             return "";
         }
-        var digits = s.replace(/[^0-9]/g, "");
-        if (digits.length < 7) {
-            return "";  // too short to be a real phone number
+        var bare = isWaJid ? s.substring(0, at) : s;
+        // Reject Signal UUIDs / Skype-style usernames (anything with letters or dashes).
+        if (/[a-z\-]/.test(bare)) {
+            return "";
+        }
+        var digits = bare.replace(/[^0-9]/g, "");
+        if (digits.length < 7 || digits.length > 15) {
+            return "";  // not a plausible phone number
+        }
+        // Format when the service is phone-based OR the value is unmistakably a phone (bare +E.164 /
+        // WhatsApp JID). The type gate alone is unreliable here because getType() does not always
+        // resolve to "type_whatsapp"/"type_signal" on a linked contact, so a clean +<digits> value
+        // would otherwise be shown raw. Non-phone IM ids (Skype/AIM/Telegram "id123") are already
+        // excluded above by the letter/dash and @-address checks.
+        var phoneService = (serviceName === "type_whatsapp" || serviceName === "type_signal");
+        var phoneShaped = isWaJid || /^\+?[0-9]{7,15}$/.test(raw);
+        if (!phoneService && !phoneShaped) {
+            return "";
         }
         var e164 = "+" + digits;
         try {
