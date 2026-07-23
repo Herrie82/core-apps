@@ -134,7 +134,7 @@ enyo.kind({
 
 		// Pure-media message (body was only media URLs): show just the media, no text line.
 		if (media.length > 0 && this.isOnlyMedia(raw)) {
-			this.$.messageText.setContent(imagesHtml + chipsHtml + localAttachmentHtml);
+			this.$.messageText.setContent(imagesHtml + chipsHtml + localAttachmentHtml + this.buildReactions(inMessage));
 			return;
 		}
 
@@ -147,7 +147,30 @@ enyo.kind({
 		// Render real Unicode emoji (😭 etc.) as inline images - no device font covers them,
 		// so otherwise they show as tofu rectangles. Runs last so it operates on the final
 		// HTML (after linkification) and messageText has allowHtml:true.
-		this.$.messageText.setContent(enyo.messaging.message.emojify(inText));
+		this.$.messageText.setContent(enyo.messaging.message.emojify(inText) + this.buildReactions(inMessage));
+	},
+	// webOS reactions: render the message's `reactions` array (merged onto the row by the transport's
+	// ReactionHandler) as small inline badges on the bubble - one per distinct emoji with a count,
+	// instead of a separate "reacted with X" message. Returns "" when there are no reactions.
+	buildReactions: function(inMessage) {
+		var rx = inMessage && inMessage.reactions;
+		if (!rx || !rx.length) { return ""; }
+		var counts = {}, order = [];
+		for (var i = 0; i < rx.length; i++) {
+			var e = rx[i] && rx[i].emoji;
+			if (!e) { continue; }
+			if (counts[e] === undefined) { counts[e] = 0; order.push(e); }
+			counts[e]++;
+		}
+		if (!order.length) { return ""; }
+		var html = "";
+		for (var j = 0; j < order.length; j++) {
+			var em = order[j];
+			// emojify each reaction so astral emoji render as inline images (no device font covers them).
+			html += '<span class="reaction-badge">' + enyo.messaging.message.emojify(em) +
+				(counts[em] > 1 ? '<span class="reaction-count">' + counts[em] + '</span>' : '') + '</span>';
+		}
+		return '<div class="message-reactions">' + html + '</div>';
 	},
 	// Media file extensions we recognise, by kind. Discord/Telegram URLs carry the real extension
 	// in the path (before the ?signed-params), so extension matching classifies them correctly.

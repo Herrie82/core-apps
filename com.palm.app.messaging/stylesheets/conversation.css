@@ -336,6 +336,38 @@ Custom Balloon
 }
 
 /*----------------------
+  Message reactions (webOS cross-prpl): small emoji badges on the bubble, one per distinct
+  reaction with a count. Rendered by ConversationItem.buildReactions from the message's
+  `reactions` array - instead of a separate "reacted with X" message.
+----------------------*/
+.message-reactions {
+	margin-top: 3px;
+	line-height: 20px;
+}
+.reaction-badge {
+	display: inline-block;
+	margin: 2px 4px 0 0;
+	padding: 1px 7px;
+	background-color: rgba(0,0,0,0.10);
+	border: 1px solid rgba(0,0,0,0.10);
+	border-radius: 11px;
+	font-size: 15px;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+.reaction-badge img {
+	height: 16px;
+	width: 16px;
+	vertical-align: middle;
+}
+.reaction-count {
+	margin-left: 3px;
+	font-size: 13px;
+	color: #555;
+	vertical-align: middle;
+}
+
+/*----------------------
   Inline media attachment chip (audio/video/other file in a message - tap to open in the
   associated app, e.g. Atlas plays ogg/opus/mp4). Distinct from .attachment-chip (compose).
 ----------------------*/
