@@ -429,6 +429,12 @@ enyo.kind({
         // always resolve to the service ("type_gometa"/"type_whatsapp"/...) on a linked contact.
         var dbo = (inField && inField.getDBObject && inField.getDBObject()) || null;
         var type = (dbo && dbo.type) || (inField && inField.getType && inField.getType()) || "";
+        // Telegram stores the internal numeric user id as "id<digits>" (tdlib-purple's prefix).
+        // Show the bare number for a cleaner card — display only; the stored "id<digits>" value is
+        // still what's used to message the contact. (Not phone-formatted: it's a user id.)
+        if (type === "type_telegram" && (/^id[0-9]+$/).test(value)) {
+            return value.substring(2);
+        }
         var phone = this.phoneFromImAddress(value, type);
         return phone || value;
     },
