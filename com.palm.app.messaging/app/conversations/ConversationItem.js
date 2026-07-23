@@ -160,7 +160,9 @@ enyo.kind({
 			var e = rx[i] && rx[i].emoji;
 			if (!e) { continue; }
 			if (counts[e] === undefined) { counts[e] = 0; order.push(e); }
-			counts[e]++;
+			// per-sender entries ({emoji,sender}) count as 1; aggregated entries ({emoji,count}, e.g.
+			// Telegram) carry the total directly.
+			counts[e] += (rx[i].count > 0 ? rx[i].count : 1);
 		}
 		if (!order.length) { return ""; }
 		var html = "";
@@ -266,7 +268,7 @@ enyo.kind({
 		// video player can't do WebM). Custom play button overlays the <video>; tap toggles it.
 		if (item.kind === "video") {
 			return '<div class="msg-video-player" data-video-toggle="1">' +
-				'<video class="msg-video" preload="metadata" src="' + openAttr + '"' +
+				'<video class="msg-video" preload="none" src="' + openAttr + '"' +
 					' onended="enyo.messaging.message.videoEnded(this)"></video>' +
 				'<div class="msg-video-btn"></div></div>';
 		}
@@ -277,7 +279,7 @@ enyo.kind({
 					'<div class="msg-audio-track"><div class="msg-audio-fill"></div></div>' +
 					'<div class="msg-audio-time">0:00</div>' +
 				'</div>' +
-				'<audio class="msg-audio" preload="metadata"' +
+				'<audio class="msg-audio" preload="none"' +
 					' onloadedmetadata="enyo.messaging.message.audioMeta(this)"' +
 					' ontimeupdate="enyo.messaging.message.audioTime(this)"' +
 					' onended="enyo.messaging.message.audioEnded(this)"' +

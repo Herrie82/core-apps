@@ -416,8 +416,25 @@ enyo.kind({
 		//watch this chatThread for person, or lock flag change
 		this.watchChatThread(this.chatThread._id);
 	},
+	// Pre-warm the WebKit/media-server audio pipeline when a thread opens so the FIRST inline
+	// voice-note tap plays instantly. That pipeline (for the <audio> element's audio class) is cold
+	// on first use - it takes ~10s to acquire the media resource - but stays warm afterwards. Playing
+	// a tiny silent Opus clip hidden warms it. Once per app session (it stays warm).
+	warmMediaPipeline: function() {
+		if (window._msgMediaWarmed) { return; }
+		window._msgMediaWarmed = true;
+		try {
+			var base = window.location.href.replace(/[^\/]*(?:\?.*)?$/, "");
+			var a = document.createElement("audio");
+			a.volume = 0;
+			a.setAttribute("preload", "auto");
+			a.setAttribute("src", base + "warmup.ogg");
+			a.play();
+		} catch (e) {}
+	},
 	chatThreadChanged: function(inOldChatThread) {
 		this.chatThreadChangeTime = Date.now();
+		if (this.chatThread && this.chatThread._id) { this.warmMediaPipeline(); }
 		enyo.log("Timing - ConversationList - chatThreadChanged() - Chat Thread changed so build new Conversation List");
 		if (!inOldChatThread && this.chatThread && this.chatThread._id) {
 			//open conversationList, switch from default view or composeView
