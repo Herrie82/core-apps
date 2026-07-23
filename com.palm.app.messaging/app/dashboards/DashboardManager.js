@@ -437,6 +437,11 @@ enyo.kind({
 			// other transport escaped text in DB
 			text = enyo.messaging.message.unescapeText(text);
 		}
+		// A pure-media message (Discord/Telegram/WhatsApp voice notes, photos, videos) carries the
+		// media URL / local file path as its body, which would otherwise show as a raw "file://..."
+		// reference in the banner/notification. Replace it with a friendly label (the emoji is stripped
+		// just below for the plain-text banner, leaving e.g. "Voice message").
+		text = enyo.messaging.message.summarizeMedia(text);
 		// A banner is native plain text - it can't show inline emoji images and has no emoji
 		// font, so decoding would only produce tofu. Strip emoji (and any leftover U+FFFD from
 		// pre-fix data) entirely so notifications read cleanly instead of showing garbage.

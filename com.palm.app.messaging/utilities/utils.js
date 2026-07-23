@@ -482,6 +482,24 @@ enyo.messaging = {
 				.replace(/[\uD800-\uDFFF]/g, "")
 				.replace(/�/g, "");
 			return text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,!?;:])/g, "$1").replace(/^\s+|\s+$/g, "");
+		},
+		// Replace a bare media URL (or local attachment path) in a message body with a friendly label,
+		// so previews/notifications show "🎤 Voice message" etc. instead of a raw file:// / http URL.
+		// If there's real text alongside the URL, keep the text and drop the URL. Shared by the thread
+		// list (ThreadItem) and the notification banner/dashboard (DashboardManager.getDisplayText) - in
+		// the plain-text banner the emoji is then stripped by stripEmojiForPlainText, leaving the label.
+		summarizeMedia: function(text) {
+			if (!text) { return text; }
+			var re = /(?:https?|file):\/\/[^\s<>"']+?\.(jpg|jpeg|png|gif|webp|bmp|mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|mp4|m4v|mov|webm|mkv|3gp|data)(?:\?[^\s<>"']*)?/gi;
+			var m = re.exec(text);
+			if (!m) { return text; }
+			var stripped = text.replace(re, "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+			if (stripped) { return stripped; }
+			var ext = m[1].toLowerCase();
+			if (/^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext)) { return "📷 " + $L("Photo"); }
+			if (/^(mp4|m4v|mov|webm|mkv|3gp)$/.test(ext)) { return "🎥 " + $L("Video"); }
+			if (/^(mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|data)$/.test(ext)) { return "🎤 " + $L("Voice message"); }
+			return "📎 " + $L("Attachment");
 		}
 	},
 	person: {

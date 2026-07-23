@@ -119,17 +119,9 @@ enyo.kind({
 	// thread preview would otherwise show a raw "file:///..." path. When the body is just a media
 	// URL, show a friendly emoji label instead; if there's real text too, keep the text.
 	summarizeMedia: function(text){
-		if (!text) { return text; }
-		var re = /(?:https?|file):\/\/[^\s<>"']+?\.(jpg|jpeg|png|gif|webp|bmp|mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|mp4|m4v|mov|webm|mkv|3gp|data)(?:\?[^\s<>"']*)?/gi;
-		var m = re.exec(text);
-		if (!m) { return text; }
-		var stripped = text.replace(re, "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
-		if (stripped) { return stripped; }
-		var ext = m[1].toLowerCase();
-		if (/^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext)) { return "📷 " + $L("Photo"); }
-		if (/^(mp4|m4v|mov|webm|mkv|3gp)$/.test(ext)) { return "🎥 " + $L("Video"); }
-		if (/^(mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|data)$/.test(ext)) { return "🎤 " + $L("Voice message"); }
-		return "📎 " + $L("Attachment");
+		// Shared with the notification banner (utils.js). Kept as a thin wrapper so the thread-list
+		// call site and its unit test stay put.
+		return enyo.messaging.message.summarizeMedia(text);
 	},
 	isThreadSelected: function(inThread) {
 		return (enyo.application.selectedThread && inThread._id === enyo.application.selectedThread._id && enyo.application.messageDashboardManager.getAppDeactivated() === false);
