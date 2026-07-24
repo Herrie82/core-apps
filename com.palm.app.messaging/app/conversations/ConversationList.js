@@ -1143,6 +1143,13 @@ enyo.kind({
 				out.push(rx[i]);
 			}
 		}
+		// Don't add an optimistic badge for an emoji this network can't take (mapped to "" for the
+		// service) - it would never reach the network, leaving a phantom local-only badge. (Removing an
+		// existing one is still fine.) The picker already hides these, but guard other tap paths too.
+		if (!mineWasThis && message.serviceName &&
+				this.mapReactionForNetwork(emoji, message.serviceName) === null) {
+			return;
+		}
 		if (!mineWasThis) { out.push({emoji: emoji, sender: "me"}); }
 		message.reactions = out;
 		this.$.dbMerge.call({objects: [{_id: message._id, reactions: out}]});
@@ -1238,12 +1245,20 @@ enyo.kind({
 	// astral emoji show up instead of tofu. Done lazily on first open - at create() time the Popup's
 	// child controls aren't populated yet, so the contents never got set (showed empty buttons).
 	setupReactEmoji: function(){
-		if (this._reactEmojiReady || !this.$.reactRowBox || !this.$.reactRowBox.getControls) { return; }
+		if (!this.$.reactRowBox || !this.$.reactRowBox.getControls) { return; }
 		var picks = this.$.reactRowBox.getControls();
+		var service = this.chatThread && this.chatThread.replyService;
 		for (var p = 0; p < picks.length; p++) {
-			if (picks[p].reactionValue) {
-				picks[p].setContent(enyo.messaging.message.emojify(picks[p].reactionValue));
+			var rv = picks[p].reactionValue;
+			if (!rv) { continue; } // the "..." more button has no emoji
+			// Content (emojify -> inline <img>) only needs setting once.
+			if (!this._reactEmojiReady) {
+				picks[p].setContent(enyo.messaging.message.emojify(rv));
 			}
+			// Hide emoji this network can't take (mapped to "" in the account template's reactions map,
+			// e.g. 🙏 on Teams) so the picker only offers reactions that will actually send. Re-evaluated
+			// every open because the conversation's service can differ.
+			picks[p].setShowing(this.mapReactionForNetwork(rv, service) !== null);
 		}
 		this._reactEmojiReady = true;
 	},
