@@ -19,7 +19,9 @@ enyo.kind({
 			{w: "fill", content: $L("Use"), className: "default-row"},      
 		   {kind: "ListSelector", value: "none", name: "domesticPrefCallService", onChange: "onDomesticSelectorChanged", items:[
                {caption: $L("Bluetooth"), value: "com.palm.telephony"}, // value must match string in: CallSynergizer.TRANSPORTS.TIL
-               {caption: $L("Skype"), value: "com.palm.skype"},  // value must match string in: CallSynergizer.TRANSPORTS.SKYPE
+               {caption: $L("Signal"), value: "com.palm.signal"},     // IM-calling transport = account templateId (call-luna.cpp / call.c / wacallm)
+               {caption: $L("Telegram"), value: "com.palm.telegram"},
+               {caption: $L("WhatsApp"), value: "com.palm.whatsapp"},
                {caption: $L("Always Ask"), value: "none"}
 	       ]}
 		]}			   
@@ -34,8 +36,10 @@ enyo.kind({
 				{w: "fill", content: $L("Use"), className: "default-row"},
 				{kind: "ListSelector", value: "none", name: "preferredIntlCallServiceRow", onChange: "selectorChanged", items: [
 					{caption: $L("Bluetooth"), value: "com.palm.telephony"}, // value must match string in: CallSynergizer.TRANSPORTS.TIL
-					{caption: $L("Skype"), value: "com.palm.skype"},  // value must match string in: CallSynergizer.TRANSPORTS.SKYPE
-					{caption: $L("Always Ask"), value: "none"} 
+					{caption: $L("Signal"), value: "com.palm.signal"},     // IM-calling transport = account templateId (call-luna.cpp / call.c / wacallm)
+					{caption: $L("Telegram"), value: "com.palm.telegram"},
+					{caption: $L("WhatsApp"), value: "com.palm.whatsapp"},
+					{caption: $L("Always Ask"), value: "none"}
 				]}
 			]}
 		]},
@@ -64,7 +68,7 @@ enyo.kind({
         this._accountTemplates = undefined;
 		
 		this.showPreferredService();
-		this.$.serviceHint.setContent($L("Choose a default service for placing calls when there is a Skype account and a phone connected to this device.")); 
+		this.$.serviceHint.setContent($L("Choose a default service for placing calls when a calling account (Signal, Telegram, WhatsApp, …) or a phone is connected to this device."));
 
 		this.$.prefService.call({
 			"keys": ["phonePreferredIntlPhoneService", "phoneInternationalDialingActive", "phoneInternationalDialingRegionId", "phonePreferredDomesticPhoneService"]
