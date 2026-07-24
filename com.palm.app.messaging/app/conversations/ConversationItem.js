@@ -312,17 +312,29 @@ enyo.kind({
 				'<div class="msg-video-btn"></div></div>';
 		}
 		if (item.kind === "audio") {
+			// WebKit won't load a bare src it can't type: a WhatsApp voice note is "file://<hash>.data"
+			// (the plugin doesn't map the opus mimetype to an extension), so WebKit has no MIME to infer
+			// and never hands it to the media server -> silent. An explicit <source type> fixes that:
+			// WebKit trusts the declared type, loads the bytes, and the media server typefinds the real
+			// codec regardless of the filename. WhatsApp voice notes are Opus-in-Ogg, so ".data" (and
+			// ogg/oga/opus) map to audio/ogg. preload="metadata" so it's ready to play on first tap.
+			var aext = this.urlExt(item.url).toLowerCase();
+			var atype = /^(?:ogg|oga|opus|data)$/.test(aext) ? "audio/ogg"
+				: /^(?:mp3)$/.test(aext) ? "audio/mpeg"
+				: /^(?:m4a|aac)$/.test(aext) ? "audio/mp4"
+				: /^(?:wav)$/.test(aext) ? "audio/wav" : "audio/ogg";
 			return '<div class="msg-audio-player">' +
 				'<div class="msg-audio-btn" data-audio-toggle="1"></div>' +
 				'<div class="msg-audio-body">' +
 					'<div class="msg-audio-track"><div class="msg-audio-fill"></div></div>' +
 					'<div class="msg-audio-time">0:00</div>' +
 				'</div>' +
-				'<audio class="msg-audio" preload="none"' +
+				'<audio class="msg-audio" preload="metadata"' +
 					' onloadedmetadata="enyo.messaging.message.audioMeta(this)"' +
 					' ontimeupdate="enyo.messaging.message.audioTime(this)"' +
-					' onended="enyo.messaging.message.audioEnded(this)"' +
-					' src="' + openAttr + '"></audio></div>';
+					' onended="enyo.messaging.message.audioEnded(this)">' +
+					'<source src="' + openAttr + '" type="' + atype + '"></source>' +
+				'</audio></div>';
 		}
 		return '<div class="msg-attachment" data-open="' + openAttr + '" data-kind="' + item.kind + '">' +
 			'<div class="msg-attachment-icon msg-attachment-' + item.kind + '"></div>' +
