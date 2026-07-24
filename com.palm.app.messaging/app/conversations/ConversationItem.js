@@ -293,15 +293,14 @@ enyo.kind({
 		// The old WebKit doesn't render native <audio controls> (just a blank box), so we draw our own
 		// play/pause button; messageTapped toggles the hidden <audio>. No navigation = no crash.
 		// Video plays INLINE too (same media path as audio: WebKit's MediaPlayerPrivatePalm hands the
-		// URI to the media server, which decodes it). WebKit's supportsType() has no video/webm or
-		// video/x-matroska, so a bare <video src=".webm"> never loads - but the media server DOES decode
-		// WebM/VP9 (its decodebin typefinds the real bytes; playbin2 plays our samples, and Opus voice
-		// notes already prove the gst-0.10 plugin path). So for the containers WebKit rejects we hand it
-		// a <source> mime it accepts (video/ogg); WebKit picks its engine, then the media server sniffs
-		// the actual bytes and plays the WebM. mp4-family declares its true type and routes to fullscreen.
+		// URI to the media server, which decodes it). libWebKitLuna's supportsType() list was binary-
+		// patched to add video/webm (repurposed the dead video/x-ms-wmv slot), so WebKit's engine now
+		// loads webm directly; the media server (decodebin + the vp8/vp9 gst-0.10 backport + autoplug
+		// shim) typefinds the real bytes and decodes WebM/VP9. mkv rides the same video/webm type (the
+		// media server sniffs the container regardless). mp4-family declares its true type -> fullscreen.
 		if (item.kind === "video") {
 			var vext = this.urlExt(item.url).toLowerCase();
-			var vtype = /^(?:webm|mkv)$/.test(vext) ? "video/ogg"
+			var vtype = /^(?:webm|mkv)$/.test(vext) ? "video/webm"
 				: /^(?:3gp|3gpp)$/.test(vext) ? "video/3gpp"
 				: /^(?:mov)$/.test(vext) ? "video/quicktime"
 				: "video/mp4";
