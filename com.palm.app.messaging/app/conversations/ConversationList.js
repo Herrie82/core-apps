@@ -20,6 +20,9 @@ enyo.kind({
 			{name: "dbDelete", kind: "DbService", dbKind: "com.palm.db", method: "del"},
 			{name: "dbFind", kind: "DbService", dbKind: "com.palm.db", method: "find", onSuccess: "gotMessagesForChatThreadId"},
 			{name: "dbMerge", kind: "DbService", dbKind: "com.palm.db", method: "merge"},
+			// webOS reactions (SEND): writes an imcommand row the transport watches (command
+			// "sendReaction") to transmit a reaction to the network. See sendReactionCommand.
+			{name: "reactionCommand", kind: "DbService", dbKind: "com.palm.imcommand:1", method: "put"},
 			{kind: "VFlexBox", flex: 1, onclick:"disableKeyboardMannualMode", components: [
 				{kind: "Toolbar", className:"enyo-toolbar-light conversation-header", layoutKind: "HFlexLayout", align: "center", components: [
 					{name: "buddyStatusServiceWatch", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", method: "find", onSuccess: "gotStatus", subscribe: true, resubscribe: true, reCallWatches: true},
@@ -50,15 +53,15 @@ enyo.kind({
 				// the row's reactions array); the trailing "..." opens the full message menu (openMessageMenu).
 				// Emoji are stored as HTML numeric entities so they survive the db8/JS round-trip and
 				// render via emojify() (astral emoji are tofu otherwise). Button contents set in create().
-				{name: "reactRow", kind: "Popup", scrim: false, dismissWithClick: true, className: "reaction-picker-popup", components: [
-					{name: "reactRowBox", layoutKind: "HFlexLayout", align: "center", components: [
+				{name: "reactRow", kind: "Popup", modal: true, dismissWithClick: true, onBeforeOpen: "setupReactEmoji", className: "reaction-picker-popup", components: [
+					{name: "reactRowBox", className: "reaction-row-box", components: [
 						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#10084;&#65039;", onclick: "reactPicked"},
 						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128077;", onclick: "reactPicked"},
 						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128518;", onclick: "reactPicked"},
 						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128558;", onclick: "reactPicked"},
 						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128546;", onclick: "reactPicked"},
 						{kind: "Control", className: "reaction-pick", allowHtml: true, reactionValue: "&#128591;", onclick: "reactPicked"},
-						{kind: "Control", className: "reaction-pick reaction-more", allowHtml: true, content: "⋯", onclick: "reactMore"}
+						{kind: "Control", className: "reaction-pick reaction-more", allowHtml: true, content: "&#8226;&#8226;&#8226;", onclick: "reactMore"}
 					]}
 				]},
 				{flex: 1, name: "list", kind: "FlyweightDbList", pageSize: 20, style: "border: none;", desc: true, bottomUp: true, onQuery: "listQuery", onSetupRow: "listSetupRow", components: [
@@ -78,6 +81,12 @@ enyo.kind({
 				{name: "attachmentChipThumb", kind: "Image", className: "attachment-chip-thumb"},
 				{name: "attachmentChipLabel", kind: "Control", className: "attachment-chip-label"},
 				{name: "attachmentChipRemove", kind: "IconButton", icon: "images/icon-decline.png", onclick: "clearAttachment"}
+			]},
+			// Reply/quote bar: shown above the input while replying to a message; the X cancels reply mode.
+			{name: "replyBar", showing: false, className: "reply-bar", layoutKind: "HFlexLayout", align: "center", components: [
+				{className: "reply-bar-accent"},
+				{name: "replyBarText", flex: 1, allowHtml: true, className: "reply-bar-text"},
+				{name: "replyBarClose", kind: "IconButton", icon: "images/icon-decline.png", onclick: "cancelReply", className: "reply-bar-close"}
 			]},
 			{name:"footer", kind: "Toolbar", className:"enyo-toolbar-light conversation-bottom", components: [
 				{name: "slidingDrag", slidingHandler: true, kind: "GrabButton" },
@@ -109,16 +118,6 @@ enyo.kind({
 	],
 	create: function() {
 		this.inherited(arguments);
-		// Render the reaction-picker emoji as inline images (emojify) so astral emoji show up instead
-		// of tofu. Each button carries its emoji as an HTML numeric entity in reactionValue.
-		if (this.$.reactRowBox && this.$.reactRowBox.getControls) {
-			var picks = this.$.reactRowBox.getControls();
-			for (var p = 0; p < picks.length; p++) {
-				if (picks[p].reactionValue) {
-					picks[p].setContent(enyo.messaging.message.emojify(picks[p].reactionValue));
-				}
-			}
-		}
 		if (window.PalmSystem) {
 			this.$.systemPrefs.call ({keys: ["timeFormat"]});
 		}
@@ -743,6 +742,7 @@ enyo.kind({
 					"channelName",
 					"chatType",
 					"reactions",
+					"serviceMessageId",
 					"locked"
 				];
 			return this.$.conversationService.call({query: inQuery});
@@ -962,7 +962,7 @@ enyo.kind({
 				deliveryReport: deliveryReport
 			},
 			to: [recipient],
-			messageText: this.$.richText.getValue(),
+			messageText: this.composeBodyText(),
 			serviceName: selectedTransport.serviceName
 		};
 		
@@ -1006,11 +1006,23 @@ enyo.kind({
 
 		this.sendMessageHelper(params, kind);
 	},
+	// The outgoing message body, quote-prefixed when replying (increment 1; native reply metadata to
+	// follow). Also used to decide "empty message" - a reply with no typed text still sends the quote.
+	composeBodyText: function(){
+		var body = this.$.richText.getValue();
+		if (this.replyToMessage) {
+			var q = enyo.messaging.message.unescapeText(this.replyToMessage.messageText || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ");
+			if (q.length > 120) { q = q.substring(0, 120) + "…"; }
+			body = "> " + q + (body ? "\n" + body : "");
+		}
+		return body;
+	},
 	sendMessageHelper: function(params, kind) {
 		params._kind = kind;
 		params.localTimestamp = Date.now();
 		this.$.messageServicePutOutbox.call({objects: [params]});//revealListBottom
 		this.$.richText.setValue("");
+		this.cancelReply();
 		// Attachment send: the staged file has been committed to this message; clear the chip.
 		if (this.outboundAttachment) {
 			this.clearAttachment();
@@ -1096,22 +1108,144 @@ enyo.kind({
 			return;
 		}
 		if (message.folder === enyo.messaging.message.FOLDERS.INBOX || message.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
-			this.openReactRow(inEvent);
+			// Tapping an existing reaction badge toggles MY reaction for that emoji (remove if it's
+			// mine, otherwise add/switch to it) instead of opening the picker.
+			var badgeEmoji = this.reactionBadgeAt(inEvent.target);
+			if (badgeEmoji) {
+				this.toggleMyReaction(message, badgeEmoji);
+			} else {
+				this.openReactRow(inEvent);
+			}
 		}
 	},
-	// Short RIGHT-swipe on a message (ConversationItem.onReact) => same reaction row.
+	// Walk up from a tapped node to a reaction badge; return its emoji (data-reaction) or null.
+	reactionBadgeAt: function(node){
+		var n = node, hops = 0;
+		while (n && n.getAttribute && hops < 8) {
+			var v = n.getAttribute("data-reaction");
+			if (v) { return v; }
+			n = n.parentNode; hops++;
+		}
+		return null;
+	},
+	// Add / switch / remove MY reaction (optimistic sender "me"): if I already reacted with this emoji
+	// remove it; otherwise drop any prior reaction of mine and set this one. Merges onto the row's
+	// reactions array (transmitting to the network is the transport sendReaction verb, later increment).
+	toggleMyReaction: function(message, emoji){
+		if (!message || !emoji) { return; }
+		var rx = (message.reactions && message.reactions.slice) ? message.reactions.slice() : [];
+		var out = [], mineWasThis = false;
+		for (var i = 0; i < rx.length; i++) {
+			if (rx[i] && rx[i].sender === "me") {
+				if (rx[i].emoji === emoji) { mineWasThis = true; }
+				// drop my previous reaction; re-added below unless we're toggling this one off
+			} else {
+				out.push(rx[i]);
+			}
+		}
+		if (!mineWasThis) { out.push({emoji: emoji, sender: "me"}); }
+		message.reactions = out;
+		this.$.dbMerge.call({objects: [{_id: message._id, reactions: out}]});
+		this.$.list.refresh();
+		// Transmit to the network. The emoji is ALWAYS sent (even when removing, so backends that drop a
+		// specific reaction know which one); mineWasThis == the user is toggling this emoji back off.
+		this.sendReactionCommand(message, emoji, mineWasThis);
+	},
+	// Write the imcommand row the transport picks up to actually send/remove the reaction. Only
+	// possible for messages that carry the prpl's own id (serviceMessageId); otherwise it stays a
+	// local-only optimistic badge. me/peer flip with the message direction. remove=true removes my
+	// `emoji` reaction, else adds it.
+	sendReactionCommand: function(message, emoji, remove){
+		if (!message || !message.serviceMessageId || !message.serviceName || !emoji) { return; }
+		// Networks curate their own reaction sets (e.g. the picker's 😆/😮 aren't valid Telegram
+		// reactions). Translate the picked emoji to the service's equivalent per the account template's
+		// "reactions" map; a "" mapping means unsupported => keep the local badge but don't transmit.
+		var netEmoji = this.mapReactionForNetwork(emoji, message.serviceName);
+		if (!netEmoji) { return; }
+		var inbox = (message.folder === enyo.messaging.message.FOLDERS.INBOX);
+		var me   = inbox ? (message.to && message.to[0] && message.to[0].addr) : (message.from && message.from.addr);
+		var peer = inbox ? (message.from && message.from.addr) : (message.to && message.to[0] && message.to[0].addr);
+		if (!me || !peer) { return; }
+		// The imcommand kind mirrors the message's immessage kind (e.g. com.palm.immessage.libpurple:1
+		// -> com.palm.imcommand.libpurple:1), so the right transport watches it. Derive it from the
+		// message _kind rather than via accountService (which isn't reachable from here).
+		var imcommandKind = (message._kind && message._kind.indexOf("immessage") >= 0) ?
+			message._kind.replace("immessage", "imcommand") : "com.palm.imcommand.libpurple:1";
+		var cmd = {
+			_kind: imcommandKind,
+			command: "sendReaction",
+			handler: "transport",
+			status: "pending",
+			fromUsername: me,
+			targetUsername: peer,
+			serviceName: message.serviceName,
+			params: { targetServiceMessageId: message.serviceMessageId, emoji: netEmoji, remove: !!remove }
+		};
+		this.$.reactionCommand.call({objects: [cmd]});
+	},
+	// Translate a picker emoji entity to the one the given service accepts, using the per-service
+	// "reactions.map" from the account template (see accountService.getReactions). No policy or no
+	// entry => pass the emoji through unchanged; an entry mapping to "" => unsupported (returns null).
+	mapReactionForNetwork: function(emoji, serviceName){
+		try {
+			var as = enyo.application.accountService;
+			var rx = (as && as.getReactions) ? as.getReactions(serviceName) : null;
+			if (!rx || !rx.map || !rx.map.hasOwnProperty(emoji)) { return emoji; }
+			var mapped = rx.map[emoji];
+			return mapped === "" ? null : mapped;
+		} catch (e) {
+			enyo.warn("mapReactionForNetwork failed, passing emoji through: ", e);
+			return emoji;
+		}
+	},
+	// Short RIGHT-swipe on a message => reply/quote it (tap already covers react, so swipe = reply).
 	handleReactSwipe: function(inSender, inIndex){
 		enyo.messaging.keyboard.setKeyboardAutoMode();
 		var message = this.$.list.fetch(inIndex);
 		if (!message) { return; }
 		this.selectedMessage = message;
 		if (message.folder === enyo.messaging.message.FOLDERS.INBOX || message.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
-			this.openReactRow();
+			this.enterReply(message);
 		}
 	},
+	// Enter reply mode: show the quote bar above the input (with an X to cancel) instead of stuffing
+	// the quote into the text box. On send, the quote is prepended (increment 1) / attached as native
+	// reply metadata (later). replyToMessage is cleared by cancelReply or after a successful send.
+	enterReply: function(message){
+		if (!message) { return; }
+		this.replyToMessage = message;
+		var q = enyo.messaging.message.unescapeText(message.messageText || "");
+		q = q.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ");
+		if (q.length > 90) { q = q.substring(0, 90) + "…"; }
+		var who = (message.from && message.from.name) ? message.from.name : "";
+		var html = (who ? '<b>' + enyo.string.escapeHtml(who) + '</b> ' : '') +
+			enyo.messaging.message.emojify(enyo.string.escapeHtml(q));
+		this.$.replyBarText.setContent(html);
+		this.$.replyBar.setShowing(true);
+		if (this.$.richText.forceFocus) { this.$.richText.forceFocus(); }
+	},
+	cancelReply: function(){
+		this.replyToMessage = null;
+		if (this.$.replyBar) { this.$.replyBar.setShowing(false); }
+	},
 	openReactRow: function(inEvent){
+		// Emoji content is set in setupReactEmoji via the popup's onBeforeOpen (fires after the buttons
+		// are created but before first render), so the FIRST open already shows them.
 		if (inEvent && this.$.reactRow.openAtEvent) { this.$.reactRow.openAtEvent(inEvent); }
 		else { this.$.reactRow.openAtCenter(); }
+	},
+	// Render the picker emoji as inline images (emojify turns the &#NNNNN; entity into an <img>) so
+	// astral emoji show up instead of tofu. Done lazily on first open - at create() time the Popup's
+	// child controls aren't populated yet, so the contents never got set (showed empty buttons).
+	setupReactEmoji: function(){
+		if (this._reactEmojiReady || !this.$.reactRowBox || !this.$.reactRowBox.getControls) { return; }
+		var picks = this.$.reactRowBox.getControls();
+		for (var p = 0; p < picks.length; p++) {
+			if (picks[p].reactionValue) {
+				picks[p].setContent(enyo.messaging.message.emojify(picks[p].reactionValue));
+			}
+		}
+		this._reactEmojiReady = true;
 	},
 	// An emoji in the quick row was tapped: react. Increment 1 is optimistic-only (merge onto the
 	// row's reactions array so the badge shows immediately); actually transmitting the reaction to the
@@ -1119,18 +1253,9 @@ enyo.kind({
 	reactPicked: function(inSender, inEvent){
 		this.$.reactRow.close();
 		var emoji = inSender && inSender.reactionValue;
-		if (!emoji || !this.selectedMessage) { return; }
-		var message = this.selectedMessage;
-		var rx = (message.reactions && message.reactions.slice) ? message.reactions.slice() : [];
-		var out = [];
-		for (var i = 0; i < rx.length; i++) {
-			// replace any prior reaction from me (mirror the transport's per-sender replace)
-			if (!(rx[i] && rx[i].sender === "me")) { out.push(rx[i]); }
+		if (emoji && this.selectedMessage) {
+			this.toggleMyReaction(this.selectedMessage, emoji);
 		}
-		out.push({emoji: emoji, sender: "me"});
-		message.reactions = out;
-		this.$.dbMerge.call({objects: [{_id: message._id, reactions: out}]});
-		this.$.list.refresh();
 	},
 	// The "..." button in the reaction row: open the full message menu (Reply / Forward / Copy / Delete).
 	reactMore: function(inSender, inEvent){
@@ -1156,11 +1281,7 @@ enyo.kind({
 	popupMenuSelect: function(inSender, inSelected) {
 		var value = inSelected.getValue();
 		if (value === "reply-cmd") {
-			// Increment 1: prefill the composer with the quoted text. Native reply (carrying the
-			// target message id to the network) arrives with the transport/backend reply verb.
-			var quoted = enyo.messaging.message.unescapeText(this.selectedMessage.messageText || "");
-			this.$.richText.setValue("> " + quoted + "\n");
-			if (this.$.richText.forceFocus) { this.$.richText.forceFocus(); }
+			this.enterReply(this.selectedMessage);
 		} else if (value === "forward-cmd") {
 			var composeParams = {
 				messageText: enyo.messaging.message.unescapeText(this.selectedMessage.messageText)

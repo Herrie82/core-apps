@@ -75,6 +75,27 @@ enyo.kind({
 	getAccountTemplates: function(){
 		return this._accountTemplates;
 	},
+	// Per-service reaction policy (the MESSAGING capabilityProvider's optional "reactions" descriptor,
+	// e.g. {supported:true, map:{"&#128518;":"&#128513;"}}). Sourced from the LIVE account template
+	// (getAccountTemplates) so edits to the template take effect without re-adding the account (the
+	// account DB record snapshots capabilities at create-time); falls back to the snapshotted account
+	// record, then null (=> caller passes reactions through unchanged).
+	getReactions: function(serviceName){
+		var tmpls = this.getAccountTemplates();
+		if (tmpls) {
+			for (var i = 0, t; t = tmpls[i]; i++) {
+				var caps = t.capabilityProviders || [];
+				for (var j = 0, c; c = caps[j]; j++) {
+					if (c.capability === "MESSAGING" && c.serviceName === serviceName && c.reactions) {
+						return c.reactions;
+					}
+				}
+			}
+		}
+		var types = this.getMyAccountTypesHash && this.getMyAccountTypesHash();
+		var acct = types && types[serviceName];
+		return (acct && acct.reactions) || null;
+	},
 	cleanAccount: function(account) {
 		id = account._id;
 		for (var i=0, c; c = account.capabilityProviders[i]; i++) {
