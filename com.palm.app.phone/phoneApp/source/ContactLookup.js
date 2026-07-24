@@ -132,7 +132,10 @@ enyo.kind({
 		// navigates the current card. ?room= (query) survives the launch where a #fragment can be dropped.
 		var url = "https://herrie82.github.io/webos-vc/?room=" + room;
 		this.$.skypeCaption.setContent($L("In call. Share this link to invite: ") + url);
-		this.$.launchVideo.call({id: "org.webosports.app.atlas", params: {target: url}});
+		// "atlas-simple:" prefix -> Atlas MODE 2 (viewport, 1-screen buffer, ~4x less display readback);
+		// the call page never scrolls. BrowserApp.js maps the prefix to _launchSimple and BrowserServer
+		// rebuilds the pre-warmed WebView at mult=1. The share link above stays the clean URL.
+		this.$.launchVideo.call({id: "org.webosports.app.atlas", params: {target: "atlas-simple:" + url}});
 	},
 	updateContactLookupUI_dead: function(params) {
 		if (enyo.application.Cache.hasSkypeAcct === true) {
