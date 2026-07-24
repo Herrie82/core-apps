@@ -466,6 +466,11 @@ Custom Balloon
 	display: inline-block;
 	margin-top: 6px;
 	max-width: 100%;
+	/* Round the poster/video corners. border-radius on the <video> itself does NOT clip the poster
+	   image on this old WebKit, so clip at the container with overflow:hidden. 8px matches the audio
+	   player chip (the sibling media widget) and the message bubbles. */
+	border-radius: 8px;
+	overflow: hidden;
 }
 .msg-video {
 	display: block;
@@ -483,13 +488,15 @@ Custom Balloon
 	position: absolute;
 	top: 50%;
 	left: 50%;
-	width: 64px;
-	height: 64px;
-	margin: -32px 0 0 -32px;
-	border-radius: 50%;
+	width: 56px;
+	height: 56px;
+	margin: -28px 0 0 -28px;
+	/* Same webOS mini-player play icon as the audio player, on a rounded-square disc (8px radius,
+	   matching the poster/bubble corners) so it reads clearly against any thumbnail. */
+	border-radius: 8px;
 	background: rgba(0,0,0,0.45) url(../images/mini-player-icon-play.png) center center no-repeat;
-	-webkit-background-size: 42px 42px;
-	background-size: 42px 42px;
+	-webkit-background-size: 40px 40px;
+	background-size: 40px 40px;
 	pointer-events: none;
 }
 .msg-video-player.playing .msg-video-btn { display: none; }
@@ -502,6 +509,7 @@ Custom Balloon
 	height: 100%;
 	margin: 0;
 	background: #000;
+	border-radius: 0;
 	z-index: 9999;
 	display: -webkit-box;
 	-webkit-box-pack: center;

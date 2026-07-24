@@ -304,8 +304,13 @@ enyo.kind({
 				: /^(?:3gp|3gpp)$/.test(vext) ? "video/3gpp"
 				: /^(?:mov)$/.test(vext) ? "video/quicktime"
 				: "video/mp4";
+			// First-view preview: the plugin drops the sender's embedded JPEG thumbnail next to a local
+			// video as "<base>.jpg". poster= loads it as a plain image (independent of the clip's own
+			// data, so preload="none" stays crash-safe) -> a preview from the first render. Local
+			// file:// videos only; if the .jpg is absent WebKit just shows no poster (no error).
+			var poster = (/^file:/i.test(openAttr) && vext) ? openAttr.slice(0, -vext.length) + "jpg" : "";
 			return '<div class="msg-video-player" data-video-toggle="1" data-open="' + openAttr + '">' +
-				'<video class="msg-video" preload="none"' +
+				'<video class="msg-video" preload="none"' + (poster ? ' poster="' + poster + '"' : '') +
 					' onended="enyo.messaging.message.videoEnded(this)">' +
 					'<source src="' + openAttr + '" type="' + vtype + '"></source>' +
 				'</video>' +
