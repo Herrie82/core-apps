@@ -357,8 +357,8 @@ Custom Balloon
 	display: inline-block;
 	margin: 0 0 0 3px;
 	padding: 0 6px;
-	background-color: rgba(255,255,255,0.75);
-	border: 1px solid rgba(0,0,0,0.14);
+	background-color: #e4e4e4;
+	border: 1px solid rgba(0,0,0,0.16);
 	border-radius: 10px;
 	font-size: 14px;
 	line-height: 18px;
@@ -377,27 +377,52 @@ Custom Balloon
 	color: #555;
 	vertical-align: middle;
 }
-/* Quick reaction picker row (short tap / short right-swipe on a message). */
+/* A reaction I placed - tinted so it's clear it's mine and a tap removes it. */
+.reaction-badge.reaction-mine {
+	background-color: rgba(45,111,179,0.22);
+	border-color: rgba(45,111,179,0.55);
+}
+/* Quick reaction picker row (short tap / short right-swipe on a message). Compact - about half the
+ * height of a stock list row. */
+/* The stock .enyo-popup is a 300px-min-width bubble with a 24px border-image frame - far too big
+ * for an emoji strip. Strip that chrome (min-width, border-image, the -inner negative margin) and
+ * draw our own small pill so the popup sizes tightly to the emoji. */
 .reaction-picker-popup {
-	padding: 4px 6px;
-	-webkit-border-radius: 22px;
-	border-radius: 22px;
+	min-width: 0;
+	border-width: 0;
+	-webkit-border-image: none;
+	border-image: none;
+	padding: 2px 6px;
+	background: #e4e4e4;
+	border: 1px solid rgba(0,0,0,0.22);
+	-webkit-border-radius: 9px;
+	border-radius: 9px;
+	-webkit-box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+}
+.reaction-picker-popup .enyo-popup-inner {
+	margin: 0;
+}
+.reaction-row-box {
+	white-space: nowrap;
 }
 .reaction-pick {
 	display: inline-block;
-	padding: 5px 8px;
-	font-size: 26px;
-	line-height: 30px;
+	padding: 2px 5px;
+	font-size: 20px;
+	line-height: 22px;
 	cursor: pointer;
+	vertical-align: middle;
 }
 .reaction-pick img {
-	height: 30px;
-	width: 30px;
+	height: 20px;
+	width: 20px;
 	vertical-align: middle;
 }
 .reaction-pick.reaction-more {
 	color: #666;
 	font-weight: bold;
+	font-size: 15px;
+	letter-spacing: 1px;
 }
 .reaction-pick.active,
 .reaction-pick:active {
@@ -616,4 +641,30 @@ img.emoji {
 	border-radius: 0;
 	box-shadow: none;
 	max-height: none;
+}
+
+/* Reply/quote bar shown above the composer while replying to a message. */
+.reply-bar {
+	padding: 4px 8px 4px 6px;
+	background-color: #e8e8e8;
+	border-top: 1px solid #cfcfcf;
+}
+.reply-bar-accent {
+	width: 3px;
+	min-width: 3px;
+	height: 28px;
+	background-color: #2f6fb3;
+	margin-right: 7px;
+	-webkit-border-radius: 2px;
+	border-radius: 2px;
+}
+.reply-bar-text {
+	font-size: 13px;
+	color: #444444;
+	line-height: 16px;
+	max-height: 32px;
+	overflow: hidden;
+}
+.reply-bar-close {
+	margin-left: 4px;
 }

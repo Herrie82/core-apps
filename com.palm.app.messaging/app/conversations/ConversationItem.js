@@ -183,7 +183,7 @@ enyo.kind({
 	buildReactions: function(inMessage) {
 		var rx = inMessage && inMessage.reactions;
 		if (!rx || !rx.length) { return ""; }
-		var counts = {}, order = [];
+		var counts = {}, order = [], mine = {};
 		for (var i = 0; i < rx.length; i++) {
 			var e = rx[i] && rx[i].emoji;
 			if (!e) { continue; }
@@ -191,13 +191,20 @@ enyo.kind({
 			// per-sender entries ({emoji,sender}) count as 1; aggregated entries ({emoji,count}, e.g.
 			// Telegram) carry the total directly.
 			counts[e] += (rx[i].count > 0 ? rx[i].count : 1);
+			// a reaction I placed (optimistic sender "me") -> tag the badge so it's highlighted and a
+			// tap on it removes it (see ConversationList.handleMessageTap -> toggleMyReaction).
+			if (rx[i].sender === "me") { mine[e] = true; }
 		}
 		if (!order.length) { return ""; }
 		var html = "";
 		for (var j = 0; j < order.length; j++) {
 			var em = order[j];
+			// data-reaction carries the exact stored emoji so a tap can toggle it. Escape it for the
+			// attribute (it holds &#NNNNN; entities) so getAttribute round-trips the same string.
+			var attr = String(em).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 			// emojify each reaction so astral emoji render as inline images (no device font covers them).
-			html += '<span class="reaction-badge">' + enyo.messaging.message.emojify(em) +
+			html += '<span class="reaction-badge' + (mine[em] ? ' reaction-mine' : '') + '" data-reaction="' + attr + '">' +
+				enyo.messaging.message.emojify(em) +
 				(counts[em] > 1 ? '<span class="reaction-count">' + counts[em] + '</span>' : '') + '</span>';
 		}
 		return '<div class="message-reactions">' + html + '</div>';
@@ -318,11 +325,10 @@ enyo.kind({
 		}
 		if (item.kind === "audio") {
 			// WebKit won't load a bare src it can't type: a WhatsApp voice note is "file://<hash>.data"
-			// (the plugin doesn't map the opus mimetype to an extension), so WebKit has no MIME to infer
-			// and never hands it to the media server -> silent. An explicit <source type> fixes that:
-			// WebKit trusts the declared type, loads the bytes, and the media server typefinds the real
-			// codec regardless of the filename. WhatsApp voice notes are Opus-in-Ogg, so ".data" (and
-			// ogg/oga/opus) map to audio/ogg. preload="metadata" so it's ready to play on first tap.
+			// (no mapped extension), so WebKit has no MIME to infer and never hands it to the media server
+			// -> silent. An explicit <source type> fixes that: WebKit trusts the declared type, loads the
+			// bytes, and the media server typefinds the real codec regardless of the filename. WhatsApp
+			// voice notes are Opus-in-Ogg, so ".data" (and ogg/oga/opus) map to audio/ogg.
 			var aext = this.urlExt(item.url).toLowerCase();
 			var atype = /^(?:ogg|oga|opus|data)$/.test(aext) ? "audio/ogg"
 				: /^(?:mp3)$/.test(aext) ? "audio/mpeg"
