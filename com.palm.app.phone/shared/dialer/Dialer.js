@@ -22,7 +22,7 @@ enyo.kind({
 
 		// todo this should only be defined in PhoneTabs.js
 		{name: "noVoicemailNumberPrompt", kind: "NoVoicemailNumberPrompt"},
-		{name: "preferredPhSvcDlg", kind: "PreferredPhSvcDlg", onServiceProviderSelected: "dialNumber", onSkypeMobileSelected: "dialNumber", onCancelSelected: "dialNumber"},
+		{name: "preferredPhSvcDlg", kind: "PreferredPhSvcDlg", onServiceProviderSelected: "dialNumber", onCancelSelected: "dialNumber"},
 		{name: "otaspFailure", kind: "OtaspFailurePrompt"},
 		{name:"addToContactsService", kind:"PalmService", service: enyo.palmServices.application, method: "open", },
 		]},

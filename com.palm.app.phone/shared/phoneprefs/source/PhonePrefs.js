@@ -180,13 +180,7 @@ enyo.kind({
 				this.editNetwork(true);
 				break;				
 				
-			case "checkSkypeCredit":
-				this.accountsLaunchedFromAppMenu = true;
-		                this.$.pane.selectViewByName("accountsModify");
-				this.$.accountsModify.ModifyAccount(params.account, params.template, "PHONE");
-				break;
-				
-			default: 
+			default:
 				if(params && params.launchType) {
 			        	enyo.log("launchview: " + params.launchType);
 					this.$.pane.selectViewByName(params.launchType);

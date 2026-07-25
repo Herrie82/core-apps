@@ -139,21 +139,6 @@
 						enyo.application.hidden = true;
 						enyo.application.CallSynergizer.dialThrough(params.number);
 						
-					// CASE: HACK: Skype service calls this when it comes up. This is a cheap way to keep a subscription with a dynamic service -
-					// just have the service call the app when it comes back up so the app can reestablish the subscription query.
-					// The correct way to do this is to use: luna-send -i palm://com.palm.bus/signal/registerServerStatus '{"serviceName":"com.palm.skype"}'
-					// and reestablish the connection when app gets a response with connected == true.
-					// luna-send -n 1 palm://com.palm.applicationManager/launch '{"id":"com.palm.app.phone","params":{"transportReady":true,"nocache":true}}'
-					} else if ( params.transportReady ) {
-						var skypetransport = enyo.application.CallSynergizer.transports[enyo.application.CallSynergizer.TRANSPORTS.SKYPE];
-						if ( skypetransport && skypetransport._subs ) {
-							skypetransport._subs.callState.cancel();
-							skypetransport._subs.callState.call();
-							
-							skypetransport._subs.callQuality.cancel();
-							skypetransport._subs.callQuality.call();
-						}
-						
 					// CASE: test runner
 					// luna-send -n 1 palm://com.palm.applicationManager/launch '{"id":"com.palm.app.phone","params":{"testRunner":true}}'
 					} else if (params.testRunner) {
@@ -202,16 +187,11 @@
 							return;
 						}
 						
-						// If a service is specified then add backwards compatability for type_skype, otherwise set the service param if it is invalid
-                        if (params.service) {
-                            if (params.service === "type_skype" || params.service == "com.palm.skype.call") {
-								params.service = enyo.application.CallSynergizer.TRANSPORTS.SKYPE;
-                            //e.g. service could be "phone" originating from justtype
-                            } else if (params.service !== enyo.application.CallSynergizer.TRANSPORTS.SKYPE && params.service !== enyo.application.CallSynergizer.TRANSPORTS.TIL) {
-                                //params.service = enyo.application.CallSynergizer.TRANSPORTS.TIL;
-                                //we can no longer assume the transport, callSynergizer.js will determine which transport to use
-                                params.service = undefined;
-                            }
+						// Only cellular (TIL) is a fixed transport. Any other service value - a legacy
+						// "type_skype"/"com.palm.skype.call", or "phone" from justtype, or a specific VoIP
+						// account - is left unset so CallSynergizer picks the right VoIP transport.
+                        if (params.service && params.service !== enyo.application.CallSynergizer.TRANSPORTS.TIL) {
+                            params.service = undefined;
                         }
 						
 						if(enyo.application.Cache.phoneAppLoaded == true) {

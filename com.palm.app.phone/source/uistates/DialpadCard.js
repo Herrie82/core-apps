@@ -37,8 +37,5 @@ enyo.kind({
 	},
 	event_voicedialing: function(params) {
 		enyo.application.UI.enter('voicedialing', params);
-	},
-	event_skypelogin: function(params){
-		this.setup(params);
 	}
 });

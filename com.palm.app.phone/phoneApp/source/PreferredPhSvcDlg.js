@@ -5,7 +5,6 @@ enyo.kind({
 	lazy: false,
 	events: {
 		onServiceProviderSelected: "",
-		onSkypeMobileSelected: "",
 		onCancelSelected: ""
 	},
 	//* @protected
@@ -13,7 +12,6 @@ enyo.kind({
 		{name: "title", className: "enyo-dialog-prompt-title", style: "border-bottom: 0; text-align:center;", content: $L("International Call")},
 		{name: "message", className: "enyo-dialog-prompt-message", content: $L("Which service would you like to use?\n This preference can be set in Preferences & Accounts.")},
 		{name: "serviceProviderBtn", kind: "Button", caption: $L("Service Provider"), onclick: "serviceProviderClick"},
-		{kind: "Button", caption: $L("Skype"), onclick: "skypeMobileClick"},
 		{kind: "Button", caption: $L("Cancel"), className: "enyo-button-negative", onclick: "cancelClick"},
 		{name: "networkStatusQuery", kind: enyo.PalmService, service: enyo.palmServices.telephony, subscribe: true, 
 			method: "networkStatusQuery", onSuccess: "updateNetworkname"},
@@ -53,11 +51,6 @@ enyo.kind({
 		this.close();
 		this.callData.transport = enyo.application.CallSynergizer.TRANSPORTS.TIL;
 		this.doServiceProviderSelected(this.callData);
-	},
-	skypeMobileClick: function() {
-		this.close();
-		this.callData.transport = enyo.application.CallSynergizer.TRANSPORTS.SKYPE;
-		this.doSkypeMobileSelected(this.callData);
 	},
 	cancelClick: function() {
 		this.close();

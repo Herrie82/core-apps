@@ -22,9 +22,6 @@ enyo.kind({
 			cancelButtonCaption: $L("Cancel"),
 			onAccept: "clearCallHistoryConfirm",
 		},
-		//Skype
-		{name: "checkSkypeCredit", caption: $L("Check Skype Credit"), onclick: "checkSkypeCredit", showing: false},
-		
 		//Voicemail
 		{name: "voicemailGreeting", caption: $L("Voicemail Greeting"), onclick: "voicemailGreeting", showing: false},
 		{name: "callVoicemail", caption: $L("Call Voicemail"), onclick: "callVoicemail", showing: false},
@@ -118,30 +115,13 @@ enyo.kind({
 			"query":{"from":"com.palm.phonecall:1"},"purge":false
 		});
 	},
-	checkSkypeCredit: function() {
-		if(enyo.application.isTablet) {//todo : if not phone
-			var param = {"launchType": "checkSkypeCredit", "account": enyo.application.Cache.skypeAccount, "template": enyo.application.Cache.skypeTemplate};
-			if (enyo.application.UI.getCurrentState() === 'preferences_card') {
-				enyo.application.UI.event('changeView', param);
-			} else {
-				enyo.application.UI.event('preferences', param);
-			}
-			return;
-		}
-	
-		if(this.accounts == undefined) {
-	    		this.accounts = this.createComponent({name: "accounts", kind: "DBModel.Accounts",}, {"owner": this});
-	    	}
-		this.accounts.launchAccountSettingsUI(undefined, enyo.application.CallSynergizer.transports[enyo.application.CallSynergizer.TRANSPORTS.SKYPE]._accountId);
-	},
-	openMenu : function(bShowCallHistory, isVoicemail) {		
+	openMenu : function(bShowCallHistory, isVoicemail) {
 
                 this.$.editMenu.setShowing(false);
 
                 if ("firstlaunch_card"==enyo.application.UI.getCurrentState()) {
                  
                     this.$.soundsAndRingtones.setShowing(false);
-		    this.$.checkSkypeCredit.setShowing(false);
 
                     if (enyo.application.Cache.platformType == "none") {
 		        this.$.preferencesAndAccounts.setShowing(false);
@@ -155,7 +135,6 @@ enyo.kind({
                     this.$.soundsAndRingtones.setShowing(true);
 	            this.$.preferencesAndAccounts.setShowing(true);
 		    this.$.clearCallHistory.setShowing(bShowCallHistory);
-		    this.$.checkSkypeCredit.setShowing(enyo.application.Cache.hasVoipAcct === true);
 		    if (isVoicemail) {
 			    var carrierName = enyo.application.VoicemailService.getCarrierName();
 			    if (carrierName == "verizon") {

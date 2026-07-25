@@ -10,9 +10,7 @@ enyo.kind({
 			{name:"voicemailgreeting", kind: "VoicemailGreeting", lazy:true, destroyOnUnload:true},
 			// topaz only
 			{name:"firstlaunch", kind:"FirstLaunchScene", lazy:true, destroyOnUnload:true},			
- 			{kind: "Accounts.credentialView", name: "accountCredential", capability: "PHONE", onCredentials_Cancel: "cancelSkypelogin", onCredentials_ValidationSuccess: "doneSkypelogin", lazy: true},
 		]},
-  		{name: "getAccounts", kind: "Accounts.getAccounts", onGetAccounts_AccountsAvailable: "onAccountsAvailable"},		
 		{name:"appMenu", kind:"phoneAppMenu", onCopy:"copy", onPaste:"paste", onClose: "closeAppMenuHandler", onLaunchingPreferences: "preferencesLaunching"},
 		{name:"activeCallBanner", kind:"ActiveCallBanner"},
 		
@@ -105,15 +103,6 @@ enyo.kind({
 				this.$.firstlaunch.handleLaunch(params.params);
 			}
 			else {
-				if (params.params) {
-					if (params.params.skypelogin === true) {
-						enyo.log("skype account log in");
-						this.$.getAccounts.getAccounts({
-							capability: "PHONE"
-						});
-						return; 							
-					}
-				}				
 				this.$.pane.selectViewByName("phoneTabs", true); // show tabs
 				setTimeout(enyo.hitch(this, function () {
 					this.$.phoneTabs.selectViewByName(params.scene, params.params);		
@@ -179,26 +168,6 @@ enyo.kind({
 				this.$.phoneTabs.disableTabsMenu(false);
 			}), 3000);
 		}
-	},
-	onAccountsAvailable: function (inSender, inResponse) {
-        enyo.log("phoneAccountService::gotAccounts inResponse.accounts.length:"+JSON.stringify(inResponse.accounts.length));
-		
-		var accId = enyo.application.CallSynergizer.transports[enyo.application.CallSynergizer.TRANSPORTS.SKYPE]._accountId;
-		for(var i = 0; i < inResponse.accounts.length; i++) {			
-			if(inResponse.accounts[i]._id == accId) {
-				//enyo.log("display credential view "+enyo.json.stringify(inResponse.accounts[i]));
-				this.$.pane.selectViewByName("accountCredential");
-				this.$.accountCredential.displayCredentialsView(inResponse.accounts[i], "PHONE");
-				break;
-			}
-		}			
-	},	
-	doneSkypelogin: function(inSender, e){
-		enyo.log("skype login success");
-		this.$.pane.selectViewByName("phoneTabs", true); 
-	}, 
-	cancelSkypelogin: function (inSender, e) {
-		this.$.pane.selectViewByName("phoneTabs", true); 
 	},
 	// delegates the named event type to the active scene
 	// if the scene's handler returns true, it was handled and it default prevented

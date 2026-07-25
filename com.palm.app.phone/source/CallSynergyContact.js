@@ -182,10 +182,11 @@ enyo.kind({
 		// DEFAULT: we're something else
 		// todo how do we reverse lookup 3rd party addresses?
 		} else {
-			//todo: we're labeling all skype calls as skype, and not by type (eg Home, Work)??
-			this.label = "service_skype";
-			this.labelFormatted = $L("Skype");
-			
+			// Unknown/other transport (neither cellular TIL nor a VoIP account): no service label. This
+			// used to hardcode "Skype", which mislabelled every such call; Skype is gone.
+			this.label = "";
+			this.labelFormatted = "";
+
 			// temp: need findPersonByIM
 			this.name = $L("Unknown Caller");
 			this.dispatchCallbacks();
