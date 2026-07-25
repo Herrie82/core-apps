@@ -17,11 +17,11 @@ enyo.kind({
 		{kind: "RowGroup", name: "domesticPrefCallServiceRow", caption: $L("DOMESTIC CALLS"), showing: false, components: [ 
 		{kind: "Item", layoutKind: "HFlexLayout", align: "center", components: [
 			{w: "fill", content: $L("Use"), className: "default-row"},      
+		   // The calling-account choices (Signal/Telegram/WhatsApp/...) are filled in dynamically from the
+		   // enabled PHONE-capable Synergy accounts in onGotAccounts(); only Bluetooth (cellular) and
+		   // "Always Ask" are fixed. See buildCallServiceItems().
 		   {kind: "ListSelector", value: "none", name: "domesticPrefCallService", onChange: "onDomesticSelectorChanged", items:[
                {caption: $L("Bluetooth"), value: "com.palm.telephony"}, // value must match string in: CallSynergizer.TRANSPORTS.TIL
-               {caption: $L("Signal"), value: "com.palm.signal"},     // IM-calling transport = account templateId (call-luna.cpp / call.c / wacallm)
-               {caption: $L("Telegram"), value: "com.palm.telegram"},
-               {caption: $L("WhatsApp"), value: "com.palm.whatsapp"},
                {caption: $L("Always Ask"), value: "none"}
 	       ]}
 		]}			   
@@ -34,11 +34,9 @@ enyo.kind({
 			]},
 			{kind: "Item", layoutKind: "HFlexLayout", align: "center", name: "preferredIntlCallServiceItem", components: [
 				{w: "fill", content: $L("Use"), className: "default-row"},
+				// Calling-account choices filled in dynamically from enabled PHONE accounts (onGotAccounts).
 				{kind: "ListSelector", value: "none", name: "preferredIntlCallServiceRow", onChange: "selectorChanged", items: [
 					{caption: $L("Bluetooth"), value: "com.palm.telephony"}, // value must match string in: CallSynergizer.TRANSPORTS.TIL
-					{caption: $L("Signal"), value: "com.palm.signal"},     // IM-calling transport = account templateId (call-luna.cpp / call.c / wacallm)
-					{caption: $L("Telegram"), value: "com.palm.telegram"},
-					{caption: $L("WhatsApp"), value: "com.palm.whatsapp"},
 					{caption: $L("Always Ask"), value: "none"}
 				]}
 			]}
@@ -66,9 +64,11 @@ enyo.kind({
 
 		this.accList = [];
         this._accountTemplates = undefined;
-		
+        this._savedDomestic = undefined;   // saved call-service prefs, applied after the dynamic
+        this._savedIntl = undefined;       // item list is built (see populateCallServiceSelectors)
+
 		this.showPreferredService();
-		this.$.serviceHint.setContent($L("Choose a default service for placing calls when a calling account (Signal, Telegram, WhatsApp, …) or a phone is connected to this device."));
+		this.$.serviceHint.setContent($L("Choose a default service for placing calls when a calling account or a phone is connected to this device."));
 
 		this.$.prefService.call({
 			"keys": ["phonePreferredIntlPhoneService", "phoneInternationalDialingActive", "phoneInternationalDialingRegionId", "phonePreferredDomesticPhoneService"]
@@ -168,28 +168,23 @@ enyo.kind({
 	//update user's preference on what to use to call
 	updateInternationalDialingSettings: function(inSender, payload) {
 		if (payload.returnValue) {
- 
-			if (payload.phonePreferredDomesticPhoneService !== undefined) {
-				if (this.$.domesticPrefCallServiceRow) {
-				   	this.$.domesticPrefCallService.setValue(payload.phonePreferredDomesticPhoneService);
-				}
-			} else {
-		       if (this.$.domesticPrefCallServiceRow) {
-					this.$.domesticPrefCallService.setValue("none"); // Default value must match what is used in preferredPhoneServiceResponse of TelephoneyStatusInterface
-		       }
-			}    
 
-			if ( payload.phonePreferredIntlPhoneService !== undefined ) {
-				if (this.$.preferredIntlCallServiceItem) {
-					this.$.preferredIntlCallServiceRow.setValue(payload.phonePreferredIntlPhoneService);
-				}
-			} else {
-				if (this.$.preferredIntlCallServiceItem) {
-					this.$.preferredIntlCallServiceRow.setValue("none"); // Default value must match what is used in preferredPhoneServiceResponse of TelephoneyStatusInterface
-				}
+			// Remember the saved choices so populateCallServiceSelectors can re-apply them after it
+			// (re)builds the dynamic item list, regardless of which async callback lands first.
+			// "none" default must match preferredPhoneServiceResponse of TelephonyStatusInterface.
+			this._savedDomestic = (payload.phonePreferredDomesticPhoneService !== undefined) ?
+				payload.phonePreferredDomesticPhoneService : "none";
+			if (this.$.domesticPrefCallServiceRow) {
+				this.$.domesticPrefCallService.setValue(this._savedDomestic);
 			}
-			
-			this.$.internationalDialingToggle.setState(payload.phoneInternationalDialingActive);  
+
+			this._savedIntl = (payload.phonePreferredIntlPhoneService !== undefined) ?
+				payload.phonePreferredIntlPhoneService : "none";
+			if (this.$.preferredIntlCallServiceItem) {
+				this.$.preferredIntlCallServiceRow.setValue(this._savedIntl);
+			}
+
+			this.$.internationalDialingToggle.setState(payload.phoneInternationalDialingActive);
 		}
 	},
 	
@@ -221,10 +216,49 @@ enyo.kind({
 	onGotAccounts: function(inSender, inResponse) {
         enyo.log("phoneAccountService::gotAccounts inResponse.accounts.length:"+JSON.stringify(inResponse.accounts.length));
         if (inResponse.templates) {
-			this._accountTemplates = inResponse.templates;			
+			this._accountTemplates = inResponse.templates;
 		}
-		this.showPreferredService(); 	
-	}, 
+		this.populateCallServiceSelectors(inResponse.accounts);
+		this.showPreferredService();
+	},
+
+	// Build the "Use" picker choices from the enabled PHONE-capable Synergy accounts (dynamic), instead
+	// of a hardcoded Signal/Telegram/WhatsApp list. Bluetooth (cellular) is always first and "Always Ask"
+	// last; each distinct calling account (by templateId) goes in between. The account list already comes
+	// filtered to capability:PHONE (getAccounts above), so a service only appears here if its Synergy
+	// connector's template declares a PHONE capability and an account for it exists on the device.
+	buildCallServiceItems: function(accounts) {
+		var items = [ {caption: $L("Bluetooth"), value: "com.palm.telephony"} ];
+		var seen = {};
+		if (accounts) {
+			for (var i = 0; i < accounts.length; i++) {
+				var acct = accounts[i];
+				if (acct && acct.templateId && acct.templateId !== "com.palm.palmprofile" && !seen[acct.templateId]) {
+					seen[acct.templateId] = true;
+					items.push({caption: (acct.loc_name || acct.name || acct.templateId), value: acct.templateId});
+				}
+			}
+		}
+		items.push({caption: $L("Always Ask"), value: "none"});
+		return items;
+	},
+
+	populateCallServiceSelectors: function(accounts) {
+		var items = this.buildCallServiceItems(accounts);
+		// setItems resets the selection, so re-apply the saved preference. It may not have loaded yet
+		// (async); if not, keep the current value and updateInternationalDialingSettings applies it later
+		// (on these now-correct items). Conversely if the pref loaded first, _savedDomestic/_savedIntl
+		// hold it and we restore it here.
+		var dom = this.$.domesticPrefCallService, intl = this.$.preferredIntlCallServiceRow;
+		if (dom) {
+			dom.setItems(items);
+			dom.setValue(this._savedDomestic !== undefined ? this._savedDomestic : dom.getValue());
+		}
+		if (intl) {
+			intl.setItems(items);
+			intl.setValue(this._savedIntl !== undefined ? this._savedIntl : intl.getValue());
+		}
+	},
 	
 	internationalDialingTap: function() {
 		var value = this.$.internationalDialingToggle.getState();
