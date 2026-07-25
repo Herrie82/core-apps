@@ -44,6 +44,13 @@ enyo.kind({
 		this._updateWithVoicemailCountFunc = enyo.hitch(this, "updateWithVoicemailCount")
 		enyo.application.VoicemailService.registerVoicemailCountQuery(this._updateWithVoicemailCountFunc);
 				
+		// Default to the PHONE (dialer) tab on launch. On a fresh launch windowParamsChangeHandler
+		// doesn't reach the app root, so nothing else selects a view and the Pane would otherwise
+		// come up on VIDEO (contactlookup). An active call, or an explicit launch scene, overrides
+		// this immediately after (both run later than create()).
+		if ( ! enyo.application.CallSynergizer.callExists() ) {
+			this.$.pane.selectViewByName("dialpad_card", true);
+		}
 		// Command menu should match current active view
 		this.$.menu.setValue(this.$.pane.getViewName());
 		this.$.vvmFirstLaunchPref.call();
@@ -116,17 +123,10 @@ enyo.kind({
 		if ( this.$[name].handleLaunch ) {
 			this.$[name].handleLaunch(params || {});
 		}
-		// if control doesn't exist, default to dialpad (eg contactlookup on phone)
+		// if the view isn't one of the tab-bar entries (activeCall, phonePrefs, firstlaunch, ...),
+		// highlight the PHONE tab rather than VIDEO — the dialer is the app's home.
 		if ( ! this.$.menu.fetchControlByValue(name) ) {
-			//name = "allcontactlookup"; // comment out for video discoverability
-			name = "contactlookup";
-			/*
-			 * comment out for video discoveribility
-			 if (name === "allcontactlookup"){
-				name = "dialpad_card"; 
-			} else {
-				name = "contactlookup";
-			}*/
+			name = "dialpad_card";
 		}
 		this.$.menu.setValue(name);
 	},

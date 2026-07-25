@@ -12,6 +12,7 @@ enyo.kind({
 		{name: "title", className: "enyo-dialog-prompt-title", style: "border-bottom: 0; text-align:center;", content: $L("International Call")},
 		{name: "message", className: "enyo-dialog-prompt-message", content: $L("Which service would you like to use?\n This preference can be set in Preferences & Accounts.")},
 		{name: "serviceProviderBtn", kind: "Button", caption: $L("Service Provider"), onclick: "serviceProviderClick"},
+		{name: "voipBtns"}, // container: one button per enabled PHONE-capable VoIP account (dynamic)
 		{kind: "Button", caption: $L("Cancel"), className: "enyo-button-negative", onclick: "cancelClick"},
 		{name: "networkStatusQuery", kind: enyo.PalmService, service: enyo.palmServices.telephony, subscribe: true, 
 			method: "networkStatusQuery", onSuccess: "updateNetworkname"},
@@ -45,7 +46,33 @@ enyo.kind({
 	            this.$.serviceProviderBtn.setContent(enyo.application.Cache.btDeviceName);
                 }
 
+		this.buildVoipButtons();
 		this.openAtCenter();
+	},
+	// Offer a button for each enabled PHONE-capable VoIP account (WhatsApp/Telegram/Signal/...), so the
+	// dial-time chooser can place the call over any of them - not just cellular/Bluetooth. Rebuilt on
+	// every open so it tracks account changes; the button dials via that account's own transport.
+	buildVoipButtons: function() {
+		this.$.voipBtns.destroyControls();
+		var transports = enyo.application.CallSynergizer.transports || {};
+		var til = enyo.application.CallSynergizer.TRANSPORTS.TIL;
+		for (var tid in transports) {
+			if (tid === til || tid === "com.palm.telephony" || tid === "com.palm.palmprofile") {
+				continue;
+			}
+			this.$.voipBtns.createComponent({
+				kind: "Button",
+				caption: enyo.application.Utils.callNetworkName(tid) || tid,
+				transportId: tid,
+				onclick: "voipServiceClick"
+			}, {owner: this});
+		}
+		this.$.voipBtns.render();
+	},
+	voipServiceClick: function(inSender) {
+		this.close();
+		this.callData.transport = inSender.transportId;
+		this.doServiceProviderSelected(this.callData);
 	},
 	serviceProviderClick: function() {
 		this.close();
