@@ -820,6 +820,20 @@ enyo.kind({
 	unregisterTransportsQuery: function(cb) {
 		this.$.transportsCallbacks.remove(cb);
 	},
+	// Return the IM contact-point types ("type_whatsapp", "type_telegram", "type_signal", ...) that map
+	// to a registered VoIP call transport - i.e. the serviceName of every enabled PHONE-capable account
+	// except cellular (TIL) and the palm profile. Drives the dialer's addressing filter and the per-contact
+	// call options dynamically, so ANY current/future messaging connector with PHONE capability is offered
+	// as a call option instead of the single hardcoded service. One agnostic place, no per-service code.
+	getCallableImTypes: function() {
+		var types = [];
+		for (var tid in this.transports) {
+			if ( tid === this.TRANSPORTS.TIL || tid === "com.palm.palmprofile" ) { continue; }
+			var sn = this.transports[tid] && this.transports[tid].serviceName;
+			if ( sn && types.indexOf(sn) === -1 ) { types.push(sn); }
+		}
+		return types;
+	},
 	// debounce: disallow a second dial call if received within 1.5 sec of first (and both calls pass 'debounce')
 	dial: function(address, video, audio, transport /*optional*/, personId /*optional*/, debounce /*optional*/, manualDial /*optional*/) {
 		// A dial can arrive with the IM serviceName ("type_telegram") instead of the account templateId

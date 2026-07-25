@@ -169,6 +169,9 @@ enyo.kind({
 		if (curVal.length === 0) {
 			this.$.addressinglist.cancelSearch();
 		}
+		// Offer a call row for every enabled PHONE-capable service (whatsapp/telegram/signal/...),
+		// not just the legacy hardcoded Skype type. Video stays Skype-only (gated in AddressingList).
+		this.$.addressinglist.imTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		this.$.addressinglist.search(curVal);
 		this.buddyAllContactsStatusDirty = false;
 	},	
@@ -177,14 +180,16 @@ enyo.kind({
 		if (!inSelected)
 			return; 
 		
-		if ( inSelected.address.type == "type_skype" ) {
-			transport = enyo.application.CallSynergizer.TRANSPORTS.SKYPE;
+		// IM contact-point (type_whatsapp/type_telegram/...) dials via its own transport; CallSynergizer.dial()
+		// translates the serviceName to the account templateId. Phone numbers leave the transport unset.
+		if ( inSelected.address.type && inSelected.address.type.indexOf("type_") === 0 ) {
+			transport = inSelected.address.type;
 		} else {
 			transport = undefined;
 		}
-		
+
 		enyo.application.CallSynergizer.dial(inSelected.address.value, undefined, undefined, transport, inSelected.person._id, true);
-	}, 
+	},
 	videoClicked: function(inSender, inSelected){
 		//currently only skype has video so we only take care skype
 		if (inSelected.address.type == "type_skype") {

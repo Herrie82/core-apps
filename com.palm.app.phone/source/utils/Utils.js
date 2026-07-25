@@ -931,7 +931,17 @@ Utils.canBeCalled = function(transport, address) {
 	enyo.require(transport, "no service passed to CallSynergyContact.canBeCalled");
 	enyo.require(address != undefined, "CallSynergyContact.canBeCalled requires an address");
 
-	return (transport == enyo.application.CallSynergizer.TRANSPORTS.TIL && address.match(/\d/)) || (transport == enyo.application.CallSynergizer.TRANSPORTS.VOIP);
+	// Cellular needs a dialable number; any enabled PHONE-capable VoIP transport
+	// (whatsapp/telegram/signal/...) can be called - matched by templateId or its serviceName (type_*).
+	if ( transport == enyo.application.CallSynergizer.TRANSPORTS.TIL ) {
+		return !!address.match(/\d/);
+	}
+	var t = enyo.application.CallSynergizer.transports || {};
+	if ( t[transport] ) { return true; }
+	for ( var tid in t ) {
+		if ( t[tid] && t[tid].serviceName === transport ) { return true; }
+	}
+	return false;
 };
 
 // returns true if transport and address can be messaged

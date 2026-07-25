@@ -17,6 +17,9 @@ enyo.kind({
 		this.showContacts();
 	},
 	showContacts: function() {
+		// Offer a call row for every enabled PHONE-capable service (whatsapp/telegram/signal/...),
+		// not just the legacy hardcoded Skype type. Empty list => only phone numbers are shown.
+		this.$.addressingList.imTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		this.$.addressingList.search(this.$.textInput.getValue(), false);
 	},
 	maybeShowDialButton: function(inSender) {
@@ -99,9 +102,12 @@ enyo.kind({
 		}
 	},
 	addressSelected: function(inSender, inSelected) {
+		// For an IM contact-point (type_whatsapp/type_telegram/...) dial via its own transport;
+		// CallSynergizer.dial() translates the serviceName to the account templateId. Phone numbers
+		// leave the transport unset so DialProxy/_guessTransport picks the right one.
 		var transport;
-		if ( inSelected.address.type == "type_skype" ) {
-			transport = enyo.application.CallSynergizer.TRANSPORTS.SKYPE;
+		if ( inSelected.address.type && inSelected.address.type.indexOf("type_") === 0 ) {
+			transport = inSelected.address.type;
 		} else {
 			transport = undefined;
 		}

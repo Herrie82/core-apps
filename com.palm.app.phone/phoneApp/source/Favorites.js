@@ -301,12 +301,15 @@ enyo.kind({
 			nPhoneIndex++;
         }
 
+		// Offer a call row for every IM whose service is an enabled PHONE-capable transport
+		// (whatsapp/telegram/signal/...), dialing via that IM's own transport.
 		var skypeIMs = [];
 		var len = inContact.ims.length;
+		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		for (var i = 0; i < len; i++) {
-			if (inContact.ims[i].type === "type_skype") {
+			if (callableTypes.indexOf(inContact.ims[i].type) !== -1) {
 				var ims = inContact.ims[i];
-				this.createPhoneSubItem(inContact, ims.value, DrawerSubItemAction.DialSkypeIms, ims.value, enyo.application.CallSynergizer.TRANSPORTS.SKYPE);
+				this.createPhoneSubItem(inContact, ims.value, DrawerSubItemAction.DialSkypeIms, ims.value, ims.type);
 				skypeIMs.push(ims);
 			}
 		}

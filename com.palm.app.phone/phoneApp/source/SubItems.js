@@ -267,7 +267,9 @@ enyo.kind({
 				enyo.application.CallSynergizer.dial(inData.rawPhoneNumber, undefined, undefined, undefined, inData.personId, true);
 				break;
 			case DrawerSubItemAction.DialSkypeIms:
-				enyo.application.CallSynergizer.dial(inData.rawPhoneNumber, undefined, undefined, enyo.application.CallSynergizer.TRANSPORTS.SKYPE, inData.personId, true);
+				// inData.transport carries the IM's own service (type_whatsapp/type_telegram/...);
+				// CallSynergizer.dial() translates that serviceName to the account templateId.
+				enyo.application.CallSynergizer.dial(inData.rawPhoneNumber, undefined, undefined, inData.transport, inData.personId, true);
 				break;
 			case DrawerSubItemAction.ChangeDefaultNumber:
 				enyo.application.UI.enter('favoritesadd', {person:inData.person});

@@ -446,12 +446,15 @@ enyo.kind({
 			var len = inPerson.ims.length;
 			if(nPhone == 0)
 				bShowSeparator1 = true;
+			// Offer a call row for every IM whose service is an enabled PHONE-capable transport
+			// (whatsapp/telegram/signal/...), dialing via that IM's own transport.
+			var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
 			for (var i = 0; i < len; i++) {
-				if (inPerson.ims[i].type === "type_skype") {
+				if (callableTypes.indexOf(inPerson.ims[i].type) !== -1) {
 					var ims = inPerson.ims[i];
-					this.createSubItem(undefined, ims.value, undefined, DrawerSubItemAction.DialSkypeIms, 
-						enyo.application.CallSynergizer.TRANSPORTS.VOIP, ims.value, inPerson._id, bShowSeparator1, true);
-						
+					this.createSubItem(undefined, ims.value, undefined, DrawerSubItemAction.DialSkypeIms,
+						ims.type, ims.value, inPerson._id, bShowSeparator1, true);
+
 					bShowSeparator1 = false;
 				}
 			}

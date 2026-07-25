@@ -180,8 +180,11 @@ enyo.addressing.formatAddress = function(inAddress, inContactType, inPerson) {
 	inAddress.label = enyo.addressing.fetchLabelFromType(inContactType, inAddress.type);
 	inAddress.displayName = inPerson.displayName || (inPerson && enyo.addressing.generateDisplayName(inPerson).displayName);
 	inAddress.addressType = inContactType;
-	// localize phone numbers if they are not remote.
-	if (inContactType == "phoneNumbers" && id != r) {
+	// localize phone numbers if they are not remote. VoIP IM contact-points (whatsapp/signal)
+	// carry a phone number as their value, so format those like phone numbers too.
+	var isNumericIm = inContactType == "ims" && enyo.application && enyo.application.Utils &&
+		enyo.application.Utils.isValidNumber && enyo.application.Utils.isValidNumber(inAddress.value);
+	if ( (inContactType == "phoneNumbers" || isNumericIm) && id != r ) {
 		inAddress.formattedValue = this.phoneFormatter.format(new enyo.g11n.PhoneNumber(inAddress.value));
 		//console.dir(inAddress.formattedValue);
 	} else {
