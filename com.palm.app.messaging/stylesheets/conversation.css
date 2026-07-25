@@ -334,6 +334,17 @@ Custom Balloon
 	border-radius: 8px;
 	border: 1px solid rgba(0,0,0,0.15);
 }
+/* webOS/old-WebKit: a touch-drag that starts on an <img> triggers the browser's native
+   image-drag gesture, which swallows the move events the List's drag-scroller needs - so the
+   thread won't scroll while your finger is on an image (or emoji/avatar). Disable native drag
+   (and text selection) on all conversation imagery so the drag always reaches the scroller.
+   Taps are unaffected, so tapping a remote image to open it still works. */
+.message-image,
+img.emoji,
+.contact-image {
+	-webkit-user-drag: none;
+	-webkit-user-select: none;
+}
 
 /*----------------------
   Message reactions (webOS cross-prpl): small emoji badges on the bubble, one per distinct
