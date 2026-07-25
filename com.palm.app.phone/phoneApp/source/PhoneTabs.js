@@ -44,21 +44,23 @@ enyo.kind({
 		this._updateWithVoicemailCountFunc = enyo.hitch(this, "updateWithVoicemailCount")
 		enyo.application.VoicemailService.registerVoicemailCountQuery(this._updateWithVoicemailCountFunc);
 				
+		this.$.vvmFirstLaunchPref.call();
+		this.tabsShowingChanged();
+
+		enyo.application.Cache.skypeBuddyCache = this.$.skypeBuddyCache;
+		enyo.application.Cache.favPersonsCache = this.$.favPersonsCache;
+		enyo.application.Cache.commandMenu = this.$.commandMenu;
+
 		// Default to the PHONE (dialer) tab on launch. On a fresh launch windowParamsChangeHandler
-		// doesn't reach the app root, so nothing else selects a view and the Pane would otherwise
-		// come up on VIDEO (contactlookup). An active call, or an explicit launch scene, overrides
-		// this immediately after (both run later than create()).
+		// doesn't reach the app root, so nothing else selects a view and the Pane would otherwise come
+		// up on VIDEO (contactlookup). Do this AFTER the caches above are set: instantiating the (lazy)
+		// Dialer view touches Cache.skypeBuddyCache, so selecting it earlier NPEs. An active call or an
+		// explicit launch scene overrides this right after (both run later than create()).
 		if ( ! enyo.application.CallSynergizer.callExists() ) {
 			this.$.pane.selectViewByName("dialpad_card", true);
 		}
 		// Command menu should match current active view
 		this.$.menu.setValue(this.$.pane.getViewName());
-		this.$.vvmFirstLaunchPref.call();
-		this.tabsShowingChanged();
-		
-		enyo.application.Cache.skypeBuddyCache = this.$.skypeBuddyCache;
-		enyo.application.Cache.favPersonsCache = this.$.favPersonsCache;
-		enyo.application.Cache.commandMenu = this.$.commandMenu;
 	},
 	destroy: function() {
 		enyo.log("destory ****************** PhoneTabs");
