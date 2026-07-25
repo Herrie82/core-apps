@@ -58,9 +58,19 @@ enyo.kind({
 		// explicit launch scene overrides this right after (both run later than create()).
 		if ( ! enyo.application.CallSynergizer.callExists() ) {
 			this.$.pane.selectViewByName("dialpad_card", true);
+			// A LunaSysMgr card restore re-selects the app's LAST scene ~100ms AFTER create() (via
+			// PhoneAppCard), so it can land on the VIDEO tab. Bounce back to the dialer once, on a slightly
+			// longer timeout so it runs after the restore. Only fires if we ended up on VIDEO, so tapping
+			// the VIDEO tab afterwards still works (this runs once, at launch).
+			setTimeout(enyo.hitch(this, "assertDialpadDefault"), 250);
 		}
 		// Command menu should match current active view
 		this.$.menu.setValue(this.$.pane.getViewName());
+	},
+	assertDialpadDefault: function() {
+		if ( ! enyo.application.CallSynergizer.callExists() && this.$.pane.getViewName() === "contactlookup" ) {
+			enyo.application.UI.enter("dialpad_card");
+		}
 	},
 	destroy: function() {
 		enyo.log("destory ****************** PhoneTabs");
