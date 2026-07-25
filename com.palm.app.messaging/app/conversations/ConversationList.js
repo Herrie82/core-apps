@@ -104,7 +104,7 @@ enyo.kind({
 				]},
 				{name: "sendButton", kind: "IconButton", icon: "images/menu-icon-send.png", onclick: "sendButtonClicked", className: "conversation-send-btn"}
 			]},
-		{name: "detailsDialog", kind: "com.palm.library.contactsui.detailsDialog", style: "height: 700px", onCancelClicked: "closeDetailsDialog", onEdit: "closeDetailsDialog", onDone :"closeDetailsDialog", onAddToNew: "closeDetailsDialog", onAddToExisting: "closeDetailsDialog", onBeforeOpen: "onBeforeOpenDetailsDialog"},
+		{name: "detailsDialog", kind: "com.palm.library.contactsui.detailsDialog", style: "max-height: 700px", onCancelClicked: "closeDetailsDialog", onEdit: "closeDetailsDialog", onDone :"closeDetailsDialog", onAddToNew: "closeDetailsDialog", onAddToExisting: "closeDetailsDialog", onBeforeOpen: "onBeforeOpenDetailsDialog"},
         {name: "deleteDialog",  kind: "PopupDialog", onAccept: "deleteConversation"},
 		{name: "deleteService", kind: "DeleteThreadService"},
 		{name: "blockDialog",   kind: "PopupDialog", onAccept: "blockSender"},
