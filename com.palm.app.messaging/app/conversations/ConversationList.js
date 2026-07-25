@@ -1197,7 +1197,14 @@ enyo.kind({
 		if (!netEmoji) { return; }
 		var inbox = (message.folder === enyo.messaging.message.FOLDERS.INBOX);
 		var me   = inbox ? (message.to && message.to[0] && message.to[0].addr) : (message.from && message.from.addr);
-		var peer = inbox ? (message.from && message.from.addr) : (message.to && message.to[0] && message.to[0].addr);
+		// The reaction targets the CONVERSATION the message lives in. For a 1:1 that is the peer
+		// person (from.addr on a received msg, to.addr on a sent one). For a GROUP/GUILD CHANNEL that
+		// is the CHANNEL, not a person - from/to.addr there is the sender/recipient, so the transport
+		// would route the reaction to the wrong place (Discord returns "Unknown Message" reacting in
+		// the wrong channel). Use the channel id (channelName) for groupchat messages.
+		var peer = (message.chatType === "groupchat" && message.channelName) ?
+			message.channelName :
+			(inbox ? (message.from && message.from.addr) : (message.to && message.to[0] && message.to[0].addr));
 		if (!me || !peer) { return; }
 		// The imcommand kind mirrors the message's immessage kind (e.g. com.palm.immessage.libpurple:1
 		// -> com.palm.imcommand.libpurple:1), so the right transport watches it. Derive it from the
@@ -1423,8 +1430,24 @@ enyo.kind({
 	// Show the header call buttons (video + voice) only for a 1:1 conversation.
 	updateVideoButton: function(){
 		var show = !!(this.chatThread && !this.chatThread.groupChatId);
+		// Video stays for every non-group chat (it uses a universal WebRTC join-link, not the transport).
 		if (this.$.videoCallButton) { this.$.videoCallButton.setShowing(show); }
-		if (this.$.phoneCallButton) { this.$.phoneCallButton.setShowing(show); }
+		// Voice call launches com.palm.app.phone with the conversation's transport, so only show it for
+		// phone-capable services (SMS/MMS + the phone-number/voice IM services WhatsApp, Signal, Telegram);
+		// hide it for username-only IM (Discord, Facebook, Teams, Google Chat, IRC, ...).
+		if (this.$.phoneCallButton) {
+			this.$.phoneCallButton.setShowing(show && this.serviceHasVoiceCapability(this.chatThread && this.chatThread.replyService));
+		}
+	},
+	// webOS: which conversation transports can place a voice call via the phone app. Data-driven -
+	// accountService reads the "voiceCall" flag off each service's MESSAGING capabilityProvider (plus
+	// cellular SMS/MMS), so the phone-capable set auto-extends when a connector declares it. Fallback
+	// (before accountService is ready) is cellular text only, never a hardcoded IM list.
+	serviceHasVoiceCapability: function(serviceName){
+		var as = enyo.application && enyo.application.accountService;
+		if (as && as.hasVoiceCapability) { return as.hasVoiceCapability(serviceName); }
+		var u = enyo.messaging.utils;
+		return !!(u && u.isTextMessage && u.isTextMessage(serviceName));
 	},
 	// Voice call: hand off to the Phone app's call flow for the current 1:1 peer.
 	voicecall: function(){
