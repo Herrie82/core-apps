@@ -162,6 +162,16 @@ Utils.PhoneNumberHasChar = function(number) {
 	return false; 
 }; 
 
+// Format an IM address for display. WhatsApp/Signal ids are +E.164 phone numbers, so format them like
+// a phone ("+31 6 2148 9831"); username-style ids (Telegram, Skype, ...) are shown unchanged.
+Utils.formatImAddress = function(value) {
+	var s = (value === undefined || value === null) ? "" : String(value).trim();
+	if (/^\+?[0-9][0-9 ().\-]{5,}$/.test(s)) {
+		return Utils.FormatPhoneNumber(s);
+	}
+	return s;
+};
+
 Utils.FormatPhoneNumber = function(number, isPartial) {
 	// return an empty string if passed something invalid
 	if (!number || number.length === 0 || typeof number !== "string") {

@@ -60,22 +60,26 @@ enyo.kind({
 	
 	imsChanged: function() {
 		if (this.ims) {
-			this.$.itemTextLbl.setContent(this.ims);
-			this.$.phTypeLbl.setContent(enyo.application.Utils.contactPointLabels["type_skype"][0]); // OK, since this is always a Skype ims
+			// webOS: an IM row is no longer always Skype. Format phone-shaped ids (WhatsApp/Signal are
+			// +E.164) and label the row by the IM's OWN service (this.service == type_whatsapp/... set
+			// from callOptionData.transport), falling back to the generic "IM" label.
+			this.$.itemTextLbl.setContent(enyo.application.Utils.formatImAddress(this.ims));
+			var lbl = enyo.addressing.fetchLabelFromType("ims", this.service) || enyo.addressing.fetchLabelFromType("ims", "type_default");
+			this.$.phTypeLbl.setContent(lbl);
 		}
 	},
-	
+
 	itemTextChanged: function() {
 		if (!this.phoneNumber && !this.ims) {
 			this.$.itemTextLbl.setContent(this.itemText);
 			this.$.phTypeLbl.setContent("");
 		}
 	},
-	
+
 	displaySMSIconChanged: function() {
 		this.$.smsIcon.setShowing(this.displaySMSIcon);
 	},
-	
+
 	mouseholdHandler: function(inSender, inEvent) {
 		this.setHeld(true);
 		this.stateChanged("held");
@@ -149,22 +153,24 @@ enyo.kind({
 	
 	imsChanged: function() {
 		if (this.ims) {
-			this.$.itemTextLbl.setContent(this.ims);
-			this.$.phTypeLbl.setContent(enyo.application.Utils.contactPointLabels["type_skype"][0]); // OK, since this is always a Skype ims
+			// webOS: label/format an IM row by its own service, not a hardcoded Skype (see DrawerSubItem).
+			this.$.itemTextLbl.setContent(enyo.application.Utils.formatImAddress(this.ims));
+			var lbl = enyo.addressing.fetchLabelFromType("ims", this.service) || enyo.addressing.fetchLabelFromType("ims", "type_default");
+			this.$.phTypeLbl.setContent(lbl);
 		}
 	},
-	
+
 	itemTextChanged: function() {
 		if (!this.phoneNumber && !this.ims) {
 			this.$.itemTextLbl.setContent(this.itemText);
 			this.$.phTypeLbl.setContent("");
 		}
 	},
-	
+
 	displaySMSIconChanged: function() {
 		this.$.smsIcon.setShowing(this.displaySMSIcon);
 	},
-	
+
 	onItemClick: function() {
 		this.onClicked(this);
 	},
@@ -208,8 +214,14 @@ enyo.kind({
 				addrData = this.callHistory.from;
 			}
 
-			// Can't always rely on personAddressType for Skype addresses, therefore hard-coding it here
-			this.$.itemPrefixTextLbl.setContent(addrData.service === enyo.application.CallSynergizer.TRANSPORTS.SKYPE ? enyo.application.Utils.getPhoneNumberType("type_skype") : enyo.application.Utils.getPhoneNumberType(addrData.personAddressType));
+			// webOS: a VoIP/IM call names its network (WhatsApp/Telegram/...) via callNetworkName; a
+			// cellular call keeps the number's own type (Mobile/Home/...). The old TRANSPORTS.SKYPE slot
+			// is gone, so branch on "is this a non-cellular transport" instead of hard-coding Skype.
+			var svc = addrData.service;
+			var isVoip = svc && svc !== enyo.application.CallSynergizer.TRANSPORTS.TIL && svc !== "com.palm.telephony";
+			this.$.itemPrefixTextLbl.setContent(isVoip
+				? enyo.application.Utils.callNetworkName(svc)
+				: enyo.application.Utils.getPhoneNumberType(addrData.personAddressType));
 			if (this.$.itemPrefixTextLbl.content.length > 0) {
 				this.$.itemPrefixTextLbl.setClassName("drawer-subItem-itemPrefixTextLbl");
 				this.$.itemTextLbl.setClassName("drawer-subItem-itemPartialAddrLbl");	
