@@ -53,6 +53,7 @@ enyo.kind({
 
 		//Service calls
 		{name: "prefService", kind: enyo.PalmService, service: enyo.palmServices.system},
+		{name: "appLauncher", kind: enyo.PalmService, service: enyo.palmServices.application, method: "launch"},
         {kind: "Accounts.getAccounts", name: "listAccounts", onGetAccounts_AccountsAvailable: "onGotAccounts"},
 		{name: "vvmFirstLaunchPref", kind:"PalmService", service: enyo.palmServices.system, params:{keys:["phoneAppShouldShowVoicemailFirstLaunch"]}, method:"getPreferences", onSuccess:"vvmFirstLaunchPrefResponse", onFailure:"genericFailure"},
 		{name: "mailboxQuery", kind: "DbService", method: "find", onSuccess: "mailboxQueryCallback", subscribe: true, reCallWatches: true},
@@ -144,14 +145,38 @@ enyo.kind({
 		}
 	},
 	
-        // User tapped on add account
+        // User tapped "Add account". A calling account is a Synergy account (WhatsApp/Telegram/Signal/...),
+        // which is set up in the Accounts app - open it rather than the in-Phone add UI so the whole
+        // account lifecycle (add/edit/remove) lives in one consistent place.
 	addAccountHandler: function () {
-         this.doAddAccount(this._accountTemplates);
+         this.$.appLauncher.call({id: "com.palm.app.accounts"});
 	},
 
-        // User tapped on account to edit
+        // User tapped on account to edit. These accounts are listed here because they're usable as VOIP
+        // call providers, but the account itself must be managed/removed from the Accounts app, not inside
+        // the Phone card (which is the legacy Skype-provider behaviour). Hand messaging connectors (any
+        // account that also has a MESSAGING capability) off to com.palm.app.accounts, deep-linked to the
+        // account; keep the in-Phone modify only for a pure telephony/VOIP-provider account.
         editAccount: function(inSender, inResults) {
+                var account = inResults && inResults.account;
+                if (this.isMessagingConnectorAccount(account)) {
+                        this.$.appLauncher.call({
+                                id: "com.palm.app.accounts",
+                                params: {launchType: "modifyAccount", accountId: account._id}
+                        });
+                        return;
+                }
                 this.doEditAccount(inSender, inResults);
+        },
+
+        // True if the account also carries a MESSAGING capability (a messaging connector that merely declares
+        // PHONE for calling), as opposed to a pure telephony/VOIP-provider account.
+        isMessagingConnectorAccount: function(account) {
+                var caps = (account && account.capabilityProviders) || [];
+                for (var i = 0; i < caps.length; i++) {
+                        if (caps[i].capability === "MESSAGING") return true;
+                }
+                return false;
         },
 
 	addVvmAccountHandler: function() {
