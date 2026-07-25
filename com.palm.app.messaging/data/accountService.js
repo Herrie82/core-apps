@@ -96,6 +96,26 @@ enyo.kind({
 		var acct = types && types[serviceName];
 		return (acct && acct.reactions) || null;
 	},
+	// Can this service place a voice call through the phone app? Cellular SMS/MMS always can. An IM
+	// service is voice-capable when its account template declares a PHONE capabilityProvider (as
+	// WhatsApp and Signal already do) - the canonical webOS way to say "this service can call". Read
+	// from the LIVE templates so any connector that adds a PHONE provider auto-extends the set with no
+	// code change. Used to gate the conversation phone button.
+	hasVoiceCapability: function(serviceName){
+		if (enyo.messaging.utils.isTextMessage(serviceName)) { return true; } // SMS/MMS (cellular)
+		var tmpls = this.getAccountTemplates();
+		if (tmpls) {
+			for (var i = 0, t; t = tmpls[i]; i++) {
+				var caps = (t && t.capabilityProviders) || [];
+				for (var j = 0, c; c = caps[j]; j++) {
+					if (c.capability === "PHONE" && (!c.serviceName || c.serviceName === serviceName)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	},
 	cleanAccount: function(account) {
 		id = account._id;
 		for (var i=0, c; c = account.capabilityProviders[i]; i++) {
