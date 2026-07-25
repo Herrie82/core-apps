@@ -438,6 +438,16 @@ enyo.messaging = {
 				if (t) { t.innerHTML = m.audioFmt(a.currentTime) + " / " + m.audioFmt(a.duration); }
 			} catch (e) {}
 		},
+		// An inline message <img> finished loading. The FlyweightDbList measured the row at text height
+		// before the (async) image had its real size, so the row is too short and a last-message image
+		// gets clipped / can't be scrolled to. Tell the active conversation list to re-measure and, if
+		// we're near the bottom, re-snap so the whole image is revealed. DOM-only fallback: nothing.
+		imageLoaded: function(a) {
+			try {
+				var cl = enyo.messaging.activeConversationList;
+				if (cl && cl.noteInlineImageLoaded) { cl.noteInlineImageLoaded(); }
+			} catch (e) {}
+		},
 		videoEnded: function(a) {
 			// Keep fullscreen open (if it was) but drop "playing" so the play button reappears - the
 			// user can replay or close with the X. Otherwise reset to the inline preview.

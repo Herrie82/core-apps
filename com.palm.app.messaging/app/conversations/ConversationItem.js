@@ -284,10 +284,11 @@ enyo.kind({
 	// Inline <img> for an image URL. Local file:// images render bare; remote ones stay tappable.
 	buildImageTag: function(url) {
 		var u = url.replace(/"/g, "%22");
+		var onload = ' onload="enyo.messaging.message.imageLoaded(this)"';
 		if (u.indexOf("file://") === 0) {
-			return '<br><img class="message-image" src="' + u + '"/>';
+			return '<br><img class="message-image" src="' + u + '"' + onload + '/>';
 		}
-		return '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"/></a>';
+		return '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"' + onload + '/></a>';
 	},
 	// A tappable attachment chip (audio/video/other). data-open carries the target; messageTapped()
 	// reads it and opens it in the associated app (see ConversationList.openAttachment).
@@ -360,7 +361,7 @@ enyo.kind({
 	buildLocalImageHtml: function(path) {
 		var url = (path.indexOf("file://") === 0) ? path : ("file://" + path);
 		url = url.replace(/"/g, "%22");
-		return '<br><img class="message-image" src="' + url + '"/>';
+		return '<br><img class="message-image" src="' + url + '" onload="enyo.messaging.message.imageLoaded(this)"/>';
 	},
 	// Tap on the message body. If an attachment chip OR a link (<a href>) was hit, open its target
 	// via the system handler and SWALLOW the tap. Critically, we cancel the native navigation:

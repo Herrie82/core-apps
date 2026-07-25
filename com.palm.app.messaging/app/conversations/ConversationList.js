@@ -118,12 +118,38 @@ enyo.kind({
 	],
 	create: function() {
 		this.inherited(arguments);
+		// Register as the active conversation list so inline-image onload callbacks (which run from raw
+		// HTML in the flyweight rows, outside any control) can reach us to re-measure after images load.
+		enyo.messaging.activeConversationList = this;
 		if (window.PalmSystem) {
 			this.$.systemPrefs.call ({keys: ["timeFormat"]});
 		}
 		if (enyo.application.telephonyWatcher) {
 			enyo.application.telephonyWatcher.register(this, this.connectionUpdated.bind(this));
 		}
+	},
+	destroy: function() {
+		if (enyo.messaging.activeConversationList === this) { enyo.messaging.activeConversationList = null; }
+		if (this._imgRelayoutTimer) { clearTimeout(this._imgRelayoutTimer); this._imgRelayoutTimer = null; }
+		this.inherited(arguments);
+	},
+	// An inline message image finished loading (see enyo.messaging.message.imageLoaded). The row was
+	// measured at text height before the image had its real size, so re-measure the list. Debounced so
+	// a burst of images triggers one relayout. Only snaps to the bottom if the user is already near it
+	// (so re-measuring never yanks someone who scrolled up to read history).
+	noteInlineImageLoaded: function() {
+		if (!this.$.list) { return; }
+		var self = this;
+		if (this._imgRelayoutTimer) { clearTimeout(this._imgRelayoutTimer); }
+		this._imgRelayoutTimer = setTimeout(function () {
+			self._imgRelayoutTimer = null;
+			if (!self.$.list || !self.$.list.$.scroll) { return; }
+			if (self.$.list.$.scroll.y < enyo.messaging.MAX_BOTTOM_HEIGHT_FOR_SNAP) {
+				self.$.list.punt();   // near bottom -> re-measure and reveal the now full-height image
+			} else {
+				self.$.list.reset();  // scrolled up -> re-measure rows but keep the reading position
+			}
+		}, 120);
 	},
 	connectionUpdated: function(connected) {
 		this.phoneConnected = connected;
