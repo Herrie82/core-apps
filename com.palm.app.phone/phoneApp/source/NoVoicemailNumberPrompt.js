@@ -55,9 +55,9 @@ enyo.kind({
 	messageChanged: function() {
 
                 if (enyo.application.isTablet == true) {
-                    if ((enyo.application.Cache.hasSkypeAcct) && (!enyo.application.Cache.hasPairedPhone)) {
+                    if ((enyo.application.Cache.hasVoipAcct) && (!enyo.application.Cache.hasPairedPhone)) {
 		        this.$.message.setContent($L("Skype Voicemail is not currently supported. Connect a phone to access your voicemails."));
-                    } else if ((!enyo.application.Cache.hasSkypeAcct) && (enyo.application.Cache.hasPairedPhone)) {
+                    } else if ((!enyo.application.Cache.hasVoipAcct) && (enyo.application.Cache.hasPairedPhone)) {
 		        this.$.message.setContent($L("Unable to find voicemail number"));
                     } else {
 		        this.$.message.setContent($L("Unable to find voicemail number"));

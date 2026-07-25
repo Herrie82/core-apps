@@ -138,7 +138,7 @@ enyo.kind({
 		this.$.launchVideo.call({id: "org.webosports.app.atlas", params: {target: "atlas-simple:" + url}});
 	},
 	updateContactLookupUI_dead: function(params) {
-		if (enyo.application.Cache.hasSkypeAcct === true) {
+		if (enyo.application.Cache.hasVoipAcct === true) {
 			//is skype account signed in?
 			this.$.controlNoSkype.hide(); 
 			enyo.log("debug: skype acct exist, status "+enyo.application.Cache.skypeStatus);

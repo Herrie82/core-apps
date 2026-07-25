@@ -16,7 +16,7 @@ enyo.kind({
 			enyo.application.UI.enter("activecall_card");
 		} else {
 			var phoneTabScene;
-		    	if(enyo.application.isTablet && !enyo.application.Cache.hasSkypeAcct && !enyo.application.Cache.hasPairedPhone) {
+		    	if(enyo.application.isTablet && !enyo.application.Cache.hasVoipAcct && !enyo.application.Cache.hasPairedPhone) {
 				phoneTabScene = 'firstlaunch_card';
 			} else if (enyo.application.isTablet && enyo.application.Cache.hasPairedPhone) {
 				phoneTabScene = 'dialpad_card';

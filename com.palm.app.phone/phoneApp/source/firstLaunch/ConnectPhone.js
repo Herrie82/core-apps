@@ -74,7 +74,7 @@ enyo.kind({
 					} else {
 					 	if (enyo.application.UI.getCurrentState() === 'firstlaunch_card') {
 							enyo.log("FL: Since we have already shown FL, transition to contacts if skype acct exist");
-							if (enyo.application.Cache.hasSkypeAcct === true) {
+							if (enyo.application.Cache.hasVoipAcct === true) {
 								enyo.application.UI.enter('contactlookup');
 							} else {
 								enyo.application.UI.enter('dialpad_card');
@@ -110,7 +110,7 @@ enyo.kind({
                 if (enyo.application.Cache.endFirstLaunch == false) {
 		    this.$.launchApp.launch();
                 } else {
-					if (enyo.application.Cache.hasSkypeAcct === true) {
+					if (enyo.application.Cache.hasVoipAcct === true) {
 						enyo.application.UI.enter('contactlookup');
 					} else {
 						enyo.application.UI.enter('dialpad_card');

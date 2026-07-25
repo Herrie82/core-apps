@@ -57,7 +57,7 @@ enyo.kind({
                         /* if we are also not connected to skype at this time, we need to launch
                          * the first launch screen for the user if in visible mode.
                          */
-                        if (enyo.application.Cache.hasSkypeAcct == false) {
+                        if (enyo.application.Cache.hasVoipAcct == false) {
 
                             var card = enyo.windows.fetchWindow("PhoneApp");                       
                             if (card && !card.hidden && !enyo.application.isCarded) {
@@ -124,7 +124,7 @@ enyo.kind({
                         /* if we are also not connected to skype at this time, we need to launch
                          * the first launch screen for the user if in visible mode.
                          */
-                        if (enyo.application.Cache.hasSkypeAcct == false) {
+                        if (enyo.application.Cache.hasVoipAcct == false) {
 
                             var card = enyo.windows.fetchWindow("PhoneApp");                       
                             if (card && !card.hidden && !enyo.application.isCarded) {

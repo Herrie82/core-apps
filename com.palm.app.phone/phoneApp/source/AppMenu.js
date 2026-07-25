@@ -155,7 +155,7 @@ enyo.kind({
                     this.$.soundsAndRingtones.setShowing(true);
 	            this.$.preferencesAndAccounts.setShowing(true);
 		    this.$.clearCallHistory.setShowing(bShowCallHistory);
-		    this.$.checkSkypeCredit.setShowing(enyo.application.Cache.hasSkypeAcct === true);
+		    this.$.checkSkypeCredit.setShowing(enyo.application.Cache.hasVoipAcct === true);
 		    if (isVoicemail) {
 			    var carrierName = enyo.application.VoicemailService.getCarrierName();
 			    if (carrierName == "verizon") {

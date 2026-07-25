@@ -7,7 +7,7 @@ enyo.kind({
 	
 	event_launch: function(params) {
 
-        enyo.log("start: has skype account " + enyo.application.Cache.hasSkypeAcct);
+        enyo.log("start: has skype account " + enyo.application.Cache.hasVoipAcct);
         enyo.log("start: has paired phone "  + enyo.application.Cache.hasPairedPhone);
 
         // sanity checks
@@ -15,16 +15,16 @@ enyo.kind({
             enyo.application.Cache.hasPairedPhone = false;
         }
 
-        if (enyo.application.Cache.hasSkypeAcct === undefined) {
-            enyo.application.Cache.hasSkypeAcct = false;
+        if (enyo.application.Cache.hasVoipAcct === undefined) {
+            enyo.application.Cache.hasVoipAcct = false;
         }
 
         // first launch or dial screen
-        if ((enyo.application.Cache.hasSkypeAcct == false) && (enyo.application.Cache.hasPairedPhone == false))
+        if ((enyo.application.Cache.hasVoipAcct == false) && (enyo.application.Cache.hasPairedPhone == false))
         {
 	    	enyo.application.UI.enter('firstlaunch_card', params);		    
 		} else {
-			if (enyo.application.Cache.hasPairedPhone === true && enyo.application.Cache.hasSkypeAcct === false) {	
+			if (enyo.application.Cache.hasPairedPhone === true && enyo.application.Cache.hasVoipAcct === false) {	
 				enyo.application.UI.enter('dialpad_card', params);		
 			}
 			else {

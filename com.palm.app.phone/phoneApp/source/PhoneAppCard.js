@@ -230,7 +230,7 @@ enyo.kind({
 	},
 	windowActivatedHandler: function() {
 		enyo.application.isCarded = false; 
-		if (enyo.application.Cache.hasSkypeAcct === false && !enyo.application.Cache.hasPairedPhone) {
+		if (enyo.application.Cache.hasVoipAcct === false && !enyo.application.Cache.hasPairedPhone) {
 			enyo.application.UI.enter('firstlaunch_card');
 		}
 		else {

@@ -119,7 +119,7 @@ enyo.kind({
 			this.dispatchPlatformTypeStatus();
 		//}
 
-		if (enyo.application.isTablet==true && enyo.application.Cache.hasSkypeAcct==true && enyo.application.Cache.hfenable==true && hfValue==false)
+		if (enyo.application.isTablet==true && enyo.application.Cache.hasVoipAcct==true && enyo.application.Cache.hfenable==true && hfValue==false)
 		{
 			//only show the outofrange popup when the phone app is the current app and user has a skype account.
                         // otherwise we should be transitioning to first launch screen from here.

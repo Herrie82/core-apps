@@ -1042,7 +1042,7 @@ enyo.log(enyo.json.stringify(response));
 enyo.log("nextState "+this.nextState);			
 enyo.log("nextView "+this.nextView);	
 		enyo.application.Cache.pinView = false;
-		if (enyo.application.Cache.hasPairedPhone === false && enyo.application.Cache.hasSkypeAcct ===false){
+		if (enyo.application.Cache.hasPairedPhone === false && enyo.application.Cache.hasVoipAcct ===false){
 			if (this.nextState === 'start' || (this.nextState === 'preferences_card' && !this.nextView)) {
 				enyo.application.UI.event("backtoState", {nextState: 'start'});
 			} else {
