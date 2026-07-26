@@ -769,6 +769,9 @@ enyo.kind({
 					"chatType",
 					"reactions",
 					"serviceMessageId",
+					"quotedText",
+					"quotedFrom",
+					"quotedMessageId",
 					"locked"
 				];
 			return this.$.conversationService.call({query: inQuery});
@@ -992,6 +995,17 @@ enyo.kind({
 			serviceName: selectedTransport.serviceName
 		};
 		
+		// Native reply: stamp structured quote metadata on the outgoing row from the message being replied
+		// to (captured by enterReply). quotedMessageId is the original's serviceMessageId ("<chatId>:<id>"
+		// for Telegram); the transport passes it to the prpl to set a real reply_to so OTHER clients thread
+		// the reply, and the fields render the local echo's inline quote card (buildQuote in ConversationItem).
+		if (this.replyToMessage) {
+			var qsrc = enyo.messaging.message.unescapeText(this.replyToMessage.messageText || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ");
+			params.quotedText = qsrc;
+			params.quotedFrom = (this.replyToMessage.from && this.replyToMessage.from.name) ? this.replyToMessage.from.name : "";
+			params.quotedMessageId = this.replyToMessage.serviceMessageId || "";
+		}
+
 		// For IM accounts, the account's username is set to our IM username so
 		// put that into the from address.
 		// This isn't the case for SMS, which uses the Palm Profile account.
@@ -1032,16 +1046,12 @@ enyo.kind({
 
 		this.sendMessageHelper(params, kind);
 	},
-	// The outgoing message body, quote-prefixed when replying (increment 1; native reply metadata to
-	// follow). Also used to decide "empty message" - a reply with no typed text still sends the quote.
+	// The outgoing message body. Native reply metadata (quotedText/quotedFrom/quotedMessageId, stamped
+	// on the outgoing row in sendMessage) now carries the quote, so we no longer fold "> ..." into the
+	// text: the local echo renders an inline quote card and the transport sets a real reply_to so other
+	// clients thread it too. Just return the typed body.
 	composeBodyText: function(){
-		var body = this.$.richText.getValue();
-		if (this.replyToMessage) {
-			var q = enyo.messaging.message.unescapeText(this.replyToMessage.messageText || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ");
-			if (q.length > 120) { q = q.substring(0, 120) + "…"; }
-			body = "> " + q + (body ? "\n" + body : "");
-		}
-		return body;
+		return this.$.richText.getValue();
 	},
 	sendMessageHelper: function(params, kind) {
 		params._kind = kind;
