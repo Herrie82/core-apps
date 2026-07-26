@@ -444,6 +444,22 @@ enyo.messaging = {
 		// we're near the bottom, re-snap so the whole image is revealed. DOM-only fallback: nothing.
 		imageLoaded: function(a) {
 			try {
+				// Old WebKit reserves the FULL aspect-ratio height for an <img> that CSS max-height caps,
+				// leaving phantom empty space below the painted image - a visible gap between an inline
+				// photo and the caption rendered under it. Compute the real displayed size (fit within the
+				// bubble width AND the 320px cap, preserving aspect ratio, never upscaling) and lock the
+				// element box to it in px so no phantom height remains. Runs before the row re-measure.
+				var maxH = 320; // keep in sync with .message-image max-height in stylesheets/conversation.css
+				var contW = (a && a.parentNode && a.parentNode.clientWidth) || (a && a.clientWidth) || 0;
+				if (a && contW > 10 && a.naturalWidth > 0 && a.naturalHeight > 0) {
+					var w = Math.min(contW, a.naturalWidth);
+					var h = w * a.naturalHeight / a.naturalWidth;
+					if (h > maxH) { h = maxH; w = h * a.naturalWidth / a.naturalHeight; }
+					a.style.width = Math.round(w) + "px";
+					a.style.height = Math.round(h) + "px";
+				}
+			} catch (e) {}
+			try {
 				var cl = enyo.messaging.activeConversationList;
 				if (cl && cl.noteInlineImageLoaded) { cl.noteInlineImageLoaded(); }
 			} catch (e) {}

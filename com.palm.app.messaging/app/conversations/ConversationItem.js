@@ -169,9 +169,22 @@ enyo.kind({
 		// Drop the matched media URLs from the displayed text (they're now an image/chip below).
 		inText = inText.replace(this.mediaUrlRe(), "").replace(/(?:\s|<br>)+$/g, "");
 		if (!skipTextIndexer) {
-			inText = enyo.string.runTextIndexer(inText);
+			inText = this.linkifyPreservingUrls(inText);
 		}
-		inText += imagesHtml + chipsHtml + localAttachmentHtml;
+		// Media on top, caption BELOW it (WhatsApp/native convention): render the image/chip first,
+		// then the remaining caption text directly under it. .message-image is display:block, so the
+		// caption naturally flows onto the next line with NO extra separator. The caption often keeps
+		// a LEADING <br> where the stripped media URL sat (the plugin sends "url\ncaption", and the
+		// \n becomes <br>) - strip that so there's no blank line between the image and the caption.
+		// Also strip the media's own leading <br> so the bubble doesn't open with a blank line.
+		var mediaHtml = imagesHtml + chipsHtml + localAttachmentHtml;
+		if (mediaHtml) {
+			// NB: the break can be <br>, <br/> or <br /> - the plugin sends "url\ncaption", purple's
+			// strdup_withhtml turns the \n into "<br />" AND leaves the \n, which updateMessageText's
+			// line-break pass then turns into a second <br>. Match all break spellings so BOTH go.
+			inText = inText.replace(/^(?:\s|<br\s*\/?>)+/i, "");
+			inText = (mediaHtml + inText).replace(/^(?:<br\s*\/?>)+/i, "");
+		}
 		// Render real Unicode emoji (😭 etc.) as inline images - no device font covers them,
 		// so otherwise they show as tofu rectangles. Runs last so it operates on the final
 		// HTML (after linkification) and messageText has allowHtml:true.
@@ -224,6 +237,46 @@ enyo.kind({
 				(counts[em] > 1 ? '<span class="reaction-count">' + counts[em] + '</span>' : '') + '</span>';
 		}
 		return '<div class="message-reactions">' + html + '</div>';
+	},
+	// Linkify body text WITHOUT letting a URL get torn apart. The native runTextIndexer
+	// (PalmSystem/LunaSysMgr) turns URLs, phone numbers and emails into links, but it also
+	// matches the long digit run inside a URL's query/fragment - e.g. the metronieuws.nl share
+	// link "...?utm_source=WhatsApp#Echobox=1785054101" - as a PHONE NUMBER, which splits the
+	// URL into a half-link plus a separate "phone" link that wraps to its own line. To prevent
+	// that we pull whole web URLs out first (swapping each for a private-use-char placeholder the
+	// indexer leaves alone - no digits, so its phone matcher can't touch it), run the indexer on
+	// what's left (real phone numbers/emails still linkify), then restore each URL as one <a>.
+	// The message tap handler opens any <a href> via doOpenAttachment, so a plain anchor is enough.
+	_webUrlRe: function() { return /(?:https?:\/\/|www\.)[^\s<>"']+/gi; },
+	// index -> placeholder using letters a-j for digits 0-9 (never digits, so the phone matcher
+	// can't grab the token), wrapped in private-use sentinels U+E000/U+E001.
+	_urlToken: function(i) {
+		var s = String(i), out = "";
+		for (var k = 0; k < s.length; k++) { out += String.fromCharCode(97 + (s.charCodeAt(k) - 48)); }
+		return "" + out + "";
+	},
+	linkifyPreservingUrls: function(inText) {
+		var urls = [], self = this;
+		var stashed = inText.replace(this._webUrlRe(), function(m) {
+			// Keep trailing sentence punctuation out of the link (., ), ] etc.).
+			var trail = "", mm = /[.,;:!?)\]]+$/.exec(m);
+			if (mm) { trail = mm[0]; m = m.slice(0, m.length - trail.length); }
+			var idx = urls.length;
+			urls.push(m);
+			return self._urlToken(idx) + trail;
+		});
+		var indexed = enyo.string.runTextIndexer(stashed);
+		// Restore each stashed URL as a single anchor. The captured text is already HTML-safe
+		// (& is &amp;: incoming text is pre-sanitized, outgoing was escapeHtml'd above) and the
+		// regex excludes < > " ' so it is safe inside both href="..." and the anchor body.
+		return indexed.replace(/([a-j]+)/g, function(tok, letters) {
+			var num = "";
+			for (var k = 0; k < letters.length; k++) { num += String.fromCharCode(48 + (letters.charCodeAt(k) - 97)); }
+			var u = urls[parseInt(num, 10)];
+			if (u === undefined) { return ""; }
+			var href = (u.indexOf("www.") === 0) ? ("http://" + u) : u;
+			return '<a href="' + href + '" target="_blank">' + u + '</a>';
+		});
 	},
 	// Media file extensions we recognise, by kind. Discord/Telegram URLs carry the real extension
 	// in the path (before the ?signed-params), so extension matching classifies them correctly.
