@@ -94,6 +94,10 @@ enyo.kind({
 				// send arrow on the RIGHT (restores the explicit Send button from webOS 2.2.x, Enter
 				// still sends). Both are bare transparent icons (no button box) - see conversation.css.
 				{name: "attachButton", kind: "IconButton", icon: "images/menu-icon-attach.png", onclick: "openAttachmentPicker", className: "conversation-attach-btn"},
+				// Voice message: hold-free toggle - tap to start recording (native mediaserver MediaCaptureV3
+				// -> clean 8kHz WAV), tap again to stop; the transport transcodes the WAV to an Ogg/Opus
+				// voice note on send. Only shown on IM transports that accept attachments.
+				{name: "micButton", kind: "IconButton", icon: "images/menu-icon-mic.png", onclick: "micButtonClicked", className: "conversation-mic-btn"},
 				/* Watch keyup because the default action of a key (printing/deleting a character)
 				 * is done before keyup, which means the input will have resized.
 				 * Watch keypress because pressing & holding a key generates
@@ -114,7 +118,11 @@ enyo.kind({
 		{name: "chatThreadWatch", kind: "DbService", dbKind: "com.palm.chatthread:1", method: "find", onSuccess: "gotChatThread", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "chatThraedFailure"},
 		// Attachment send: system file picker (images for now). onPickFile returns an array of
 		// {name, fullPath, ...}; attachmentChosen stages result[0] on this.outboundAttachment.
-		{name: "attachmentPicker", kind: "FilePicker", fileType: ["image"], onPickFile: "attachmentChosen"}
+		{name: "attachmentPicker", kind: "FilePicker", fileType: ["image"], onPickFile: "attachmentChosen"},
+		// Voice message: one-shot LS2 calls to the dynamic MediaCaptureV3 endpoint (load / startAudioCapture
+		// / stopAudioCapture). service+method are set per call. The captureV3 subscription itself is created
+		// dynamically per recording (see startVoiceNote) so it can be torn down to end the mediaserver session.
+		{name: "vnCmd", kind: "PalmService", onFailure: "vnCmdFailed"}
 	],
 	create: function() {
 		this.inherited(arguments);
@@ -941,6 +949,101 @@ enyo.kind({
 		}
 		return (path.indexOf("file://") === 0) ? path : ("file://" + path);
 	},
+	// ===== Voice messages ================================================================
+	// Record via the native mediaserver (MediaCaptureV3 "audio:" -> clean 8kHz WAV), then stage the WAV
+	// as the outbound attachment; the transport transcodes it to an Ogg/Opus voice note on send (see
+	// LibpurpleAdapter::sendFile / OpusEncoder). Tap the mic to start, tap again to stop.
+	micButtonClicked: function() {
+		if (this.vnRecording) { this.stopVoiceNote(); return; }
+		var t = transportPicker.getSelectedTransport();
+		if (t && enyo.messaging.utils.isTextMessage(t.serviceName)) {
+			enyo.warn("ConversationList.micButtonClicked: voice notes are only supported on IM transports");
+			return;
+		}
+		this.startVoiceNote();
+	},
+	startVoiceNote: function() {
+		if (this.vnRecording) { return; }
+		this.vnRecording = true;
+		this.vnEndpoint = null;
+		this.vnPath = "/media/internal/.im-attachments/voicenote_" + (new Date()).getTime() + ".wav";
+		this._vnUpdateUi(true);
+		this._vnStartTimer();
+		// Fresh capture session (subscription held open until we tear it down on stop).
+		this.vnSession = this.createComponent({
+			kind: "PalmService", service: "palm://com.palm.mediad/service/", method: "captureV3",
+			subscribe: true, onSuccess: "vnSessionReady", onFailure: "vnCmdFailed"
+		});
+		this.vnSession.call({});
+	},
+	vnSessionReady: function(inSender, inResponse) {
+		if (!this.vnRecording) { return; }
+		var loc = inResponse && inResponse.location;
+		if (!loc || this.vnEndpoint) { return; } // ignore repeat subscription updates
+		this.vnEndpoint = String(loc).replace(/\/+$/, "");
+		// Load the front mic, then start capturing to our WAV path (args are positional per the API).
+		this.$.vnCmd.call({ args: ["audio:", { deviceUri: "audio:" }] },
+			{ service: this.vnEndpoint + "/", method: "load", onSuccess: "vnLoaded" });
+	},
+	vnLoaded: function() {
+		if (!this.vnRecording || !this.vnEndpoint) { return; }
+		this.$.vnCmd.call({ args: [this.vnPath, { duration: 0, size: 0, mimetype: "audio/vnd.wave", samplerate: 8000, channels: 1, codecs: "1" }] },
+			{ service: this.vnEndpoint + "/", method: "startAudioCapture", onSuccess: "vnStarted" });
+	},
+	vnStarted: function() { /* recording; UI already reflects it */ },
+	stopVoiceNote: function() {
+		if (!this.vnRecording) { return; }
+		this.vnRecording = false;
+		this._vnStopTimer();
+		this._vnUpdateUi(false);
+		if (this.vnEndpoint) {
+			this.$.vnCmd.call({ args: [] },
+				{ service: this.vnEndpoint + "/", method: "stopAudioCapture", onSuccess: "vnStopped" });
+		} else {
+			this._vnCleanup(); // session never opened
+		}
+	},
+	vnStopped: function() {
+		this._vnCleanup(); // tearing down the captureV3 subscription lets the mediaserver finalize the WAV
+		// Stage the recording as the outbound attachment; the user presses Send to transmit it.
+		this.outboundAttachment = { path: this.vnPath, name: $L("Voice message"), type: "audio" };
+		this.$.attachmentChipLabel.setContent($L("Voice message"));
+		if (this.$.attachmentChipThumb.setSrc) { this.$.attachmentChipThumb.setSrc(""); }
+		this.$.attachmentChip.setShowing(true);
+	},
+	vnCmdFailed: function(inSender, inResponse) {
+		enyo.warn("ConversationList voice note LS2 failure: ", inResponse);
+		this.vnRecording = false;
+		this._vnStopTimer();
+		this._vnUpdateUi(false);
+		this._vnCleanup();
+	},
+	_vnCleanup: function() {
+		if (this.vnSession) { try { this.vnSession.destroy(); } catch (e) {} this.vnSession = null; }
+		this.vnEndpoint = null;
+	},
+	_vnUpdateUi: function(recording) {
+		if (this.$.micButton && this.$.micButton.addRemoveClass) {
+			this.$.micButton.addRemoveClass("recording", !!recording);
+		}
+		if (!recording && this.$.richText && this.$.richText.setHint) {
+			this.$.richText.setHint($L("Enter message here..."));
+		}
+	},
+	_vnStartTimer: function() {
+		this.vnStartMs = (new Date()).getTime();
+		var self = this;
+		this._vnTimer = window.setInterval(function() {
+			var s = Math.floor(((new Date()).getTime() - self.vnStartMs) / 1000);
+			if (self.$.richText && self.$.richText.setHint) {
+				self.$.richText.setHint($L("Recording… ") + s + "s");
+			}
+			if (s >= 300) { self.stopVoiceNote(); } // 5-minute safety cap
+		}, 500);
+	},
+	_vnStopTimer: function() {
+		if (this._vnTimer) { window.clearInterval(this._vnTimer); this._vnTimer = null; }
+	},
 	sendMessage: function() {
 		//safty net to clear unread count for current chat thread in case system crashes
 		if (this.chatThread && this.chatThread._id) {
@@ -1229,7 +1332,17 @@ enyo.kind({
 			fromUsername: me,
 			targetUsername: peer,
 			serviceName: message.serviceName,
-			params: { targetServiceMessageId: message.serviceMessageId, emoji: netEmoji, remove: !!remove }
+			// targetSender = the ORIGINAL message's sender (from.addr is the sender on a received msg
+			// AND ourselves on a sent msg, so it's correct both ways). The transport hands it to the
+			// backend so a reaction can be built even when the plugin's in-memory message cache has no
+			// entry for the target (after a transport restart/crash, or a message older than the cache).
+			// Without it whatsmeow has to GUESS the sender (wrong for your own 1:1 msgs and group msgs).
+			params: {
+				targetServiceMessageId: message.serviceMessageId,
+				emoji: netEmoji,
+				remove: !!remove,
+				targetSender: (message.from && message.from.addr) || ""
+			}
 		};
 		this.$.reactionCommand.call({objects: [cmd]});
 	},
