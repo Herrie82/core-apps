@@ -128,7 +128,12 @@ enyo.kind({
 			this.$.messageText.setContent(enyo.messaging.message.getMMSDisplayMessage());
 			return;
 		} else if (inMessage.folder === enyo.messaging.message.FOLDERS.INBOX) {
-			inText = inText.replace(/\r|\n|\\r|\\n/g, "<br>");
+			// purple's strdup_withhtml stores each newline as "<br />\n" - the tag AND the literal
+			// newline. Without dropping that trailing newline first, the pass below would convert it to
+			// a SECOND <br>, doubling every line break (a big gap in multi-line posts, e.g. link
+			// previews). So collapse a newline that directly follows a break tag, then convert any
+			// remaining (genuine) newlines to <br>.
+			inText = inText.replace(/(<br\s*\/?>)[\r\n]+/gi, "$1").replace(/\r|\n|\\r|\\n/g, "<br>");
 		} else if (inMessage.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
 			// outgoing message needs to be sanitized since the incoming ones
 			// are already sanitized before they are written into database.
