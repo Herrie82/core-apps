@@ -679,3 +679,30 @@ img.emoji {
 .reply-bar-close {
 	margin-left: 4px;
 }
+/* webOS replies: inline quoted-original card at the top of a reply bubble (ConversationItem.buildQuote).
+   Mirrors the composer .reply-bar accent look — an accent bar, a bold sender line, and dimmed text. */
+.reply-quote {
+	display: block;
+	margin: 0 0 4px 0;
+	padding: 2px 6px;
+	border-left: 3px solid #2f6fb3;
+	background-color: rgba(0, 0, 0, 0.06);
+	-webkit-border-radius: 2px;
+	border-radius: 2px;
+	max-height: 48px;
+	overflow: hidden;
+}
+.reply-quote-from {
+	display: block;
+	font-size: 12px;
+	font-weight: bold;
+	color: #2f6fb3;
+	line-height: 15px;
+}
+.reply-quote-text {
+	display: block;
+	font-size: 13px;
+	color: #444444;
+	line-height: 16px;
+	white-space: normal;
+}

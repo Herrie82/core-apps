@@ -162,7 +162,7 @@ enyo.kind({
 
 		// Pure-media message (body was only media URLs): show just the media, no text line.
 		if (media.length > 0 && this.isOnlyMedia(raw)) {
-			this.$.messageText.setContent(imagesHtml + chipsHtml + localAttachmentHtml + this.buildReactions(inMessage));
+			this.$.messageText.setContent(this.buildQuote(inMessage) + imagesHtml + chipsHtml + localAttachmentHtml + this.buildReactions(inMessage));
 			return;
 		}
 
@@ -175,7 +175,23 @@ enyo.kind({
 		// Render real Unicode emoji (😭 etc.) as inline images - no device font covers them,
 		// so otherwise they show as tofu rectangles. Runs last so it operates on the final
 		// HTML (after linkification) and messageText has allowHtml:true.
-		this.$.messageText.setContent(enyo.messaging.message.emojify(inText) + this.buildReactions(inMessage));
+		this.$.messageText.setContent(this.buildQuote(inMessage) + enyo.messaging.message.emojify(inText) + this.buildReactions(inMessage));
+	},
+	// webOS replies: render the structured quoted-original as an inline quote card ABOVE the reply body,
+	// instead of the raw "> ..."/HTML the networks fold into the text. quotedText/quotedFrom/quotedId are
+	// set on the immessage row by the transport from each prpl's native reply metadata (mirrors reactions).
+	// quotedId == the original message's serviceMessageId, so a tap can look it up (data-quoted-id).
+	// Returns "" when the message isn't a reply.
+	buildQuote: function(inMessage) {
+		var qt = inMessage && inMessage.quotedText;
+		if (!qt) { return ""; }
+		var safeText = enyo.string.escapeHtml(String(qt)).replace(/\r|\n|\\r|\\n/g, "<br>");
+		var from = inMessage.quotedFrom ? enyo.string.escapeHtml(String(inMessage.quotedFrom)) : "";
+		var idAttr = inMessage.quotedMessageId ?
+			' data-quoted-id="' + String(inMessage.quotedMessageId).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '"' : '';
+		return '<div class="reply-quote"' + idAttr + '>' +
+			(from ? '<span class="reply-quote-from">' + from + '</span>' : '') +
+			'<span class="reply-quote-text">' + enyo.messaging.message.emojify(safeText) + '</span></div>';
 	},
 	// webOS reactions: render the message's `reactions` array (merged onto the row by the transport's
 	// ReactionHandler) as small inline badges on the bubble - one per distinct emoji with a count,
