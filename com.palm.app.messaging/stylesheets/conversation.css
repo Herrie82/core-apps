@@ -118,8 +118,8 @@ RichText Bottom
 .attachment-chip {
 	display: -webkit-box;
 	-webkit-box-align: center;
-	padding: 6px 10px;
-	background-color: #e8edf2;
+	padding: 2px 10px;
+	background-color: #d3e2f0;
 	border-top: 1px solid rgba(0,0,0,0.12);
 	border-bottom: 1px solid rgba(0,0,0,0.12);
 }
@@ -130,6 +130,11 @@ RichText Bottom
 	border-radius: 4px;
 	background-size: cover;
 	background-position: center;
+}
+.attachment-chip-player {
+	-webkit-box-flex: 1;
+	box-flex: 1;
+	margin-right: 6px;
 }
 .attachment-chip-label {
 	-webkit-box-flex: 1;
@@ -166,17 +171,21 @@ RichText Bottom
 	background: transparent;
 	background-color: transparent;
 }
-/* Voice message: while recording, tint the mic red + gently pulse so it's clearly "live". */
+/* Voice message: while recording the mic icon is swapped to the RED variant (see setIcon in the JS).
+   No pulsing (too busy) - just a steady, muted red at half intensity. */
 .conversation-mic-btn.recording {
-	border-radius: 50%;
-	background-color: rgba(220, 40, 40, 0.85);
-	box-shadow: 0 0 6px 2px rgba(220, 40, 40, 0.6);
-	-webkit-animation: vn-mic-pulse 1s ease-in-out infinite;
+	opacity: 0.5;
 }
-@-webkit-keyframes vn-mic-pulse {
-	0%   { opacity: 1; }
-	50%  { opacity: 0.55; }
-	100% { opacity: 1; }
+/* Voice message: the elapsed-time readout shown while recording (right of the mic). Understated - the
+   normal text colour/weight, just enough to read the duration. */
+.conversation-vn-timer {
+	-webkit-align-self: center;
+	align-self: center;
+	color: #555;
+	font-size: 16px;
+	min-width: 40px;
+	text-align: center;
+	margin: 0 2px 4px 2px;
 }
 /* Paperclip sits just to the right of the absolutely-positioned 46px slide handle so it doesn't
    overlap it (the input's small left margin then follows the paperclip). */

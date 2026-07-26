@@ -80,6 +80,9 @@ enyo.kind({
 			{name: "attachmentChip", showing: false, className: "attachment-chip", components: [
 				{name: "attachmentChipThumb", kind: "Image", className: "attachment-chip-thumb"},
 				{name: "attachmentChipLabel", kind: "Control", className: "attachment-chip-label"},
+				// Voice message: an inline preview player (play/pause + progress) - same markup as a
+				// received voice note. Shown only for a staged recording (hidden for image attachments).
+				{name: "attachmentChipPlayer", kind: "Control", className: "attachment-chip-player", allowHtml: true, showing: false, onclick: "chipPlayerTapped"},
 				{name: "attachmentChipRemove", kind: "IconButton", icon: "images/icon-decline.png", onclick: "clearAttachment"}
 			]},
 			// Reply/quote bar: shown above the input while replying to a message; the X cancels reply mode.
@@ -98,6 +101,8 @@ enyo.kind({
 				// -> clean 8kHz WAV), tap again to stop; the transport transcodes the WAV to an Ogg/Opus
 				// voice note on send. Only shown on IM transports that accept attachments.
 				{name: "micButton", kind: "IconButton", icon: "images/menu-icon-mic.png", onclick: "micButtonClicked", className: "conversation-mic-btn"},
+				// Voice message: elapsed-time readout, shown only while recording.
+				{name: "vnTimer", kind: "Control", className: "conversation-vn-timer", content: "", showing: false},
 				/* Watch keyup because the default action of a key (printing/deleting a character)
 				 * is done before keyup, which means the input will have resized.
 				 * Watch keypress because pressing & holding a key generates
@@ -930,6 +935,9 @@ enyo.kind({
 			name: file.name,
 			type: file.attachmentType
 		};
+		// Image attachment: plain thumb + label, no audio preview player.
+		if (this.$.attachmentChipPlayer) { this.$.attachmentChipPlayer.setShowing(false); this.$.attachmentChipPlayer.setContent(""); }
+		this.$.attachmentChipLabel.setShowing(true);
 		this.$.attachmentChipLabel.setContent(file.name || file.fullPath);
 		// Preview the picked image inline in the chip (local path -> file URL).
 		if (this.$.attachmentChipThumb.setSrc) {
@@ -940,7 +948,43 @@ enyo.kind({
 	// Drop the staged attachment (decline icon on the chip).
 	clearAttachment: function() {
 		this.outboundAttachment = undefined;
+		// stop any voice-note preview that is playing, and tear the player down
+		if (this.$.attachmentChipPlayer) {
+			var n = this.$.attachmentChipPlayer.hasNode();
+			var au = n && n.getElementsByTagName ? n.getElementsByTagName("audio")[0] : null;
+			if (au) { try { au.pause(); } catch (e) {} }
+			this.$.attachmentChipPlayer.setShowing(false);
+			this.$.attachmentChipPlayer.setContent("");
+		}
+		if (this.$.attachmentChipLabel) { this.$.attachmentChipLabel.setShowing(true); }
 		this.$.attachmentChip.setShowing(false);
+	},
+	// Voice-note preview play/pause (the chip's inline player). Mirrors ConversationItem's audio-toggle:
+	// tap the button -> toggle the sibling <audio>; progress/time are driven by the global
+	// enyo.messaging.message.audioMeta/audioTime/audioEnded handlers on the <audio> element.
+	chipPlayerTapped: function(inSender, inEvent) {
+		var node = inEvent && (inEvent.target || (inEvent.domEvent && inEvent.domEvent.target));
+		var root = this.$.attachmentChipPlayer && this.$.attachmentChipPlayer.hasNode();
+		while (node && node !== root) {
+			if (node.getAttribute && node.getAttribute("data-audio-toggle")) {
+				var box = node.parentNode;
+				var audio = box && box.getElementsByTagName ? box.getElementsByTagName("audio")[0] : null;
+				if (audio) {
+					if (audio.paused) {
+						if (audio.ended || (audio.duration && audio.currentTime >= audio.duration - 0.15)) {
+							try { audio.currentTime = 0; } catch (e) {}
+						}
+						audio.play();
+						node.className = "msg-audio-btn playing";
+					} else {
+						audio.pause();
+						node.className = "msg-audio-btn";
+					}
+				}
+				return true;
+			}
+			node = node.parentNode;
+		}
 	},
 	// Build a file:// URL from an absolute device path for local <img> preview.
 	fileUrlFromPath: function(path) {
@@ -994,6 +1038,7 @@ enyo.kind({
 	stopVoiceNote: function() {
 		if (!this.vnRecording) { return; }
 		this.vnRecording = false;
+		this.vnDurationSec = this.vnStartMs ? Math.floor(((new Date()).getTime() - this.vnStartMs) / 1000) : 0;
 		this._vnStopTimer();
 		this._vnUpdateUi(false);
 		if (this.vnEndpoint) {
@@ -1005,10 +1050,31 @@ enyo.kind({
 	},
 	vnStopped: function() {
 		this._vnCleanup(); // tearing down the captureV3 subscription lets the mediaserver finalize the WAV
-		// Stage the recording as the outbound attachment; the user presses Send to transmit it.
-		this.outboundAttachment = { path: this.vnPath, name: $L("Voice message"), type: "audio" };
-		this.$.attachmentChipLabel.setContent($L("Voice message"));
-		if (this.$.attachmentChipThumb.setSrc) { this.$.attachmentChipThumb.setSrc(""); }
+		// Stage the recording as the outbound attachment; the user presses Send to transmit it. Show the
+		// recorded duration on the chip so it reads like "Voice message  0:12".
+		var label = $L("Voice message");
+		if (this.vnDurationSec > 0) { label += "  " + this._vnFmt(this.vnDurationSec); }
+		this.outboundAttachment = { path: this.vnPath, name: label, type: "audio" };
+		// Left of the chip: the music-notes glyph. Then an inline preview player (play/pause + progress),
+		// same markup + handlers as a received voice note (utils.js audioMeta/audioTime/audioEnded). The
+		// recording is a WAV -> type audio/wav. The plain label is hidden in favour of the player.
+		if (this.$.attachmentChipThumb.setSrc) { this.$.attachmentChipThumb.setSrc("images/voice-message-icon.png"); }
+		this.$.attachmentChipLabel.setShowing(false);
+		var url = this.fileUrlFromPath(this.vnPath);
+		this.$.attachmentChipPlayer.setContent(
+			'<div class="msg-audio-player">' +
+				'<div class="msg-audio-btn" data-audio-toggle="1"></div>' +
+				'<div class="msg-audio-body">' +
+					'<div class="msg-audio-track"><div class="msg-audio-fill"></div></div>' +
+					'<div class="msg-audio-time">' + this._vnFmt(this.vnDurationSec || 0) + '</div>' +
+				'</div>' +
+				'<audio class="msg-audio" preload="metadata"' +
+					' onloadedmetadata="enyo.messaging.message.audioMeta(this)"' +
+					' ontimeupdate="enyo.messaging.message.audioTime(this)"' +
+					' onended="enyo.messaging.message.audioEnded(this)">' +
+					'<source src="' + url + '" type="audio/wav"></source>' +
+				'</audio></div>');
+		this.$.attachmentChipPlayer.setShowing(true);
 		this.$.attachmentChip.setShowing(true);
 	},
 	vnCmdFailed: function(inSender, inResponse) {
@@ -1023,21 +1089,31 @@ enyo.kind({
 		this.vnEndpoint = null;
 	},
 	_vnUpdateUi: function(recording) {
-		if (this.$.micButton && this.$.micButton.addRemoveClass) {
-			this.$.micButton.addRemoveClass("recording", !!recording);
+		if (this.$.micButton) {
+			// swap to the RED mic while recording (and pulse it via the .recording class), back to the
+			// normal dark mic when idle.
+			if (this.$.micButton.setIcon) {
+				this.$.micButton.setIcon(recording ? "images/menu-icon-mic-rec.png" : "images/menu-icon-mic.png");
+			}
+			if (this.$.micButton.addRemoveClass) {
+				this.$.micButton.addRemoveClass("recording", !!recording);
+			}
 		}
-		if (!recording && this.$.richText && this.$.richText.setHint) {
-			this.$.richText.setHint($L("Enter message here..."));
+		if (this.$.vnTimer) {
+			if (recording) { this.$.vnTimer.setContent("0:00"); }
+			this.$.vnTimer.setShowing(!!recording);
 		}
+	},
+	_vnFmt: function(s) {
+		var mm = Math.floor(s / 60), ss = s % 60;
+		return mm + ":" + (ss < 10 ? "0" : "") + ss;
 	},
 	_vnStartTimer: function() {
 		this.vnStartMs = (new Date()).getTime();
 		var self = this;
 		this._vnTimer = window.setInterval(function() {
 			var s = Math.floor(((new Date()).getTime() - self.vnStartMs) / 1000);
-			if (self.$.richText && self.$.richText.setHint) {
-				self.$.richText.setHint($L("Recording… ") + s + "s");
-			}
+			if (self.$.vnTimer) { self.$.vnTimer.setContent(self._vnFmt(s)); }
 			if (s >= 300) { self.stopVoiceNote(); } // 5-minute safety cap
 		}, 500);
 	},
