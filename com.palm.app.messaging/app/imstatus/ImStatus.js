@@ -167,10 +167,17 @@ enyo.kind({
 	},
 	startLoginTimer: function() {
 		if (!this.loginTimer) {
-			// login will timeout after 1.5 minutes. this is really long, but intended to handle transports failing
+			// Fallback if an account is stuck genuinely CONNECTING (LOGGING_ON) for too long. This USED to
+			// force availability=OFFLINE on ALL accounts (saveAvailability has no where-clause), which both
+			// lied about accounts that were actually online / retrieving-buddies (showing "Offline" while
+			// messages still flowed) AND made the transport log them off - needsToLogoff() fires whenever
+			// availability=OFFLINE. Do NOT mutate the DB: just drop the spinner and re-render the real
+			// aggregated state. With retrieving-buddies now treated as online (see utils.js), this timer
+			// effectively only ever covers a genuinely stuck LOGGING_ON.
 			this.loginTimer = setTimeout(function() {
 				this.loginTimer = undefined;
-				this.saveAvailability(enyo.messaging.im.availability.OFFLINE);
+				this.showHideStatusSpinner(false);
+				this.fetchLoginStates();
 			}.bind(this), 90000);
 		}
 	},

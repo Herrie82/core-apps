@@ -106,15 +106,20 @@ enyo.messaging = {
 					state.identicalCustomMessages = false;
 				}
 				
-				if (transportState === this.TRANSPORT_STATE.ONLINE) {
-					// check for best login state
+				if (transportState === this.TRANSPORT_STATE.ONLINE || transportState === this.TRANSPORT_STATE.RETRIEVING_DATA) {
+					// webOS: RETRIEVING_DATA (retrieving-buddies) means the account is CONNECTED - messages
+					// already send/receive; it is only still syncing the buddy list, which is slow for large
+					// accounts (hundreds of contacts). Treat it as online for the status indicator so it shows
+					// the real availability ("Available") instead of being stuck on "Signing in..." for
+					// minutes (and then force-marked Offline by the 90s login timer in ImStatus) while the
+					// account is actually usable. Only LOGGING_ON/LOGGING_OUT below stay "pending".
 					if (loginState.availability < state.bestAvailability) {
 						state.bestAvailability = loginState.availability;
 					}
 				} else if (transportState === this.TRANSPORT_STATE.OFFLINE) {
 					state.hasOffline = true;
 				} else if (loginState.availability !== enyo.messaging.im.availability.OFFLINE) {
-					var pendingStates = [this.TRANSPORT_STATE.LOGGING_ON, this.TRANSPORT_STATE.LOGGING_OUT, this.TRANSPORT_STATE.RETRIEVING_DATA];
+					var pendingStates = [this.TRANSPORT_STATE.LOGGING_ON, this.TRANSPORT_STATE.LOGGING_OUT];
 					for (var j=0; j < pendingStates.length; j++) {
 						if (transportState === pendingStates[j]) {
 							state.hasPending = true;
