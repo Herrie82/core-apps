@@ -328,7 +328,14 @@ enyo.kind({
 		if (maxAgeMin < 0) {
 			return false;  // "All messages" -> age filter disabled
 		}
-		var ts = message.localTimestamp || message.timestamp;
+		// Age is measured from the message's ORIGINAL send time: `timestamp` (server time, unix
+		// SECONDS). localTimestamp is the device WRITE time, which during sync back-fill is ~now - so
+		// using it makes every back-filled message look fresh and defeats this filter (the "continuous
+		// pings while catching up on 100s of messages" bug). Prefer send time, normalized to ms; only
+		// fall back to the write time when there's no send time.
+		var ts = message.timestamp;
+		if (ts && ts < 1e12) { ts = ts * 1000; }  // unix seconds -> ms (guard if a ms value ever appears)
+		if (!ts) { ts = message.localTimestamp; }  // no send time -> device write time (already ms)
 		if (!ts) {
 			return false;  // no timestamp -> treat as current, notify
 		}
