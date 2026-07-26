@@ -34,6 +34,9 @@ enyo.kind({
 				{name: "messageText", allowHtml:true, onclick: "messageTapped"},
 				{layoutKind: "HLayout", components:[
 					{name: "messageTime", className: "message-time"},
+					// Delivery/read receipt tick for OUTGOING messages: single check = delivered,
+					// double check = read. Populated from message.deliveryStatus (see updateDeliveryStatus).
+					{name: "receiptIcon", kind: "Image", className: "message-receipt", showing: false},
 					{name: "errorIcon", kind: "Image", src: "images/header-warning-icon.png", className:"erroricon", onclick: "showError"}
 				]}	,
 					{name: "invitationButtons", layoutKind: "HLayout", className:"accept-decline-box", components: [
@@ -77,6 +80,7 @@ enyo.kind({
 		this.updateSentReceived(this.message.folder);
 		this.updateTime(this.message.localTimestamp);
 		this.updateMessageStatus(this.message.status, this.message.errorCategory);
+		this.updateDeliveryStatus(this.message.deliveryStatus, this.message.folder);
 		this.updateInvite(this.message);
 		this.updatePriority(this.message);
 	},
@@ -534,6 +538,21 @@ enyo.kind({
 		} else {
 			this.$.message.setClassName("enyo-item chat-balloon-system");
 			this.$.imageContainer.canGenerate = false; 
+		}
+	},
+	// Delivery/read receipt tick. Only OUTGOING messages get one: deliveryStatus "delivered" shows a
+	// single check, "read" a double check; anything else (incl. incoming) shows nothing. The transport's
+	// ReceiptHandler stamps deliveryStatus on the Outbox row from prpl receipts. Rows are flyweight-
+	// recycled, so this resets both ways.
+	updateDeliveryStatus: function(status, folder) {
+		var isOutgoing = folder === enyo.messaging.message.FOLDERS.OUTBOX;
+		if (isOutgoing && (status === "read" || status === "delivered")) {
+			this.$.receiptIcon.setSrc(status === "read" ? "images/msg-read.png" : "images/msg-delivered.png");
+			this.$.receiptIcon.canGenerate = true;
+			this.$.receiptIcon.show();
+		} else {
+			this.$.receiptIcon.canGenerate = false;
+			this.$.receiptIcon.hide();
 		}
 	},
 	updateInvite: function(message) {

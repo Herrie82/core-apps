@@ -785,6 +785,7 @@ enyo.kind({
 					"quotedText",
 					"quotedFrom",
 					"quotedMessageId",
+					"deliveryStatus",
 					"locked"
 				];
 			return this.$.conversationService.call({query: inQuery});

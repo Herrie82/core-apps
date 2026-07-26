@@ -296,6 +296,16 @@ Custom Balloon
 	font-size:12px;
 	padding-top:4px;
 }
+/* Delivery/read receipt tick for an outgoing message. Single check = delivered, double = read (see
+   ConversationItem.updateDeliveryStatus). Pinned to the bottom-right corner of the bubble (outgoing
+   bubbles are right-aligned); mutually exclusive with the error icon, so sharing that corner is fine.
+   Scaled by height; width follows the aspect ratio (single 31x23, double 45x23). */
+.message-receipt {
+	position:absolute;
+	bottom:5px;
+	right:6px;
+	height:13px;
+}
 /* Sender name atop an incoming group/channel message bubble (Telegram groups, Discord channels) */
 .chat-sender-name {
 	color: #2f6fb3;
