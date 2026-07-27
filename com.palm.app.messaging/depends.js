@@ -43,6 +43,7 @@ enyo.depends(
 	"app/dashboards/BannerThrottler.js",
 	"app/dashboards/Class0AlertManager.js",
 	"app/dashboards/DashboardManager.js",
+	"app/dashboards/FailedMessageDashboardManager.js",
 	"app/dashboards/InviteDashboardManager.js",
 	"app/dashboards/InviteWatcher.js",
 	"app/dashboards/MessageDashboardManager.js",

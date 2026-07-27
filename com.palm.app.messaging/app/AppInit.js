@@ -14,6 +14,8 @@ enyo.kind({
 		// set up notification managers
 		enyo.application.messageDashboardManager = new MessageDashboardManager();
 		enyo.application.inviteDashboardManager = new InviteDashboardManager();
+		// Notify + tap-to-resend for outgoing messages that couldn't be sent.
+		enyo.application.failedMessageDashboardManager = new FailedMessageDashboardManager();
 		enyo.application.class0AlertManager = new Class0AlertManager();
 		
 		// set up watchers
