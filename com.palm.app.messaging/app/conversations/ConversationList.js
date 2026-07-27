@@ -945,24 +945,18 @@ enyo.kind({
 		if (this.$.attachmentChipPlayer) { this.$.attachmentChipPlayer.setShowing(false); this.$.attachmentChipPlayer.setContent(""); }
 		this.$.attachmentChipLabel.setShowing(true);
 		this.$.attachmentChipLabel.setContent(file.name || file.fullPath);
-		// Thumb: preview an image inline (local path -> file URL); for video/documents use a type icon
-		// (loading a .mp4/.docx as an <img> src just shows a broken image). The picker now allows
-		// image/video/document (was image-only), so branch on attachmentType + extension.
+		// Thumb: preview an image inline (local path -> file URL, the actual picked photo); for video and
+		// documents use the stock FilePicker's own category icon (icn-videos / icn-documents) so the
+		// staged chip matches the "Select A File" picker the user just came from (loading a .mp4/.docx as
+		// an <img> src just shows a broken image). The picker allows image/video/document.
 		if (this.$.attachmentChipThumb.setSrc) {
-			var ext = (file.name || file.fullPath || "").split(".").pop().toLowerCase();
 			var thumb;
 			if (file.attachmentType === "image") {
 				thumb = this.fileUrlFromPath(file.fullPath);
 			} else if (file.attachmentType === "video") {
-				thumb = "images/video-icon-attach.png"; // single frame; video-icon.png is a 2-frame sprite
-			} else if (ext === "pdf") {
-				thumb = "images/attach-pdf.png";
-			} else if (ext === "ppt" || ext === "pptx") {
-				thumb = "images/attach-ppt.png";
-			} else if (ext === "xls" || ext === "xlsx") {
-				thumb = "images/attach-xls.png";
+				thumb = "images/icn-videos.png";
 			} else {
-				thumb = "images/attach-doc.png";
+				thumb = "images/icn-documents.png";
 			}
 			this.$.attachmentChipThumb.setSrc(thumb);
 		}
