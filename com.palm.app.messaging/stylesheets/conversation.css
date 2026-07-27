@@ -397,6 +397,12 @@ img.emoji,
 	white-space: nowrap;
 	z-index: 1;
 }
+/* On OUTGOING bubbles the delivery/read tick sits at the bottom-right corner (.message-receipt,
+ * right:6px, up to ~26px wide for the double check). Shift the reaction badges left of it so they
+ * don't overlap. Incoming bubbles have no tick, so they keep the edge (rule above). */
+.chat-balloon-sent .message-reactions {
+	right: 34px;
+}
 .reaction-badge {
 	display: inline-block;
 	margin: 0 0 0 3px;

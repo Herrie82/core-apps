@@ -551,12 +551,15 @@ enyo.kind({
 	// recycled, so this resets both ways.
 	updateDeliveryStatus: function(status, folder) {
 		var isOutgoing = folder === enyo.messaging.message.FOLDERS.OUTBOX;
+		// NOTE: only show()/hide() here - do NOT toggle canGenerate. The receiptIcon is generated up
+		// front (hidden via showing:false); flipping canGenerate on a flyweight-recycled row can leave
+		// the node ungenerated, so a later show() renders nothing - which is why a batch-applied status
+		// (e.g. a Telegram read/delivered watermark) showed on live-updated rows but not on freshly
+		// opened conversations.
 		if (isOutgoing && (status === "read" || status === "delivered")) {
 			this.$.receiptIcon.setSrc(status === "read" ? "images/msg-read.png" : "images/msg-delivered.png");
-			this.$.receiptIcon.canGenerate = true;
 			this.$.receiptIcon.show();
 		} else {
-			this.$.receiptIcon.canGenerate = false;
 			this.$.receiptIcon.hide();
 		}
 	},
