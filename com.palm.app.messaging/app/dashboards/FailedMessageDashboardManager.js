@@ -51,13 +51,29 @@ enyo.kind({
 		var seen = {}, out = [];
 		for (var i = 0; i < all.length; i++) {
 			var m = all[i];
-			if (!m || !m._id || seen[m._id] || !m.errorCategory) {
+			// Skip: dupes, non-errored (in-flight), and any the user already swiped away
+			// (failNotifyDismissed) so a dismissed notification doesn't resurface on UI restart.
+			if (!m || !m._id || seen[m._id] || !m.errorCategory || m.failNotifyDismissed) {
 				continue;
 			}
 			seen[m._id] = true;
 			out.push(m);
 		}
 		return out;
+	},
+	// Persist the user's dismissal on the message so it stays gone across UI/app restarts (the message
+	// is still status=failed, so without this the watch would re-show it). Cleared again on resend.
+	markDismissed: function(messages) {
+		var objs = [];
+		for (var i = 0; i < messages.length; i++) {
+			var m = messages[i];
+			if (m && m._id) {
+				objs.push({ _id: m._id, failNotifyDismissed: true });
+			}
+		}
+		if (objs.length > 0) {
+			this.$.resendMerge.call({ objects: objs });
+		}
 	},
 	reconcile: function() {
 		var failed = this.currentFailed();
@@ -95,10 +111,12 @@ enyo.kind({
 		return "";
 	},
 	render: function(failed) {
+		// Remember what's currently shown so a whole-dashboard close can persist the dismissal.
+		this.shownFailed = failed || [];
 		if (!failed || failed.length === 0) {
 			if (this.dashboard) {
 				this.dashboard.setLayers([]);
-				this.dashboardClose();
+				delete this.dashboard;
 			}
 			return;
 		}
@@ -111,7 +129,8 @@ enyo.kind({
 			db = this.createComponent({
 				name: "messaging-failed-dashboard", kind: "enyo.Dashboard",
 				smallIcon: "images/notification-small.png",
-				onIconTap: "tapResend", onMessageTap: "tapResend", onUserClose: "dashboardClose"
+				onIconTap: "tapResend", onMessageTap: "tapResend",
+				onLayerSwipe: "layerDismissed", onUserClose: "dashboardClose"
 			});
 			this.dashboard = db;
 		}
@@ -140,12 +159,25 @@ enyo.kind({
 	tapResend: function(inSender, layer, event) {
 		var m = layer && layer._message;
 		if (m && m._id) {
-			// Same as the in-thread "Send again": back to pending so the transport re-sends. The watch
-			// then drops it from the failed set and this layer clears on the next reconcile.
-			this.$.resendMerge.call({ objects: [{ _id: m._id, status: "pending", errorCategory: null, retryCount: 0 }] });
+			// Same as the in-thread "Send again": back to pending so the transport re-sends. Clear the
+			// dismissed flag so a fresh failure re-notifies. The watch then drops it from the failed set
+			// and this layer clears on the next reconcile.
+			this.$.resendMerge.call({ objects: [{ _id: m._id, status: "pending", errorCategory: null, retryCount: 0, failNotifyDismissed: false }] });
 		}
 	},
+	// A single layer was swiped away -> persist its dismissal so it doesn't come back on restart.
+	layerDismissed: function(inSender, layer, event) {
+		if (layer && layer._message) {
+			this.markDismissed([layer._message]);
+		}
+	},
+	// The whole notification was swiped/closed -> persist dismissal for every message it showed, so
+	// none of them (including ones that can't be resent) resurface on the next UI restart.
 	dashboardClose: function(inSender, event) {
+		if (this.shownFailed && this.shownFailed.length > 0) {
+			this.markDismissed(this.shownFailed);
+		}
+		this.shownFailed = [];
 		delete this.dashboard;
 	},
 	dbFail: function(inSender, error) {
