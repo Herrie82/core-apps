@@ -954,7 +954,7 @@ enyo.kind({
 			if (file.attachmentType === "image") {
 				thumb = this.fileUrlFromPath(file.fullPath);
 			} else if (file.attachmentType === "video") {
-				thumb = "images/video-icon.png";
+				thumb = "images/video-icon-attach.png"; // single frame; video-icon.png is a 2-frame sprite
 			} else if (ext === "pdf") {
 				thumb = "images/attach-pdf.png";
 			} else if (ext === "ppt" || ext === "pptx") {
