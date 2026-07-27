@@ -119,14 +119,22 @@ enyo.kind({
 	},
 	makeLayer: function(message) {
 		var layer = { _message: message, _messageCount: 1 };
+		// Clean layout like the inbox / email notification: icon + recipient (title) + message (text).
+		// The failure/resend affordance is the distinct warning icon; tapping the layer resends.
 		var name = enyo.messaging.message.stripEmojiForPlainText(this.nameFor(message));
-		layer._from = layer.title = name || $L("Message");
+		layer._from = layer.title = name || $L("Message not sent");
 		// Preview the body the same way the inbox notification does (strip html/emoji, summarize media).
-		var preview = enyo.messaging.message.summarizeMedia(
-			enyo.messaging.message.unescapeText(enyo.messaging.message.removeHtml(message.messageText || "")));
-		preview = enyo.messaging.message.stripEmojiForPlainText(preview).replace(/\r|\n|\\r|\\n/g, " ");
-		layer.text = $L("Couldn't send — tap to resend") + (preview ? (": " + preview) : "");
-		layer.icon = "images/notification-large-messaging.png";
+		var preview = enyo.messaging.message.stripEmojiForPlainText(enyo.messaging.message.summarizeMedia(
+			enyo.messaging.message.unescapeText(enyo.messaging.message.removeHtml(message.messageText || ""))))
+			.replace(/\r|\n|\\r|\\n/g, " ");
+		if (typeof preview === "string") { preview = preview.replace(/^\s+|\s+$/g, ""); }
+		// Attachment-only message (e.g. a voice note) has no body text -- label it by its media type.
+		if (!preview && message.filePath) {
+			preview = enyo.messaging.message.summarizeMedia(message.filePath);
+			if (!preview || preview.indexOf("/") !== -1) { preview = $L("Attachment"); }
+		}
+		layer.text = preview || $L("Attachment");
+		layer.icon = "images/notification-large-failed.png";
 		return layer;
 	},
 	tapResend: function(inSender, layer, event) {
