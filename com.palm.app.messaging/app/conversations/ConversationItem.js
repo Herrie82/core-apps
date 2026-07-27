@@ -425,10 +425,16 @@ enyo.kind({
 			// -> silent. An explicit <source type> fixes that: WebKit trusts the declared type, loads the
 			// bytes, and the media server typefinds the real codec regardless of the filename. WhatsApp
 			// voice notes are Opus-in-Ogg, so ".data" (and ogg/oga/opus) map to audio/ogg.
+			// NOTE the declared type must be one WebKit's supportsType gate ACCEPTS (canPlayType != "") or
+			// the <source> is rejected and the element stalls at "waiting" -- WebKit never hands it to the
+			// media server. On this device canPlayType("audio/mp4") == "" (BLOCKED) but "audio/aac" ==
+			// "maybe", so a Teams voice note (AAC-in-MP4, .m4a) MUST be declared audio/aac, not audio/mp4:
+			// WebKit then loads the bytes and the media server typefinds the real MP4/AAC and plays it.
+			// (Verified with a canPlayType probe in an app-context page: mp4=[] aac=[maybe] wav/ogg ok.)
 			var aext = this.urlExt(item.url).toLowerCase();
 			var atype = /^(?:ogg|oga|opus|data)$/.test(aext) ? "audio/ogg"
 				: /^(?:mp3)$/.test(aext) ? "audio/mpeg"
-				: /^(?:m4a|aac)$/.test(aext) ? "audio/mp4"
+				: /^(?:m4a|aac|mp4)$/.test(aext) ? "audio/aac"
 				: /^(?:wav)$/.test(aext) ? "audio/wav" : "audio/ogg";
 			return '<div class="msg-audio-player">' +
 				'<div class="msg-audio-btn" data-audio-toggle="1"></div>' +
