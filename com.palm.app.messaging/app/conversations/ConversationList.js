@@ -1050,7 +1050,17 @@ enyo.kind({
 		}
 	},
 	vnStopped: function() {
-		this._vnCleanup(); // tearing down the captureV3 subscription lets the mediaserver finalize the WAV
+		// Release the loaded mic device with `unload` BEFORE dropping the captureV3 subscription. The
+		// stock MediaCaptureProxyHelper does exactly this ("for unload also terminate the subscription");
+		// skipping unload leaks a mediaserver capture session per recording -> mediaserver runs out of
+		// file descriptors and SIGABRTs (the "mediaserver freaks out" crashes). unload also finalizes the
+		// WAV; we tear the subscription down in its callback (_vnCleanup) regardless of success/failure.
+		if (this.vnEndpoint) {
+			this.$.vnCmd.call({ args: [] },
+				{ service: this.vnEndpoint + "/", method: "unload", onSuccess: "_vnCleanup", onFailure: "_vnCleanup" });
+		} else {
+			this._vnCleanup();
+		}
 		// Stage the recording as the outbound attachment; the user presses Send to transmit it. Show the
 		// recorded duration on the chip so it reads like "Voice message  0:12".
 		var label = $L("Voice message");
@@ -1083,7 +1093,14 @@ enyo.kind({
 		this.vnRecording = false;
 		this._vnStopTimer();
 		this._vnUpdateUi(false);
-		this._vnCleanup();
+		// If the device got as far as `load`, release it (unload) before tearing the subscription down,
+		// so a failed recording doesn't leak a mediaserver capture session either.
+		if (this.vnEndpoint) {
+			this.$.vnCmd.call({ args: [] },
+				{ service: this.vnEndpoint + "/", method: "unload", onSuccess: "_vnCleanup", onFailure: "_vnCleanup" });
+		} else {
+			this._vnCleanup();
+		}
 	},
 	_vnCleanup: function() {
 		if (this.vnSession) { try { this.vnSession.destroy(); } catch (e) {} this.vnSession = null; }
