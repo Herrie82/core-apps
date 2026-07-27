@@ -99,7 +99,10 @@ enyo.kind({
 		//subscribe to skype availability status change
 		this.tempdbContacts = [];
 		this._updateBuddyStatusAddressing = enyo.hitch(this, "updateBuddyStatusAddressing");
-		enyo.application.Cache.skypeBuddyCache.registerBuddyStatus(this._updateBuddyStatusAddressing);
+		// webOS: Skype gone -> skypeBuddyCache may be absent; guard so this doesn't NPE (see Dialer.js).
+		if (enyo.application.Cache.skypeBuddyCache) {
+			enyo.application.Cache.skypeBuddyCache.registerBuddyStatus(this._updateBuddyStatusAddressing);
+		}
 		
 		//Get skype temp db contacts
 		//this.$.dbSkypeBuddiesVC.call();
