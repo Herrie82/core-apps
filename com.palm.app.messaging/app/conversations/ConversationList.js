@@ -1623,8 +1623,12 @@ enyo.kind({
 			}
 		}
 						
-    	this.$.errorDialog.openAtCenter();	
-    	
+    	this.$.errorDialog.openAtCenter();
+
+		// Reset the shared dialog's accept ("Send again") button, which a previous UNDELIVERABLE
+		// message would have hidden for good (no re-show otherwise) -- so retryable failures always
+		// offer the resend action.
+		this.$.errorDialog.showAcceptButton();
 		// provide a retry option for temporary failures but not permanent "undeliverable" failures
 		if (messageData.status === enyo.messaging.message.MESSAGE_STATUS.FAILED) {
 			if (messageData.folder === enyo.messaging.message.FOLDERS.OUTBOX) {

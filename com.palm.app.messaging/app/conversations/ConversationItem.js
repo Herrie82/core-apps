@@ -98,12 +98,15 @@ enyo.kind({
 		if (inStatus !== "successful") {
 			this.$.message.setClassName("enyo-item chat-balloon-error");
 		} 
+		// Show/hide the error (!) icon WITHOUT toggling canGenerate: on a recycled flyweight row a
+		// canGenerate=false leaves the node ungenerated, so a later show() renders nothing and tapping
+		// the ! does nothing after the first time (same trap as the receipt icon -- see
+		// updateDeliveryStatus). Keep the node generated; just show/hide it.
 		if(errorCategory && (inStatus === enyo.messaging.message.MESSAGE_STATUS.FAILED || inStatus === enyo.messaging.message.MESSAGE_STATUS.UNDELIVERABLE)){
-			this.$.errorIcon.canGenerate = true;
 			this.$.errorIcon.show();
 		}
 		else{
-			this.$.errorIcon.canGenerate = false;
+			this.$.errorIcon.hide();
 		}
 	},
 	// Show who sent an incoming group/channel message. The transport writes the sender's display

@@ -37,7 +37,12 @@ enyo.kind({
     },    
     hideAcceptButton: function() {
         this.$.acceptButton.hide();
-    },      
+    },
+    // The dialog is a shared singleton, so a prior hideAcceptButton() (e.g. an undeliverable message)
+    // would otherwise persist and swallow the "Send again" button on a later retryable failure.
+    showAcceptButton: function() {
+        this.$.acceptButton.show();
+    },
     hideCancelButton: function() {
         this.$.cancelButton.hide();
     },
