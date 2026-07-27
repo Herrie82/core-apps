@@ -130,6 +130,10 @@ RichText Bottom
 	border-radius: 4px;
 	background-size: cover;
 	background-position: center;
+	/* the thumb is an <img> (inline, sits on the text baseline) so its descender gap makes the icon
+	   read a few px too high in the box-aligned row; nudge it down to visually center it. */
+	position: relative;
+	top: 3px;
 }
 .attachment-chip-player {
 	-webkit-box-flex: 1;
