@@ -419,7 +419,12 @@ enyo.kind({
 					'<div class="msg-audio-track"><div class="msg-audio-fill"></div></div>' +
 					'<div class="msg-audio-time">0:00</div>' +
 				'</div>' +
-				'<audio class="msg-audio" preload="metadata"' +
+				// preload="none" (like the video player above): preload="metadata" spawns a
+				// media-pipeline process PER voice note on render, so a thread with several voice notes
+				// storms media-pipeline until it runs out of fds and SIGABRTs (media-pipeline/WebAppMgr
+				// crashes). With "none" the pipeline is only created when the user actually taps play;
+				// the duration fills in then (0:00 until first play), same trade-off the video makes.
+				'<audio class="msg-audio" preload="none"' +
 					' onloadedmetadata="enyo.messaging.message.audioMeta(this)"' +
 					' ontimeupdate="enyo.messaging.message.audioTime(this)"' +
 					' onended="enyo.messaging.message.audioEnded(this)">' +

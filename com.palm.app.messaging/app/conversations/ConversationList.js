@@ -1079,7 +1079,7 @@ enyo.kind({
 					'<div class="msg-audio-track"><div class="msg-audio-fill"></div></div>' +
 					'<div class="msg-audio-time">' + this._vnFmt(this.vnDurationSec || 0) + '</div>' +
 				'</div>' +
-				'<audio class="msg-audio" preload="metadata"' +
+				'<audio class="msg-audio" preload="none"' + // preload="none": don't spawn a media-pipeline until play (fd-leak safe)
 					' onloadedmetadata="enyo.messaging.message.audioMeta(this)"' +
 					' ontimeupdate="enyo.messaging.message.audioTime(this)"' +
 					' onended="enyo.messaging.message.audioEnded(this)">' +
