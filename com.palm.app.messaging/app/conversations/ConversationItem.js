@@ -292,11 +292,14 @@ enyo.kind({
 	_imageExt: "jpg|jpeg|png|gif|webp|bmp|avif",
 	_audioExt: "mp3|m4a|aac|ogg|oga|opus|flac|wav|wma|amr",
 	_videoExt: "mp4|m4v|mov|webm|ogv|wmv|3gp|mkv|ts",
+	// Documents: rendered as a typed icon chip (PDF/Word/Excel/PowerPoint) that opens in the associated
+	// app via the system resource handler. Otherwise they'd show as a raw "file:///...pdf" link.
+	_docExt: "pdf|doc|docx|xls|xlsx|ppt|pptx",
 	// A fresh global regex matching http(s)/file media URLs by extension (with optional query string),
 	// PLUS local ".data" files: WhatsApp voice notes arrive as "file://<hash>.data" (the gowhatsapp
 	// plugin does not always map the audio mimetype to an extension), so surface those as a chip too.
 	mediaUrlRe: function() {
-		var exts = this._imageExt + "|" + this._audioExt + "|" + this._videoExt;
+		var exts = this._imageExt + "|" + this._audioExt + "|" + this._videoExt + "|" + this._docExt;
 		return new RegExp(
 			"(?:https?|file):\\/\\/[^\\s<>\"']+?\\.(?:" + exts + ")(?:\\?[^\\s<>\"']*)?" +
 			"|file:\\/\\/[^\\s<>\"']+?\\.data(?:\\?[^\\s<>\"']*)?",
@@ -326,6 +329,12 @@ enyo.kind({
 		if (new RegExp("^(?:" + this._imageExt + ")$", "i").test(ext)) { return "image"; }
 		if (new RegExp("^(?:" + this._audioExt + ")$", "i").test(ext)) { return "audio"; }
 		if (new RegExp("^(?:" + this._videoExt + ")$", "i").test(ext)) { return "video"; }
+		// Documents get their own kind so the chip shows the right app icon (see the .msg-attachment-*
+		// CSS) and openAttachment routes them to their viewer.
+		if (ext === "pdf") { return "pdf"; }
+		if (ext === "doc" || ext === "docx") { return "doc"; }
+		if (ext === "xls" || ext === "xlsx") { return "xls"; }
+		if (ext === "ppt" || ext === "pptx") { return "ppt"; }
 		return "file";
 	},
 	urlExt: function(url) {
@@ -346,6 +355,12 @@ enyo.kind({
 		if (/^[0-9a-f]{16,}\.[a-z0-9]+$/i.test(name)) {
 			if (/\.(mp4|3gp|3gpp|mov|m4v|webm|mkv|avi)$/i.test(name)) { return $L("Video"); }
 			if (/\.(ogg|opus|mp3|m4a|aac|amr|wav|data)$/i.test(name)) { return $L("Voice message"); }
+			// Hash-named documents (e.g. a WhatsApp PDF "<hash>.pdf") have no real name, so label them by
+			// type instead of a generic "Attachment".
+			if (/\.pdf$/i.test(name)) { return $L("PDF document"); }
+			if (/\.docx?$/i.test(name)) { return $L("Word document"); }
+			if (/\.xlsx?$/i.test(name)) { return $L("Excel spreadsheet"); }
+			if (/\.pptx?$/i.test(name)) { return $L("PowerPoint presentation"); }
 			return $L("Attachment");
 		}
 		// Legacy: a bare "<hash>.data" WhatsApp voice note that isn't pure-hash-named.
@@ -364,7 +379,9 @@ enyo.kind({
 		var u = url.replace(/"/g, "%22");
 		var onload = ' onload="enyo.messaging.message.imageLoaded(this)"';
 		if (u.indexOf("file://") === 0) {
-			return '<br><img class="message-image" src="' + u + '"' + onload + '/>';
+			// data-open/data-kind make a tap open the image in the Photos app (messageTapped ->
+			// openAttachment), instead of doing nothing / opening the react row.
+			return '<br><img class="message-image" src="' + u + '"' + onload + ' data-open="' + u + '" data-kind="image"/>';
 		}
 		return '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"' + onload + '/></a>';
 	},
@@ -444,7 +461,7 @@ enyo.kind({
 	buildLocalImageHtml: function(path) {
 		var url = (path.indexOf("file://") === 0) ? path : ("file://" + path);
 		url = url.replace(/"/g, "%22");
-		return '<br><img class="message-image" src="' + url + '" onload="enyo.messaging.message.imageLoaded(this)"/>';
+		return '<br><img class="message-image" src="' + url + '" onload="enyo.messaging.message.imageLoaded(this)" data-open="' + url + '" data-kind="image"/>';
 	},
 	// Tap on the message body. If an attachment chip OR a link (<a href>) was hit, open its target
 	// via the system handler and SWALLOW the tap. Critically, we cancel the native navigation:

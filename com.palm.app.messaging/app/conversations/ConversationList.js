@@ -1325,11 +1325,31 @@ enyo.kind({
 	// lives on the luna bus and reads params.target); streams remote http(s) or plays local file://.
 	openAttachment: function(inSender, inEvent){
 		var target = inEvent && inEvent.target;
-		if (!target || !this.$.appLauncher) { return true; }
+		if (!target) { return true; }
+		var kind = (inEvent.kind || "").toLowerCase();
 		var title = target.split("?")[0].split("#")[0];
 		title = title.substring(title.lastIndexOf("/") + 1);
 		try { title = decodeURIComponent(title); } catch (e) {}
-		this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
+		// Audio/video play in the stock video player (Atlas media pipeline).
+		if ((kind === "audio" || kind === "video") && this.$.appLauncher) {
+			this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
+			return true;
+		}
+		// LOCAL documents: launch the registered viewer app directly with the file. applicationManager
+		// "open" browser-opens a file:// document (it lands in Atlas + its pdf.js, which is very slow),
+		// so we bypass it and launch the real app, which reads params.target/fileName: pdf -> Adobe
+		// Reader, Word/Excel/PowerPoint -> QuickOffice. ONLY for file:// though - Adobe/QuickOffice open
+		// LOCAL files, so a REMOTE doc URL (a Teams/OneDrive share link, which can't be downloaded) must
+		// fall through to the browser, where the user's signed-in session can open it (Office Online).
+		var docApp = { pdf: "com.quickoffice.ar", doc: "com.quickoffice.webos", xls: "com.quickoffice.webos", ppt: "com.quickoffice.webos" }[kind];
+		if (docApp && /^file:/i.test(target) && this.$.appLauncher) {
+			this.$.appLauncher.call({id: docApp, params: {target: target, fileName: title}});
+			return true;
+		}
+		// Images, remote docs (Teams/OneDrive), anything else: the system resource handler / browser.
+		if (this.$.launchApp) {
+			this.$.launchApp.call({ target: target });
+		}
 		return true;
 	},
 	// Short TAP on a message => open the quick reaction emoji row (was: the message menu, which now

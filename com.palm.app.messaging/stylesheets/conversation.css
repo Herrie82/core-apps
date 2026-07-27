@@ -526,6 +526,21 @@ img.emoji,
 	background-position: center;
 	background-size: 20px 20px;
 }
+/* documents (PDF / Word / Excel / PowerPoint): the app's own file-type icon on a transparent tile.
+   Tapping the chip opens the file in its viewer (see ConversationList.openAttachment). */
+.msg-attachment-pdf,
+.msg-attachment-doc,
+.msg-attachment-xls,
+.msg-attachment-ppt {
+	background-color: transparent;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: contain;
+}
+.msg-attachment-pdf { background-image: url(../images/attach-pdf.png); }
+.msg-attachment-doc { background-image: url(../images/attach-doc.png); }
+.msg-attachment-xls { background-image: url(../images/attach-xls.png); }
+.msg-attachment-ppt { background-image: url(../images/attach-ppt.png); }
 .msg-attachment-name {
 	-webkit-box-flex: 1;
 	overflow: hidden;

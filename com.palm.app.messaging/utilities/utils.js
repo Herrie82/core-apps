@@ -521,7 +521,7 @@ enyo.messaging = {
 		// the plain-text banner the emoji is then stripped by stripEmojiForPlainText, leaving the label.
 		summarizeMedia: function(text) {
 			if (!text) { return text; }
-			var re = /(?:https?|file):\/\/[^\s<>"']+?\.(jpg|jpeg|png|gif|webp|bmp|mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|mp4|m4v|mov|webm|mkv|3gp|data)(?:\?[^\s<>"']*)?/gi;
+			var re = /(?:https?|file):\/\/[^\s<>"']+?\.(jpg|jpeg|png|gif|webp|bmp|mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|mp4|m4v|mov|webm|mkv|3gp|data|pdf|doc|docx|xls|xlsx|ppt|pptx)(?:\?[^\s<>"']*)?/gi;
 			var m = re.exec(text);
 			if (!m) { return text; }
 			var stripped = text.replace(re, "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
@@ -530,6 +530,7 @@ enyo.messaging = {
 			if (/^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext)) { return "📷 " + $L("Photo"); }
 			if (/^(mp4|m4v|mov|webm|mkv|3gp)$/.test(ext)) { return "🎥 " + $L("Video"); }
 			if (/^(mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|data)$/.test(ext)) { return "🎤 " + $L("Voice message"); }
+			if (/^(pdf|docx?|xlsx?|pptx?)$/.test(ext)) { return "📄 " + $L("Document received"); }
 			return "📎 " + $L("Attachment");
 		}
 	},
