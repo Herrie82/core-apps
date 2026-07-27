@@ -1629,15 +1629,22 @@ enyo.kind({
 		// message would have hidden for good (no re-show otherwise) -- so retryable failures always
 		// offer the resend action.
 		this.$.errorDialog.showAcceptButton();
-		// provide a retry option for temporary failures but not permanent "undeliverable" failures
-		if (messageData.status === enyo.messaging.message.MESSAGE_STATUS.FAILED) {
+		// Offer a resend for any FAILED message AND for an IM "permanent-fail" (UNDELIVERABLE): an IM
+		// permanent-fail (e.g. SendIMErr_generic_error -- a Teams/WhatsApp/etc transport or network
+		// hiccup) is typically cleared by resending, unlike a true SMS/MMS undeliverable (bad number),
+		// which stays unretryable. IM = not the SMS/MMS kind.
+		var isSmsMms = (messageData._kind === enyo.messaging.message.SMS.dbKind ||
+		                messageData._kind === enyo.messaging.message.MMS.dbKind);
+		if (messageData.status === enyo.messaging.message.MESSAGE_STATUS.FAILED ||
+		    (!isSmsMms && messageData.status === enyo.messaging.message.MESSAGE_STATUS.UNDELIVERABLE)) {
 			if (messageData.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
 				this.$.errorDialog.setAcceptButtonCaption($L("Send again"));
 			// incoming MMS can also fail
 			} else if (messageData._kind === enyo.messaging.message.MMS.dbKind) {
 				this.$.errorDialog.setAcceptButtonCaption($L("Retry message fetch"));
-			} 
+			}
 		} else if (messageData.status === enyo.messaging.message.MESSAGE_STATUS.UNDELIVERABLE) {
+			// true SMS/MMS undeliverable (e.g. invalid number) -- resending won't help
 			this.$.errorDialog.hideAcceptButton();
 		}
 		
