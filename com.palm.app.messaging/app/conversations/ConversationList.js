@@ -879,9 +879,14 @@ enyo.kind({
 			};
 		}
 		if (this.forceSendIfOffline === false && enyo.messaging.utils.isTextMessage(selectedTransport.serviceName) === false &&
-			transportPicker.getBuddyAvailability(selectedTransport.serviceName, selectedTransport.caption) === enyo.messaging.im.availability.OFFLINE && 
+			transportPicker.getBuddyAvailability(selectedTransport.serviceName, selectedTransport.caption) === enyo.messaging.im.availability.OFFLINE &&
 			accountLoginState && accountLoginState.availability !== enyo.messaging.im.availability.OFFLINE && accountLoginState.state !== enyo.messaging.imLoginState.TRANSPORT_STATE.OFFLINE
-			&& !this.chatThread.groupChatId) {
+			&& !this.chatThread.groupChatId
+			// Skip the "recipient is offline" nag for a connector's auth pseudo-contact (e.g. the
+			// Telegram/Facebook login-code chat). It has no presence record so it always reads OFFLINE,
+			// which falsely triggered this dialog while replying with the 2FA code mid-login. See
+			// accountService.getAuthContacts / the template's MESSAGING "authContacts".
+			&& !enyo.application.accountService.isAuthContact(selectedTransport.serviceName, selectedTransport.caption)) {
             var template = new enyo.g11n.Template($L("#{name} is offline. What would you like to do?"));
             var dialogMessage = template.evaluate({name: selectedTransport.displayName}); 
             this.$.buddyOfflineDialog.openAtCenter();

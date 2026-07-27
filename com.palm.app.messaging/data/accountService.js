@@ -96,6 +96,36 @@ enyo.kind({
 		var acct = types && types[serviceName];
 		return (acct && acct.reactions) || null;
 	},
+	// Auth pseudo-contacts for a service: usernames of the non-buddy "contacts" a connector surfaces
+	// its interactive-login challenge through (e.g. Telegram's "Telegram" chat, Facebook/gometa's
+	// "Facebook" chat that collects the login/2FA code). Declared as the MESSAGING capabilityProvider's
+	// optional "authContacts" array in the LIVE account template. These pseudo-contacts have no presence
+	// record, so the "recipient is offline" send nag falsely fires on them mid-login - considerForSend
+	// uses this list to skip the nag for them. Returns [] when none declared.
+	getAuthContacts: function(serviceName){
+		var tmpls = this.getAccountTemplates();
+		if (tmpls) {
+			for (var i = 0, t; t = tmpls[i]; i++) {
+				var caps = t.capabilityProviders || [];
+				for (var j = 0, c; c = caps[j]; j++) {
+					if (c.capability === "MESSAGING" && c.serviceName === serviceName && c.authContacts) {
+						return c.authContacts;
+					}
+				}
+			}
+		}
+		return [];
+	},
+	// Is this address one of the service's auth pseudo-contacts (case-insensitive)? See getAuthContacts.
+	isAuthContact: function(serviceName, address){
+		if (!address) { return false; }
+		var list = this.getAuthContacts(serviceName);
+		var addr = ("" + address).toLowerCase();
+		for (var i = 0; i < list.length; i++) {
+			if (("" + list[i]).toLowerCase() === addr) { return true; }
+		}
+		return false;
+	},
 	// Can this service place a voice call through the phone app? Cellular SMS/MMS always can. An IM
 	// service is voice-capable when its account template declares a PHONE capabilityProvider (as
 	// WhatsApp and Signal already do) - the canonical webOS way to say "this service can call". Read
