@@ -123,7 +123,7 @@ enyo.kind({
 		{name: "chatThreadWatch", kind: "DbService", dbKind: "com.palm.chatthread:1", method: "find", onSuccess: "gotChatThread", subscribe: true, resubscribe: true, reCallWatches: true, onFailure: "chatThraedFailure"},
 		// Attachment send: system file picker (images for now). onPickFile returns an array of
 		// {name, fullPath, ...}; attachmentChosen stages result[0] on this.outboundAttachment.
-		{name: "attachmentPicker", kind: "FilePicker", fileType: ["image"], onPickFile: "attachmentChosen"},
+		{name: "attachmentPicker", kind: "FilePicker", fileType: ["image", "video", "document"], onPickFile: "attachmentChosen"},
 		// Voice message: one-shot LS2 calls to the dynamic MediaCaptureV3 endpoint (load / startAudioCapture
 		// / stopAudioCapture). service+method are set per call. The captureV3 subscription itself is created
 		// dynamically per recording (see startVoiceNote) so it can be torn down to end the mediaserver session.
@@ -941,13 +941,30 @@ enyo.kind({
 			name: file.name,
 			type: file.attachmentType
 		};
-		// Image attachment: plain thumb + label, no audio preview player.
+		// Picked-file chip: plain thumb + label, no audio preview player.
 		if (this.$.attachmentChipPlayer) { this.$.attachmentChipPlayer.setShowing(false); this.$.attachmentChipPlayer.setContent(""); }
 		this.$.attachmentChipLabel.setShowing(true);
 		this.$.attachmentChipLabel.setContent(file.name || file.fullPath);
-		// Preview the picked image inline in the chip (local path -> file URL).
+		// Thumb: preview an image inline (local path -> file URL); for video/documents use a type icon
+		// (loading a .mp4/.docx as an <img> src just shows a broken image). The picker now allows
+		// image/video/document (was image-only), so branch on attachmentType + extension.
 		if (this.$.attachmentChipThumb.setSrc) {
-			this.$.attachmentChipThumb.setSrc(this.fileUrlFromPath(file.fullPath));
+			var ext = (file.name || file.fullPath || "").split(".").pop().toLowerCase();
+			var thumb;
+			if (file.attachmentType === "image") {
+				thumb = this.fileUrlFromPath(file.fullPath);
+			} else if (file.attachmentType === "video") {
+				thumb = "images/video-icon.png";
+			} else if (ext === "pdf") {
+				thumb = "images/attach-pdf.png";
+			} else if (ext === "ppt" || ext === "pptx") {
+				thumb = "images/attach-ppt.png";
+			} else if (ext === "xls" || ext === "xlsx") {
+				thumb = "images/attach-xls.png";
+			} else {
+				thumb = "images/attach-doc.png";
+			}
+			this.$.attachmentChipThumb.setSrc(thumb);
 		}
 		this.$.attachmentChip.setShowing(true);
 	},
