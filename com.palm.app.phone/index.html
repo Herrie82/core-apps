@@ -187,10 +187,14 @@
 							return;
 						}
 						
-						// Only cellular (TIL) is a fixed transport. Any other service value - a legacy
-						// "type_skype"/"com.palm.skype.call", or "phone" from justtype, or a specific VoIP
-						// account - is left unset so CallSynergizer picks the right VoIP transport.
-                        if (params.service && params.service !== enyo.application.CallSynergizer.TRANSPORTS.TIL) {
+						// Only cellular (TIL) is a fixed transport. A real IM serviceName ("type_whatsapp"/
+						// "type_signal"/"type_telegram", which CallSynergizer.dial() translates to the matching
+						// VoIP call transport) MUST be preserved - there are now several VoIP transports, not just
+						// Skype, so clearing it would collapse every IM call onto the tablet's default (WhatsApp).
+						// Only genuinely legacy/unknown values ("phone", a dead "com.palm.skype.call") are cleared
+						// so CallSynergizer picks a default.
+                        if (params.service && params.service !== enyo.application.CallSynergizer.TRANSPORTS.TIL &&
+                            String(params.service).indexOf("type_") !== 0) {
                             params.service = undefined;
                         }
 						

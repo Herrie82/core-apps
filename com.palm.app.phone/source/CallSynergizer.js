@@ -937,6 +937,12 @@ enyo.kind({
 		if ( ! normalizedAddress ) {
 			normalizedAddress = address;
 		}
+		// IM transports (whatsapp/telegram/signal/...) get the raw dialpad string, which carries the
+		// display grouping ("+31 6 2148 9831"); the plugin needs a clean E.164. Strip formatting for any
+		// non-cellular transport when the address looks like a phone number (leave IM usernames/ids alone).
+		if ( transport !== this.TRANSPORTS.TIL && /^[\s()+\-.0-9]+$/.test(String(normalizedAddress)) ) {
+			normalizedAddress = String(normalizedAddress).replace(/[\s()\-.]/g, "");
+		}
 		enyo.log("normalizedAddress = " + normalizedAddress);
 
                 if ((this.TRANSPORTS.VOIP == transport) && (normalizedAddress[0] == '+')) {
