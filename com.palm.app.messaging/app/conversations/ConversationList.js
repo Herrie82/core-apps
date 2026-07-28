@@ -709,6 +709,9 @@ enyo.kind({
 		var selectedTransport = transportPicker.getSelectedTransport();
 		this.$.transportselector.setLabel(selectedTransport.label);
 		this.$.status.setClassName("status status-"+enyo.messaging.im.buddyAvailabilities[transportPicker.getBuddyAvailability(selectedTransport.serviceName, selectedTransport.caption)]);
+		// Re-evaluate the header call icons for the newly-selected service (e.g. show the phone icon when
+		// switching to WhatsApp, hide it for Facebook) - they were only set at conversation-open otherwise.
+		this.updateVideoButton();
 	},
 	rendered: function() {
 		var bottom, range;
@@ -1691,16 +1694,29 @@ enyo.kind({
 		this.$.blockService.blockPerson();
 		this.deleteConversation();
 	},
+	// webOS: the transport the user currently has selected in the header dropdown - what the call buttons
+	// and the compose bar act on. Falls back to the conversation's own reply service/address before the
+	// picker is populated (e.g. the first updateVideoButton() during setupNewChatThread). Kept in sync so
+	// switching service in the dropdown re-targets the phone icon AND the actual dial (transportChange
+	// re-runs updateVideoButton; voicecall reads this), instead of freezing on the open-time replyService.
+	currentCallTarget: function(){
+		var t = transportPicker.getSelectedTransport && transportPicker.getSelectedTransport();
+		return {
+			serviceName: (t && t.serviceName) || (this.chatThread && this.chatThread.replyService),
+			address:     (t && t.replyAddress) || (this.chatThread && this.chatThread.replyAddress)
+		};
+	},
 	// Show the header call buttons (video + voice) only for a 1:1 conversation.
 	updateVideoButton: function(){
 		var show = !!(this.chatThread && !this.chatThread.groupChatId);
 		// Video stays for every non-group chat (it uses a universal WebRTC join-link, not the transport).
 		if (this.$.videoCallButton) { this.$.videoCallButton.setShowing(show); }
-		// Voice call launches com.palm.app.phone with the conversation's transport, so only show it for
+		// Voice call launches com.palm.app.phone with the SELECTED transport, so only show it for
 		// phone-capable services (SMS/MMS + the phone-number/voice IM services WhatsApp, Signal, Telegram);
-		// hide it for username-only IM (Discord, Facebook, Teams, Google Chat, IRC, ...).
+		// hide it for username-only IM (Discord, Facebook, Teams, Google Chat, IRC, ...). Reads the current
+		// dropdown selection so switching service updates the icon (see transportChange -> updateVideoButton).
 		if (this.$.phoneCallButton) {
-			this.$.phoneCallButton.setShowing(show && this.serviceHasVoiceCapability(this.chatThread && this.chatThread.replyService));
+			this.$.phoneCallButton.setShowing(show && this.serviceHasVoiceCapability(this.currentCallTarget().serviceName));
 		}
 	},
 	// webOS: which conversation transports can place a voice call via the phone app. Data-driven -
@@ -1716,7 +1732,10 @@ enyo.kind({
 	// Voice call: hand off to the Phone app's call flow for the current 1:1 peer.
 	voicecall: function(){
 		if (!this.chatThread || this.chatThread.groupChatId) { return; }
-		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: this.chatThread.replyAddress, transport: this.chatThread.replyService, video: false}});
+		// Dial via the transport currently selected in the header dropdown (not the open-time replyService),
+		// so switching to WhatsApp and tapping the phone icon places a WhatsApp call rather than the original.
+		var target = this.currentCallTarget();
+		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: target.address, transport: target.serviceName, video: false}});
 	},
 	dial: function(inSender, inReplyAddress){
 		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: inReplyAddress, transport: "com.palm.skype.call", video: false}});
