@@ -448,6 +448,8 @@ enyo.messaging = {
 		// gets clipped / can't be scrolled to. Tell the active conversation list to re-measure and, if
 		// we're near the bottom, re-snap so the whole image is revealed. DOM-only fallback: nothing.
 		imageLoaded: function(a) {
+			var key = "";
+			try { key = (a && (a.getAttribute("data-open") || a.src)) || ""; } catch (e) {}
 			try {
 				// Old WebKit reserves the FULL aspect-ratio height for an <img> that CSS max-height caps,
 				// leaving phantom empty space below the painted image - a visible gap between an inline
@@ -460,13 +462,33 @@ enyo.messaging = {
 					var w = Math.min(contW, a.naturalWidth);
 					var h = w * a.naturalHeight / a.naturalWidth;
 					if (h > maxH) { h = maxH; w = h * a.naturalWidth / a.naturalHeight; }
-					a.style.width = Math.round(w) + "px";
-					a.style.height = Math.round(h) + "px";
+					w = Math.round(w); h = Math.round(h);
+					a.style.width = w + "px";
+					a.style.height = h + "px";
+					// Remember the locked size per image URL so buildImageTag can emit it directly on the
+					// NEXT flyweight render -> the measured row height matches the painted image (no phantom
+					// height, no residual gap). Without this the measurement node's fresh <img> reserves the
+					// phantom height again and the row settles taller than what's drawn.
+					if (key) {
+						if (!this._imgDims) { this._imgDims = {}; }
+						this._imgDims[key] = { w: w, h: h };
+					}
 				}
 			} catch (e) {}
 			try {
 				var cl = enyo.messaging.activeConversationList;
-				if (cl && cl.noteInlineImageLoaded) { cl.noteInlineImageLoaded(); }
+				if (cl && cl.noteInlineImageLoaded) {
+					// Re-measure only ONCE per image URL. punt()/reset() re-renders the flyweight row, which
+					// creates a fresh <img> whose onload fires AGAIN; without this guard imageLoaded ->
+					// relayout -> reload -> imageLoaded loops every ~120ms and the row jitters 1-2px forever
+					// (the reported "message keeps jumping in height"). One relayout is enough now that the
+					// locked size is baked into the row HTML above.
+					if (!cl._relaidOutImages) { cl._relaidOutImages = {}; }
+					if (!key || !cl._relaidOutImages[key]) {
+						if (key) { cl._relaidOutImages[key] = true; }
+						cl.noteInlineImageLoaded();
+					}
+				}
 			} catch (e) {}
 		},
 		videoEnded: function(a) {

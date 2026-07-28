@@ -381,12 +381,27 @@ enyo.kind({
 	buildImageTag: function(url) {
 		var u = url.replace(/"/g, "%22");
 		var onload = ' onload="enyo.messaging.message.imageLoaded(this)"';
+		var sz = this.imageSizeStyle(u);
 		if (u.indexOf("file://") === 0) {
 			// data-open/data-kind make a tap open the image in the Photos app (messageTapped ->
 			// openAttachment), instead of doing nothing / opening the react row.
-			return '<br><img class="message-image" src="' + u + '"' + onload + ' data-open="' + u + '" data-kind="image"/>';
+			return '<br><img class="message-image" src="' + u + '"' + sz + onload + ' data-open="' + u + '" data-kind="image"/>';
 		}
-		return '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"' + onload + '/></a>';
+		return '<br><a href="' + u + '" target="_blank"><img class="message-image" src="' + u + '"' + sz + onload + '/></a>';
+	},
+	// Inline size (px) for an image whose real dimensions imageLoaded already measured this session.
+	// Baking it into the row HTML makes the flyweight measure the row at the PAINTED height instead of
+	// old WebKit's phantom aspect-ratio height, so the re-measure settles immediately (no 1-2px jitter,
+	// no gap under the photo). Keyed by the same string imageLoaded stores (data-open / src == u).
+	imageSizeStyle: function(u) {
+		try {
+			var m = enyo.messaging.message;
+			var d = m && m._imgDims && m._imgDims[u];
+			if (d && d.w > 0 && d.h > 0) {
+				return ' style="width:' + d.w + 'px;height:' + d.h + 'px"';
+			}
+		} catch (e) {}
+		return '';
 	},
 	// A tappable attachment chip (audio/video/other). data-open carries the target; messageTapped()
 	// reads it and opens it in the associated app (see ConversationList.openAttachment).
@@ -470,7 +485,7 @@ enyo.kind({
 	buildLocalImageHtml: function(path) {
 		var url = (path.indexOf("file://") === 0) ? path : ("file://" + path);
 		url = url.replace(/"/g, "%22");
-		return '<br><img class="message-image" src="' + url + '" onload="enyo.messaging.message.imageLoaded(this)" data-open="' + url + '" data-kind="image"/>';
+		return '<br><img class="message-image" src="' + url + '"' + this.imageSizeStyle(url) + ' onload="enyo.messaging.message.imageLoaded(this)" data-open="' + url + '" data-kind="image"/>';
 	},
 	// Tap on the message body. If an attachment chip OR a link (<a href>) was hit, open its target
 	// via the system handler and SWALLOW the tap. Critically, we cancel the native navigation:
