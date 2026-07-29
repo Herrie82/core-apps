@@ -115,6 +115,14 @@
 .single-call-address {
 	font-size: 16px;
 	color: #ffffff;
+	/* A long IM address (e.g. a Signal UUID) used to wrap to two lines and shove the network label
+	 * ("SIGNAL") off the right edge (it rendered as "SIGN"). Keep the address on ONE line and let it
+	 * ellipsize, shrinking to leave room for the label, instead of pushing it out. */
+	-webkit-box-flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .single-call-label {
@@ -124,6 +132,10 @@
 
 	/* Space between contact-info and this label */
 	margin-left: 8px;
+
+	/* Never shrink or wrap the network name, so it stays fully visible ("SIGNAL", not "SIGN"). */
+	-webkit-box-flex: 0;
+	white-space: nowrap;
 }
 
 .single-call-hangup {
