@@ -366,17 +366,20 @@ Messaging.Utils = {
 			// TODO: Strip out '.'s from email addresses, trim whitespace,
 			normalizedAddress = normalizedAddress.toLowerCase();
 		}
-		// webOS WhatsApp: unify the address variants so an outgoing "+<phone>" and an incoming
-		// "<phone>@s.whatsapp.net" (and a bare "<phone>") thread to the SAME conversation instead
-		// of splitting. The opaque "<id>@lid" (a LinkedID with no phone) is left as-is.
+		// webOS WhatsApp: unify the address variants so an outgoing "+<phone>", an incoming
+		// "<phone>@s.whatsapp.net" and a bare "<phone>" all thread to the SAME conversation. We
+		// canonicalize to E.164 ("+<phone>") so the chatthread key MATCHES the contacts framework's
+		// im normalizedValue (IMAddress.normalizeIm keeps the "+"); that lets the thread link to its
+		// contact/person. The opaque "<id>@lid" (a LinkedID with no phone) is left as-is.
 		if (serviceName === "type_whatsapp") {
 			var waAddr = normalizedAddress.toLowerCase();
 			var waAt = waAddr.indexOf("@");
 			if (waAt !== -1 && waAddr.substring(waAt) === "@s.whatsapp.net") {
 				waAddr = waAddr.substring(0, waAt);
 			}
-			if (waAddr.charAt(0) === "+") {
-				waAddr = waAddr.substring(1);
+			// prefix "+" for a bare phone-number id (E.164); "+<phone>" and opaque @-ids are left as-is
+			if (waAddr.charAt(0) !== "+" && waAddr.indexOf("@") === -1 && (/^[0-9]+$/).test(waAddr)) {
+				waAddr = "+" + waAddr;
 			}
 			normalizedAddress = waAddr;
 		}
