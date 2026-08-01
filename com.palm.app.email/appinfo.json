@@ -1,6 +1,6 @@
 {
     "id"             : "com.palm.app.email",
-    "version"        : "3.0.13802",
+    "version"        : "3.0.13801",
     "vendor"         : "HP",
     "type"           : "web",
     "main"           : "index.html",

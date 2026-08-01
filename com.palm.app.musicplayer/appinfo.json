@@ -1,6 +1,6 @@
 {
 	"id": "com.palm.app.musicplayer",
-	"version": "3.0.8001",
+	"version": "3.0.8000",
 	"vendor": "HP",
 	"type": "web",
 	"main": "index.html",
