@@ -69,20 +69,68 @@ enyo.kind({
 		enyo.job.stop("videoFadeOut");
 		this.$.contact.$.disableVideoButton.updateState(false);
 		this._isActive = false;
-		this.videoURI = undefined;	
+		this.videoURI = undefined;
+		this._incomingVideoRefreshed = false;
+		if (this._incomingVideoWatchTimer) {
+			window.clearInterval(this._incomingVideoWatchTimer);
+			this._incomingVideoWatchTimer = undefined;
+		}
 		if(enyo.application.isTablet && enyo.application.Cache.commandMenu) {
 			enyo.application.Cache.commandMenu.setShowing(true);
 		}
 	},
+	// The native <video> tag's one-shot play() can fire before the peer's incoming stream
+	// is actually live (videoURI populates asynchronously, sometimes several seconds after
+	// the scene activates), and retriggering it only works via ActiveCall.js's payload-push
+	// -driven check - which only runs when a NEW callStateQuery push arrives. A call can go
+	// quiet (no further pushes) for a long time once nothing else changes, so relying on
+	// catching the exact right push is fragile. Poll instead, independent of push timing -
+	// cheap (a few property reads) and self-stopping once it's done its one job.
+	startIncomingVideoWatch: function() {
+		if (this._incomingVideoWatchTimer) return;
+		this._incomingVideoWatchTimer = window.setInterval(enyo.hitch(this, function() {
+			if (this._incomingVideoRefreshed) {
+				window.clearInterval(this._incomingVideoWatchTimer);
+				this._incomingVideoWatchTimer = undefined;
+				return;
+			}
+			if (this.call && this.call.videoURI && this.line && this.line.incomingVideoState === "streaming") {
+				this._incomingVideoRefreshed = true;
+				this.refreshVideo();
+				window.clearInterval(this._incomingVideoWatchTimer);
+				this._incomingVideoWatchTimer = undefined;
+			}
+		}), 1500);
+	},
 	lineChanged: function() {
+		// This component is lazy:true - created once and reused across separate calls
+		// within the same Phone app session, not destroyed/recreated per call. Reset the
+		// one-shot incoming-video-refresh guard (and force a fresh enableVideo cycle) the
+		// moment we see a genuinely different call, otherwise a flag left over from an
+		// earlier call permanently blocks the refresh for every call after the first.
+		var newCallId = this.line.calls[0] && this.line.calls[0].id;
+		if (this._lastCallId !== undefined && this._lastCallId !== newCallId) {
+			this._incomingVideoRefreshed = false;
+			this.videoURI = undefined;
+		}
+		this._lastCallId = newCallId;
+
 		this.call = this.line.calls[0];
-				
-		var capabilities = enyo.application.CallSynergizer.transports[this.line.calls[0].transport];		
+		this.startIncomingVideoWatch();
+
+		var capabilities = enyo.application.CallSynergizer.transports[this.line.calls[0].transport];
 		
 		if(enyo.application.Cache.commandMenu) {
 			enyo.application.Cache.commandMenu.setShowing(false);
 		}
-		if ( ! this.videoURI ) {
+		// Only actually call enableVideo() once we have a real clonk URI. videoURI is
+		// populated asynchronously and can lag several seconds behind the scene first
+		// activating - calling enableVideo("") that early sets this.videoURI to "" (still
+		// falsy, so this gate alone wouldn't re-skip next time), but also calls .load()/
+		// .play() on the native <video> tag with nothing to play, which empirically seems
+		// to leave it in a state a later .load()/.play() with a real src doesn't recover
+		// from. Simplest fix: just don't call it until there's something real to load.
+		if ( ! this.videoURI && this.call.videoURI ) {
 			this.$.keepDisplayOn.call();
 			this.$.hideShim.applyStyle("visibility", "hidden");
 			this.enableVideo(this.call.videoURI);
@@ -117,6 +165,12 @@ enyo.kind({
 			enyo.asyncMethod(this, function() {
 				if(this._isActive) {
 					// Make the video layer visible
+					// REVERTED to "up": the video scene's own CSS (videocall-tablet.css etc.)
+					// appears hardcoded to only lay out correctly in the "up" orientation -
+					// switching to "free" here produced a visibly broken layout (misaligned/
+					// mispositioned video regions). Not touching this until the actual video
+					// rendering issue itself is resolved on a known-stable layout; revisit as
+					// its own isolated, separately-verified change afterward.
 					this.$.hideShim.applyStyle("visibility", "hidden");
 					enyo.setAllowedOrientation((!enyo.application.isTablet) ? "left" : "up");
 				}

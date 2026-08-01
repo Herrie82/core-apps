@@ -196,12 +196,20 @@ enyo.kind({
 		enyo.application.CallSynergizer.dial(inSelected.address.value, undefined, undefined, transport, inSelected.person._id, true);
 	},
 	videoClicked: function(inSender, inSelected){
-		//currently only skype has video so we only take care skype
-		if (inSelected.address.type == "type_skype") {
-			transport = enyo.application.CallSynergizer.TRANSPORTS.SKYPE;
-			enyo.application.CallSynergizer.dial(inSelected.address.value, true /*video call*/, undefined, transport, inSelected.person._id, true);
+		// Generalized the same way addressSelected() above already is for voice: any
+		// type_-prefixed IM contact-point dials through its own transport, CallSynergizer.dial()
+		// translates the serviceName to the account templateId. This used to hard-require
+		// "type_skype" (there is no TRANSPORTS.SKYPE constant -- that branch always resolved
+		// transport to undefined), which silently no-oped video for every other transport
+		// (whatsapp/telegram/teams/...) even though their own dial() already accepts a video flag.
+		var transport;
+		if (inSelected.address.type && inSelected.address.type.indexOf("type_") === 0) {
+			transport = inSelected.address.type;
+		} else {
+			transport = undefined;
 		}
-	}, /*the functionality for addressing list*/	
+		enyo.application.CallSynergizer.dial(inSelected.address.value, true /*video call*/, undefined, transport, inSelected.person._id, true);
+	}, /*the functionality for addressing list*/
 	
 	added: function(inSender, value) {
 		enyo.asyncMethod(this, "_added", inSender, value);

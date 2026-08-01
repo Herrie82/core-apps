@@ -241,7 +241,25 @@ enyo.kind({
 		if(isVideoSceneActive && activeLines[0]) {
 			if(activeLines[0].incomingVideoState == "streaming") {
 				this.$.videoCall.$.videoTagContactImg.setShowing(false);
-                                /* 
+
+				// The underlying <video> tag's play() only ever fires once, the first time
+				// the video scene loads (VideoCall.js's enableVideo(), gated by
+				// "if (!this.videoURI)"). The scene typically switches to "videoCall" as
+				// soon as OUR OWN outgoing video goes live, which is usually before the
+				// peer's incoming stream actually starts flowing - so that one-shot play()
+				// call fires before there's anything to play, and nothing else here ever
+				// retriggers it (the tag just sits blank). Force one retry, exactly once
+				// per call, the first time incomingVideoState actually reaches "streaming"
+				// AND we actually have a real clonk URI to play (videoURI is populated
+				// asynchronously, separately from incomingVideoState - confirmed live: it
+				// can lag several seconds behind streaming becoming true. Firing before
+				// that with an empty URI would burn the one-shot guard for nothing).
+				var incomingVideoURI = activeLines[0].calls && activeLines[0].calls[0] && activeLines[0].calls[0].videoURI;
+				if (incomingVideoURI && !this.$.videoCall._incomingVideoRefreshed) {
+					this.$.videoCall._incomingVideoRefreshed = true;
+					this.$.videoCall.refreshVideo();
+				}
+                                /*
                                  * If Not Already subscribed for this URI, subscribe now for mediad clonk notifications
                                  * for media encoder framerate values.
                                  */
@@ -355,9 +373,21 @@ enyo.kind({
 				if(authorizedForVideo && allowVideoCalls && (isIncomingVideoStreaming || isVideoOutgoing)) {
 					// Update the video scene
                                         if (!enyo.application.Cache.userOverrideToVideo) {
-                                            
+
 					    this.$.calltype.selectViewByName("videoCall",true);
 					    this.$.videoCall.setLine(activeLines[0]);
+					    // isVideoSceneActive (used below, for later updates) reflects
+					    // the view BEFORE this switch, so on the very update where the
+					    // scene first becomes active AND incoming video is already
+					    // streaming, that later check never runs. Catch that case here
+					    // too - same one-time-per-call guard (and same "only if we
+					    // actually have a real URI yet" condition), so calling both
+					    // spots is harmless if this races with the other check.
+					    var incomingVideoURI2 = activeLines[0].calls && activeLines[0].calls[0] && activeLines[0].calls[0].videoURI;
+					    if (isIncomingVideoStreaming && incomingVideoURI2 && !this.$.videoCall._incomingVideoRefreshed) {
+						this.$.videoCall._incomingVideoRefreshed = true;
+						this.$.videoCall.refreshVideo();
+					    }
                                         } else {
                                             enyo.log("PREVENTING VIDEO FROM LOADING..");
 

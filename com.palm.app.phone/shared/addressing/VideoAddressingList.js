@@ -37,6 +37,12 @@ enyo.kind({
 		//favorites
 		{kind: "DbService", dbKind: "com.palm.person:1", name: "findTempDB", method: "find", onSuccess: "gotTempDBFavSearchResults", onFailure: "gotFailure", subcribe: true, onWatch: "watchfavoritesChange"},
 
+		// Other PHONE-capable IM transports (whatsapp/telegram/teams/...) have no presence/
+		// video-capability cache like Skype's imbuddystatus table -- list every contact-point
+		// for a currently callable type unconditionally (see gotOtherImContacts), same
+		// generalization CallSynergizer.getCallableImTypes()/Dialer.js already apply to voice.
+		{kind: "DbService", dbKind: "com.palm.person:1", name: "findOtherImContacts", method: "find", onSuccess: "gotOtherImContacts", onFailure: "gotFailure"},
+
 		{kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus.skypem:1", onSuccess: "querySuccess", onFailure: "gotFailure", components: [
 			{name: "find", method: "find", onSuccess: "VCgotSkypeBuddies"},
 			{name: "search", method: "search", onSuccess: "VCgotSkypeBuddies"},
@@ -96,6 +102,11 @@ enyo.kind({
 		}
 		this.$.findTempDB.call({query: query});
 
+		// Other PHONE-capable IM transports, merged alongside the Skype buddy list below.
+		this.skypeVideoContacts = [];
+		this.otherImContacts = [];
+		this.$.findOtherImContacts.call({query: {from: "com.palm.person:1", select: ["_id", "displayName", "ims"]}});
+
 		//subscribe to skype availability status change
 		this.tempdbContacts = [];
 		this._updateBuddyStatusAddressing = enyo.hitch(this, "updateBuddyStatusAddressing");
@@ -145,14 +156,13 @@ enyo.kind({
 		}
 	},
 	VCgotSkypeBuddies: function(inSender, inResponse, inRequest) {
-	
+
 		var contactsData = (inResponse && inResponse.results) || [];
-		
+
 		this.toggleNoResults(contactsData.length)
+		var itemsArrayFav = [];
+		var itemsArraynonFav = [];
 		if (contactsData && contactsData.length > 0) {
-			var itemsArrayFav = [];
-			var itemsArraynonFav = [];
-			
 			//contactsData.forEach(function(row) {
 			var skypeBuddiesTotal = contactsData.length;
 			for (var i = 0; i < skypeBuddiesTotal; i++) {
@@ -169,14 +179,51 @@ enyo.kind({
 						itemsArrayFav.push(contactsData[i]);
 					} else {
 						itemsArraynonFav.push(contactsData[i]);
-					} 
-					
+					}
+
 				}
 			}
-			
-			this.tempdbContacts = itemsArrayFav.concat(itemsArraynonFav);
-			this.$.list.refresh();
 		}
+		this.skypeVideoContacts = itemsArrayFav.concat(itemsArraynonFav);
+		this.tempdbContacts = this.skypeVideoContacts.concat(this.otherImContacts || []);
+		this.$.list.refresh();
+	},
+	// Other PHONE-capable IM transports (whatsapp/telegram/teams/...): no presence/video-capability
+	// cache like Skype's imbuddystatus table exists for these, so list every contact-point for a
+	// currently callable type unconditionally -- the peer's own client decides whether it can
+	// actually receive video, same as it already does for voice.
+	gotOtherImContacts: function(inSender, inResponse) {
+		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
+		var results = (inResponse && inResponse.results) || [];
+		var extra = [];
+		for (var i = 0; i < results.length; i++) {
+			var c = results[i];
+			if (!c.ims) { continue; }
+			for (var j = 0; j < c.ims.length; j++) {
+				var im = c.ims[j];
+				if (!im || im.type === "type_skype") { continue; } // Skype already covered above
+				if (callableTypes.indexOf(im.type) === -1) { continue; }
+				extra.push({
+					personId: c._id,
+					displayName: c.displayName,
+					favorite: false,
+					// updateSelection() (below) reads these flat, same shape as a skype row,
+					// not displayAddresses -- keep both in sync.
+					username: im.value,
+					serviceName: im.type,
+					displayAddresses: [{
+						"type": im.type,
+						"label": im.type.replace("type_", ""),
+						"formattedValue": im.value,
+						"value": im.value
+					}]
+				});
+			}
+		}
+		this.otherImContacts = extra;
+		this.tempdbContacts = (this.skypeVideoContacts || []).concat(this.otherImContacts);
+		this.toggleNoResults(this.tempdbContacts.length);
+		this.$.list.refresh();
 	},
 	addressTypesChanged: function() {
 		this.querySelect =

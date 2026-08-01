@@ -363,8 +363,14 @@ enyo.kind({
 				} /*else {
 					enyo.error("SKYPE buddy status not available");
 				}*/
+			} else if (itemAddress.type && itemAddress.type.indexOf("type_") === 0) {
+				// Other IM transports (whatsapp/telegram/teams/...) have no per-contact video
+				// capability cache like Skype's buddy list -- the peer's own client decides
+				// whether it can actually receive video, same as it already does for voice, so
+				// just offer the button rather than gating on a capability check we don't have.
+				this.$.videoEnabledIcon.show();
 			}
-	
+
 			return true;
 		}
 	}
