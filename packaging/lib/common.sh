@@ -30,8 +30,24 @@ stage_whole() {
   mkdir -p "$ov"
   echo "$dst" > "$ov/dest.txt"
   mkdir -p "$ov/payload"
-  tar -C "$src" --exclude=spec --exclude=mock --exclude=test --exclude=Gemfile \
-      --exclude=Gemfile.lock --exclude=Rakefile --exclude=ci_build.sh --exclude=run_tests.sh \
-      --exclude=all-tests.json --exclude='.rvmrc' --exclude='.project' -cf - . \
+  local excludes=(--exclude=spec --exclude=mock --exclude=test --exclude=Gemfile
+    --exclude=Gemfile.lock --exclude=Rakefile --exclude=ci_build.sh --exclude=run_tests.sh
+    --exclude=all-tests.json --exclude='.rvmrc' --exclude='.project')
+
+  # Symlinks (e.g. a framework's version/1.0 -> ../submission/1.3) can't be staged through the
+  # payload at all: /media/cryptofs is a FUSE mount that rejects symlink() outright ("Operation
+  # not permitted", confirmed live installing messaging.library/contacts.plugin.messaging).
+  # Record them separately and exclude their paths from the tar; postinst recreates them with a
+  # real ln -s at the final (root-fs, symlink-capable) destination after copying the payload.
+  : > "$ov/symlinks.txt"
+  local link relpath target
+  while IFS= read -r -d '' link; do
+    relpath="${link#"$src"/}"
+    target="$(readlink "$link")"
+    printf '%s\t%s\n' "$relpath" "$target" >> "$ov/symlinks.txt"
+    excludes+=(--exclude="$relpath")
+  done < <(find "$src" -type l -print0)
+
+  tar -C "$src" "${excludes[@]}" -cf - . \
     | tar -C "$ov/payload" -xf -
 }
