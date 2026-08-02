@@ -10,14 +10,23 @@ set -euo pipefail
 # component, so shipping everything (not just recently-touched files) keeps a fresh install and an
 # upgrade identical instead of depending on accumulated history.
 #
-# <pkg-name> scopes the staging path per package (/opt/core-apps-overwrite/<pkg-name>/...) --
-# without this, every package's payload/appinfo.json, payload/depends.js, dest.txt etc. would all
-# land at the exact same shared path, and ipkg treats two packages both shipping the same tracked
-# filename as a hard conflict (confirmed live installing accounts then phone).
+# <pkg-name> scopes the staging path per package (/media/cryptofs/core-apps-overwrite/<pkg-name>/...)
+# -- without this, every package's payload/appinfo.json, payload/depends.js, dest.txt etc. would
+# all land at the exact same shared path, and ipkg treats two packages both shipping the same
+# tracked filename as a hard conflict (confirmed live installing accounts then phone).
+#
+# Staged under /media/cryptofs, NOT /opt: /opt is on the root filesystem, which stock webOS boots
+# READ-ONLY. ipkg extracts data.tar.gz itself, before postinst ever runs and gets a chance to
+# remount root rw -- staging anywhere under root fails that extraction outright ("Read-only file
+# system", confirmed live via Preware/WebOS Quick Install: postinst then reports "no dest.txt
+# found" since nothing was ever written). /media/cryptofs is its own always-writable fuse mount
+# regardless of root's ro/rw state (per the webos-mcp postinst-packaging doc's own convention of
+# staging app payloads there), so ipkg's extraction always succeeds; postinst still remounts root
+# rw itself before copying from there to the real (root-fs) destination.
 stage_whole() {
   local src="$1" dst="$2" name="$3"
   [ -d "$src" ] || { echo "!! stage_whole: $src missing" >&2; exit 1; }
-  local ov="$STAGE/opt/core-apps-overwrite/$name"
+  local ov="$STAGE/media/cryptofs/core-apps-overwrite/$name"
   mkdir -p "$ov"
   echo "$dst" > "$ov/dest.txt"
   mkdir -p "$ov/payload"

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Shared postinst for every core-apps package built by this packaging/ tree. Each package stages
-# its whole app/framework directory under /opt/core-apps-overwrite/<pkg-name>/payload/ plus a
+# its whole app/framework directory under /media/cryptofs/core-apps-overwrite/<pkg-name>/payload/ plus a
 # dest.txt naming the real absolute path it replaces (a single ipk only ever ships ONE such
 # subdirectory -- the per-package name just keeps multiple packages' payloads from colliding on
 # the same tracked filename at the ipkg level). Backs up whatever's currently there (once, as a
@@ -14,10 +14,10 @@ mount -o remount,rw /dev/mapper/store-root / 2>/dev/null
 mount -o remount,rw / 2>/dev/null
 
 OV=""
-for d in /opt/core-apps-overwrite/*/; do
+for d in /media/cryptofs/core-apps-overwrite/*/; do
   [ -f "${d}dest.txt" ] && OV="${d%/}" && break
 done
-[ -n "$OV" ] || { echo "!! no /opt/core-apps-overwrite/*/dest.txt found, nothing to install" >&2; exit 1; }
+[ -n "$OV" ] || { echo "!! no /media/cryptofs/core-apps-overwrite/*/dest.txt found, nothing to install" >&2; exit 1; }
 
 DST="$(cat "$OV/dest.txt")"
 BAK="$BAK_ROOT$(echo "$DST" | tr '/' '_').tar"
@@ -34,7 +34,7 @@ cp -r "$OV/payload" "$DST"
 log "installed $DST"
 
 # Clean up our own staged copy now that it's been applied -- if left in place, a LATER package's
-# postinst glob (/opt/core-apps-overwrite/*/dest.txt) would find this STALE subdirectory before its
+# postinst glob (/media/cryptofs/core-apps-overwrite/*/dest.txt) would find this STALE subdirectory before its
 # own freshly-extracted one and silently reinstall the WRONG payload (confirmed live: installing
 # accounts then phone then messaging.library then contacts.plugin.messaging all "installed" only
 # com.palm.app.accounts, since its leftover subdir was never removed and kept winning the glob).

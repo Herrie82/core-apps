@@ -9,6 +9,13 @@
 # Usage: make-ipk.sh <package-dir> <stage-dir> <output-dir>
 #   <package-dir>/control.env   required: PKG_ID, PKG_VERSION, PKG_DESC; optional PKG_DEPENDS,
 #                                PKG_REPLACES, PKG_CONFLICTS, PKG_MAINTAINER (defaults below)
+#   <package-dir>/preinst       optional: copied in as control.tar.gz's preinst (chmod 755) --
+#                                ipkg runs this BEFORE unpacking data.tar.gz, which matters
+#                                because stock webOS boots root read-only: without a preinst that
+#                                remounts it rw first, ipkg's own extraction of data.tar.gz onto
+#                                / silently fails ("Read-only file system") and postinst then
+#                                reports "no dest.txt found" -- confirmed live, root cause of a
+#                                real install failure via Preware/WebOS Quick Install.
 #   <package-dir>/postinst      optional: copied in as control.tar.gz's postinst (chmod 755)
 #   <package-dir>/prerm         optional: same, as prerm
 #
@@ -52,12 +59,17 @@ mkdir -p "$WORK/ctrl"
   echo "Description: $PKG_DESC"
 } > "$WORK/ctrl/control"
 
-# POSTINST/PRERM env vars let a caller point at a shared script (e.g. one postinst reused by
-# every cloud connector) instead of requiring a per-package copy; $PKGDIR/postinst|prerm wins
-# if both a file and the env var somehow exist.
+# PREINST/POSTINST/PRERM env vars let a caller point at a shared script (e.g. one postinst reused
+# by every cloud connector) instead of requiring a per-package copy; $PKGDIR/preinst|postinst|prerm
+# wins if both a file and the env var somehow exist.
+PREINST_SRC="${PKGDIR}/preinst"; [ -f "$PREINST_SRC" ] || PREINST_SRC="${PREINST:-}"
 POSTINST_SRC="${PKGDIR}/postinst"; [ -f "$POSTINST_SRC" ] || POSTINST_SRC="${POSTINST:-}"
 PRERM_SRC="${PKGDIR}/prerm"; [ -f "$PRERM_SRC" ] || PRERM_SRC="${PRERM:-}"
 
+if [ -n "$PREINST_SRC" ] && [ -f "$PREINST_SRC" ]; then
+  cp "$PREINST_SRC" "$WORK/ctrl/preinst"
+  chmod 755 "$WORK/ctrl/preinst"
+fi
 if [ -n "$POSTINST_SRC" ] && [ -f "$POSTINST_SRC" ]; then
   cp "$POSTINST_SRC" "$WORK/ctrl/postinst"
   chmod 755 "$WORK/ctrl/postinst"
@@ -67,7 +79,7 @@ if [ -n "$PRERM_SRC" ] && [ -f "$PRERM_SRC" ]; then
   chmod 755 "$WORK/ctrl/prerm"
 fi
 
-( cd "$WORK/ctrl" && tar -czf "$WORK/control.tar.gz" ./control $( [ -f postinst ] && echo ./postinst ) $( [ -f prerm ] && echo ./prerm ) )
+( cd "$WORK/ctrl" && tar -czf "$WORK/control.tar.gz" ./control $( [ -f preinst ] && echo ./preinst ) $( [ -f postinst ] && echo ./postinst ) $( [ -f prerm ] && echo ./prerm ) )
 
 # ---------------------------------------------------------------- data.tar.gz
 ( cd "$STAGE" && tar -czf "$WORK/data.tar.gz" . )
