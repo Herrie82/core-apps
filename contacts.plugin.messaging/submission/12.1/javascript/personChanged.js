@@ -237,13 +237,41 @@ exports.personChanged = function(personOld, personNew) {
 			}
 		});
 	} else {
-		//TODO get rid of this once UI add of a contact is treated as an add instead of change
+		// The BIG HACK below exists because a UI-added contact arrives as a personChanged with an
+		// unchanged (old===new) address set, and still needs its initial messaging association.
+		// BUT a re-link / re-save of an ALREADY-associated person also arrives this way, and
+		// re-running the full personAdded for it is pure waste (~350ms/contact of redundant buddy +
+		// chatthread work; measured on-device it fired for 85/85 contacts on a re-link).
+		//
+		// GUARD: only run personAdded when this person is NOT already associated. A com.palm.chatthread
+		// or com.palm.imbuddystatus record carrying personId === this person can ONLY exist from a
+		// prior association, so its presence proves association already happened -> skip. No false
+		// positives: a genuinely-new person has no such record, so it still associates. Both lookups
+		// are indexed (chatthread.byperson, imbuddystatus.byperson).
 		if (removedPhoneNumbers.length === 0 && removedImAddresses.length === 0 &&
 			(personNew.getPhoneNumbers().getArray().length > 0 || personNew.getIms().getArray().length > 0)) {
-			console.error("*****contacts.plugin.messaging BIG HACK! Old and New person are same, maybe this is an AddPerson");
-			exports.personAdded(personNew);
+			future.then(this, function (future) {
+				future.nest(DB.find({ from: "com.palm.chatthread:1", where: [{ prop: "personId", op: "=", val: personId }] }));
+			});
+			future.then(this, function (future) {
+				var threads = (future.result && future.result.results) || [];
+				if (threads.length > 0) {
+					return { alreadyAssociated: true };
+				}
+				return TempDB.find({ from: "com.palm.imbuddystatus:1", where: [{ prop: "personId", op: "=", val: personId }] });
+			});
+			future.then(this, function (future) {
+				var result = future.result;
+				var alreadyAssociated = (result && result.alreadyAssociated === true) ||
+					(result && result.results && result.results.length > 0);
+				if (!alreadyAssociated) {
+					exports.personAdded(personNew);
+				}
+				future.result = true;
+			});
+		} else {
+			future.result = true;
 		}
-		future.result = true;
 	}
 	
 	return future;
