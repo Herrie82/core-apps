@@ -68,9 +68,9 @@ enyo.kind({
 		});
 	
 		this.ringbackExtObj = this.mediaLib.mediaextension.MediaExtension.getInstance(this.ringbackAudio);
-		this.ringbackExtObj.audioClass = "feedback";
+		this.ringbackExtObj.audioClass = "ringtone";
 		*/
-		this.ringbackAudio.setAttribute("x-palm-media-audio-class", "feedback");		
+		this.ringbackAudio.setAttribute("x-palm-media-audio-class", "ringtone");
 
 		this._ringbackloop = enyo.bind(this, "ringbackLoop");
 		this.ringbackAudio.addEventListener('ended', this._ringbackloop);
