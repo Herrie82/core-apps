@@ -399,8 +399,12 @@ enyo.kind({
 			return;
 		}
 		
+		// Same bug as videoClicked() above used to have: there is no TRANSPORTS.SKYPE constant, so this
+		// branch always resolved to false, silently dropping the transport (and the video flag) for any
+		// redial of a VoIP/IM contact (whatsapp/telegram/signal/teams/...) and falling through to a plain
+		// number redial instead. Fixed the same way: use whatever service is actually on the data.
 		var lastCallContactData = this.$.dialStringWidget.getLastCallContactData();
-		if (lastCallContactData && lastCallContactData.service === enyo.application.CallSynergizer.TRANSPORTS.SKYPE) {
+		if (lastCallContactData && lastCallContactData.service) {
 			enyo.application.CallSynergizer.dial(lastCallContactData.addr, lastCallContactData.isVideo, undefined, 
 			lastCallContactData.service, lastCallContactData.personId, true);
 			this.clear();

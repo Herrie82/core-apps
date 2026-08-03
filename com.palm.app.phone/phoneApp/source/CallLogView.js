@@ -332,9 +332,11 @@ enyo.kind({
 		var itemData = this.$.callLogList.fetch(rowIndex);
 		if (enyo.application.Utils.canBeCalled(itemData.recentcall_address.service, itemData.recentcall_address.addr)) {
 			
-			// Only use the service if it is a Skype call that is not a ph#
+			// Only use the service if it is a VoIP/IM call that is not a ph# (any non-cellular transport,
+			// not just WhatsApp - otherwise redialing a Telegram/Signal/Teams call log entry would fall
+			// through to transport-guessing by number instead of using the transport it was actually placed on)
 			var service = undefined;
-            if (itemData.recentcall_address.service === enyo.application.CallSynergizer.TRANSPORTS.VOIP &&
+            if (itemData.recentcall_address.service && itemData.recentcall_address.service !== enyo.application.CallSynergizer.TRANSPORTS.TIL &&
 				itemData.recentcall_address.addr === itemData.recentcall_address.normalizedAddr) // Work-around since we can't rely on personAddressType
             {
 				service = itemData.recentcall_address.service;

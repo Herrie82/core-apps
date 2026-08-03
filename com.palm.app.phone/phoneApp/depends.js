@@ -89,7 +89,7 @@
 	,"source/ListDecorator.js"
 	,"source/VoicemailPopupMenu.js"
 	,"source/NoVoicemailNumberPrompt.js"
-	,"source/PoorSkypeConnectionPrompt.js"
+	,"source/PoorVoipConnectionPrompt.js"
 	,"source/media.js"
 	,"source/PreferredPhSvcDlg.js"
 	,"source/OtaspFailurePrompt.js"

@@ -230,7 +230,7 @@ enyo.kind({
 			var durationStr = enyo.application.Utils.getDurationString(this.callHistory.duration);
 			var phoneNumber;
 			// Work-around since this is the only way for us to know if it is a IM address because we can't rely on personAddressType 100% of the time
-			if  (addrData.service === enyo.application.CallSynergizer.TRANSPORTS.SKYPE && addrData.addr === addrData.normalizedAddr) {
+			if  (isVoip && addrData.addr === addrData.normalizedAddr) {
 				phoneNumber = addrData.addr;
 			} else {
 				phoneNumber = enyo.application.Utils.FormatPhoneNumber(addrData.addr);
@@ -304,14 +304,31 @@ enyo.kind({
 		}
 	},
 
+	// Resolve a transport/service value - which may already be an IM serviceName like "type_whatsapp"
+	// (DialSkypeIms rows carry ims.type) or an account templateId like "com.palm.whatsapp" (call-log
+	// rows carry address.service) - to its IM serviceName, or undefined for cellular/unset. Replaces
+	// the old hard-coded "type_skype"/TRANSPORTS.SKYPE checks (TRANSPORTS.SKYPE doesn't exist, so those
+	// always resolved false) with something that works for any current/future VoIP transport.
+	_imServiceNameFor: function(transportOrService) {
+		if ( !transportOrService || transportOrService === enyo.application.CallSynergizer.TRANSPORTS.TIL ) {
+			return undefined;
+		}
+		if ( String(transportOrService).indexOf("type_") === 0 ) {
+			return transportOrService;
+		}
+		var t = enyo.application.CallSynergizer.transports[transportOrService];
+		return t && t.serviceName;
+	},
+
 	executeSendSMS: function(inData) {
 		var composeParams = {};
 		if ( inData.personId ) {
 			composeParams.personId = inData.personId;
 		}
 
-		if ( inData.transport === enyo.application.CallSynergizer.TRANSPORTS.SKYPE ) {
-			composeParams.ims = [{value: inData.rawPhoneNumber, serviceName: "type_skype"}];
+		var imServiceName = this._imServiceNameFor(inData.transport);
+		if ( imServiceName ) {
+			composeParams.ims = [{value: inData.rawPhoneNumber, serviceName: imServiceName}];
 		} else {
 			composeParams.phoneNumbers = [{value: inData.rawPhoneNumber}];
 		}
@@ -336,8 +353,9 @@ enyo.kind({
 			"id":"com.palm.app.contacts",
 			"params":{"contact":{},"launchType":"pseudo-card", "test":"aa"}
 		};
-		if(service === enyo.application.CallSynergizer.TRANSPORTS.SKYPE) {
-			contact.params.contact["ims"] = [{"value":rawPhoneNumber,"type":"type_skype"}];
+		var imServiceName = this._imServiceNameFor(service);
+		if(imServiceName) {
+			contact.params.contact["ims"] = [{"value":rawPhoneNumber,"type":imServiceName}];
 		} else {
 			contact.params.contact["phoneNumbers"] = [{"value":rawPhoneNumber}];
 		}

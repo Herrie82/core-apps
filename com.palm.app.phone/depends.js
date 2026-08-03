@@ -11,7 +11,7 @@
 	,"source/utils/all"
 	,"source/LaunchActionHandler.js"
 	,"source/uistates/all"
-	,"phoneApp/source/PoorSkypeConnectionPrompt.js"
+	,"phoneApp/source/PoorVoipConnectionPrompt.js"
 	,"source/CallSynergizer.js"
 	,"source/telephonydialhandler/all"
 	,"source/CallSynergyContact.js"

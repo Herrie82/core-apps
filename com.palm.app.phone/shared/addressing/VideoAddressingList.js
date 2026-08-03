@@ -137,10 +137,12 @@ enyo.kind({
 		this.tempDBFavdata = (inResponse && inResponse.results) || [];
 		this.updateBuddyStatusAddressing();
 	},
+	// Provider-agnostic: match by username across any IM type (whatsapp/telegram/signal/teams/skype/...),
+	// not just type_skype - so favorites work the same for every video-capable transport.
 	getFavoriteFromUsername: function(username) {
 		for (var i = 0; i < this.tempDBFavdata.length; i++) {
 			for (var j = 0; j < this.tempDBFavdata[i].ims.length; j++) {
-				if(this.tempDBFavdata[i].ims[j].type == "type_skype" && this.tempDBFavdata[i].ims[j].value == username) {
+				if(this.tempDBFavdata[i].ims[j].value == username) {
 					return true;
 				}
 			}
@@ -195,7 +197,8 @@ enyo.kind({
 	gotOtherImContacts: function(inSender, inResponse) {
 		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		var results = (inResponse && inResponse.results) || [];
-		var extra = [];
+		var itemsArrayFav = [];
+		var itemsArraynonFav = [];
 		for (var i = 0; i < results.length; i++) {
 			var c = results[i];
 			if (!c.ims) { continue; }
@@ -203,10 +206,10 @@ enyo.kind({
 				var im = c.ims[j];
 				if (!im || im.type === "type_skype") { continue; } // Skype already covered above
 				if (callableTypes.indexOf(im.type) === -1) { continue; }
-				extra.push({
+				var row = {
 					personId: c._id,
 					displayName: c.displayName,
-					favorite: false,
+					favorite: this.getFavoriteFromUsername(im.value),
 					// updateSelection() (below) reads these flat, same shape as a skype row,
 					// not displayAddresses -- keep both in sync.
 					username: im.value,
@@ -217,10 +220,11 @@ enyo.kind({
 						"formattedValue": im.value,
 						"value": im.value
 					}]
-				});
+				};
+				(row.favorite ? itemsArrayFav : itemsArraynonFav).push(row);
 			}
 		}
-		this.otherImContacts = extra;
+		this.otherImContacts = itemsArrayFav.concat(itemsArraynonFav);
 		this.tempdbContacts = (this.skypeVideoContacts || []).concat(this.otherImContacts);
 		this.toggleNoResults(this.tempdbContacts.length);
 		this.$.list.refresh();

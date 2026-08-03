@@ -66,7 +66,7 @@ enyo.kind({
 		{name:"displayOn", kind:"PalmService", service:"palm://com.palm.display/control/", method: "setState", onSuccess: "", onFailure: ""},
 		{name:"muteRingtone", kind:"PalmService", service:"palm://com.palm.audio/ringtone/", method: "setMuted"},
 		
-		{name:"poorSkypeConnectionPrompt", kind:"PoorSkypeConnectionPrompt"},
+		{name:"poorVoipConnectionPrompt", kind:"PoorVoipConnectionPrompt"},
 		
 		{name: "informBTPrefServiceError", kind: enyo.PalmService, service: "palm://com.palm.bluetooth/hfg/", method: "forceCallEvent", onSuccess: ""},
 
@@ -134,16 +134,17 @@ enyo.kind({
 							enyo.error("Handling Enyo exception(1). Need to fix this. " + e.description);
 						}
 
-                                                // monitor for skype call quality
-						if ( account.templateId == this.TRANSPORTS.VOIP ) {
-						    // skypem is able to provide call quality data for skype
+                                                // monitor call quality for any non-cellular (VoIP-style) transport
+						if ( account.templateId != this.TRANSPORTS.TIL ) {
+						    // the mediator is able to provide call quality data
 						    // register qualInfoQuery
-                                                    enyo.log("registering for skype call quality monitoring");
+                                                    enyo.log("registering for call quality monitoring: " + account.templateId);
 						    cap._subs.callQuality = this.createComponent({
 						        	kind:"PalmService",
 								service: cap.implementation,
 								method: "qualInfoQuery",
 								subscribe: true,
+								transport: account.templateId,
 								onSuccess: "_callQualityInfoResponse",
 								onFailure: "_callQualityInfoResponseFailure"
 						    });
@@ -327,8 +328,8 @@ enyo.kind({
 			}
 			
 			//Workaround DFISH-17886
-			if ( transport == this.TRANSPORTS.VOIP && line.state != this.STATES.ACTIVE ) {
-				enyo.application.Cache.skypeCallRequestedForHold = false;
+			if ( transport != this.TRANSPORTS.TIL && line.state != this.STATES.ACTIVE ) {
+				enyo.application.Cache.voipCallRequestedForHold = false;
 			}
 			
 			// temp
@@ -487,12 +488,16 @@ enyo.kind({
 		this.dispatchLines();
 	},
 
-	_callQualityInfoResponse: function(inSender, payload) {	
+	_callQualityInfoResponse: function(inSender, payload) {
 		enyo.log("callQualityQueryResponse: " + enyo.json.stringify(payload));
 
-                // skypem determines the numeric threshold values of the good, bad and ugly
+                // the mediator determines the numeric threshold values of the good, bad and ugly
                 // it also applies heuristics so we do not have to worry about it here.
                 // if ((payload.cpu && payload.cpu     === "bad") ||
+
+                // carry which transport this came from, so listeners (the poor-connection prompt) can
+                // target changeMedia/disconnect at the right per-transport service instead of a fixed one
+                payload.transport = inSender.transport;
 
                  if ((payload.ploss && payload.ploss === "bad") ||
                      (payload.rtt && payload.rtt     === "bad")) {
@@ -571,12 +576,12 @@ enyo.kind({
 		},this);
 		
 		if ( activeLine ) {	
-			if(enyo.application.Cache.skypeCallRequestedForHold == true && activeLine.calls[0].transport != this.TRANSPORTS.VOIP) {
-				enyo.warn("......Not sending Hold to other transport as skype Hold request is still pending.....");	
+			if(enyo.application.Cache.voipCallRequestedForHold == true && activeLine.calls[0].transport != this.TRANSPORTS.TIL) {
+				enyo.warn("......Not sending Hold to other transport as a VoIP Hold request is still pending.....");
 			} else {
 				this.callSwap(undefined /*put all calls on hold*/, activeLine.calls[0].transport);
-				if(activeLine.calls[0].transport == this.TRANSPORTS.VOIP) {
-					enyo.application.Cache.skypeCallRequestedForHold = true;
+				if(activeLine.calls[0].transport != this.TRANSPORTS.TIL) {
+					enyo.application.Cache.voipCallRequestedForHold = true;
 				}
 			}
 			
@@ -670,9 +675,9 @@ enyo.kind({
 		if (line.calls[0] && line.calls[0].id) { delete this.userHangupCalls[line.calls[0].id]; }
 
 		// debounce two disconnected calls: if the first call's original state was disconnected, don't log it
-		if ( line.calls.length == 0 || (line.calls[0].transport === this.TRANSPORTS.VOIP && line.calls[0].firstState == this.STATES.DISCONNECTED )) {
+		if ( line.calls.length == 0 || (line.calls[0].transport !== this.TRANSPORTS.TIL && line.calls[0].firstState == this.STATES.DISCONNECTED )) {
 
-                        // DFISH-17498: Skypem sends the cause code in the 2nd disconnect sometimes ...
+                        // DFISH-17498: the mediator sends the cause code in the 2nd disconnect sometimes ...
 		        if (line.calls[0] && ! line.calls[0].ignored && line.disconnectDetails && line.disconnectDetails.cause && line.disconnectDetails.cause == enyo.application.CallSynergizer.DISCONNECTDETAILS.NOCREDIT) {
 			    var height = line.calls[0].contact.canBeCalled() ? 195 : 125;
 			    enyo.application.openPhoneAppPopup("NoCreditSkype", "noCreditSkypePopup", {"line": line}, height);

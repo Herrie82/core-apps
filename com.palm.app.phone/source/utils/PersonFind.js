@@ -76,7 +76,11 @@ enyo.kind({
 				inRequest.response.item = Utils.PersonFind.getContactPointFromPerson(inRequest.requestedImAddress, "ims", inRequest.response.person);
 			}
 		} else if ( this.fallbackAddress ) {
-			if ( this.fallbackService === enyo.application.CallSynergizer.TRANSPORTS.SKYPE && !enyo.application.Utils.isInternationalNumber(this.fallbackAddress)) {
+			// Any non-cellular transport (whatsapp/telegram/signal/teams/...) whose address isn't
+			// phone-number-shaped is an IM id/@handle/UUID - look it up as IM, not as a phone number.
+			// (TRANSPORTS.SKYPE never existed, so this always fell through to findByPhone before.)
+			if ( this.fallbackService && this.fallbackService !== enyo.application.CallSynergizer.TRANSPORTS.TIL
+					&& !enyo.application.Utils.isValidNumber(this.fallbackAddress) ) {
 				this.findByIm(this.fallbackAddress);
 			} else {
 				this.findByPhone(this.fallbackAddress);

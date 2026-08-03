@@ -249,13 +249,12 @@ enyo.kind({
 			if ( remote.personId ) {
 				address = "_ID_" + remote.personId;
 
-			// or, if phone number, use normalized version (so xxx-xxx-xxxx and 1+xxx-xxx-xxxx match)
-			} else if ( remote.service === enyo.application.CallSynergizer.TRANSPORTS.TIL || remote.service === enyo.application.CallSynergizer.TRANSPORTS.SKYPE ) {
+			// or, if phone number (TIL) or a registered VoIP/IM transport (whatsapp/telegram/signal/
+			// teams/...), use the normalized version so xxx-xxx-xxxx and 1+xxx-xxx-xxxx match, and
+			// different call-log entries for the same IM contact group together
+			} else if ( remote.normalizedAddr && (remote.service === enyo.application.CallSynergizer.TRANSPORTS.TIL
+					|| (enyo.application.CallSynergizer.transports && enyo.application.CallSynergizer.transports[remote.service])) ) {
 				address = "_PHONE_" + remote.normalizedAddr;
-
-			// or, if skype, just use that
-			} else if ( remote.service === enyo.application.CallSynergizer.TRANSPORTS.SKYPE ) {
-				address = "_SKYPE_" + remote.normalizedAddr;
 
 			} else {
 				enyo.error("generateId: Unknown address type " + enyo.json.stringify(remote));

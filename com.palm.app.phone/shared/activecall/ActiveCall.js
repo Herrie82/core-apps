@@ -31,9 +31,9 @@ enyo.kind({
 				]},
 			]}
 		]},
-                {name:"poorSkypeConnectionPrompt", kind:"PoorSkypeConnectionPrompt"},
+                {name:"poorVoipConnectionPrompt", kind:"PoorVoipConnectionPrompt"},
 
-		{name: "changeMedia", kind:"PalmService", service: "palm://com.palm.skype/", method: "changeMedia", params: {outgoingVideo:true}},
+		{name: "changeMedia", kind:"PalmService", method: "changeMedia"},
 		{name: "setMute", kind: enyo.PalmService, service: "palm://com.palm.audio/phone/", method: "setMuted", onSuccess: "", onFailure: ""},
       		{name: "getAudioStatus", kind: "PalmService", service: "palm://com.palm.audio/phone/", method: "status", onSuccess: "onGetAudioStatusSuccess"},
                 {name: "tab2phoneAudio", kind: "PalmService", service: "palm://com.palm.bluetooth/hf/", method: "control"},
@@ -368,7 +368,16 @@ enyo.kind({
 					}));
 				}
 				if(autoAcceptVideoCalls && !isVideoOutgoing && allowVideoCalls && !enyo.application.Cache.userdisabledOutgoingVideo) {
-					this.$.changeMedia.call();
+					// Was hard-coded to palm://com.palm.skype/ with no call id - dead on this fork (Skype is
+					// gone) for every transport. Route to the active call's own transport, like changeToVideoCall
+					// in AbstractCall.js already does.
+					var autoAcceptCall = activeLines[0].calls[0];
+					this.$.changeMedia.call({
+						id: autoAcceptCall.id,
+						outgoingVideo: true
+					}, {
+						service: enyo.application.CallSynergizer.transports[autoAcceptCall.transport].implementation
+					});
 				}
 				if(authorizedForVideo && allowVideoCalls && (isIncomingVideoStreaming || isVideoOutgoing)) {
 					// Update the video scene
@@ -484,9 +493,9 @@ enyo.kind({
         },
 
 	updateWithCallQuality: function(payload) {
-            // only implemented for skype-calls for now
+            // works for any transport whose mediator provides qualInfoQuery (see CallSynergizer.js)
             enyo.log("updateWithCallQuality in ActiveCall");
-          
+
             // Instead of registering as a listener to the popup
             // for converting to audio call, we let the popup call
             // a global func. in call synergizer to which active call
@@ -495,9 +504,10 @@ enyo.kind({
 
             var isAudioCall = (this.$.calltype.getViewName() === "regularCall");
 
-            this.$.poorSkypeConnectionPrompt.setCallId(payload.name);
-            this.$.poorSkypeConnectionPrompt.setMediaType(isAudioCall);
-            this.$.poorSkypeConnectionPrompt.openAtCenter();
+            this.$.poorVoipConnectionPrompt.setCallId(payload.name);
+            this.$.poorVoipConnectionPrompt.setTransport(payload.transport);
+            this.$.poorVoipConnectionPrompt.setMediaType(isAudioCall);
+            this.$.poorVoipConnectionPrompt.openAtCenter();
 
         },
 

@@ -1,5 +1,5 @@
 enyo.kind({
-	name: "skypeCustomDialogPrompt",
+	name: "voipCustomDialogPrompt",
 	kind: "ModalDialog",
 	scrim: true,
 	lazy: false,
@@ -16,7 +16,7 @@ enyo.kind({
 	},
 	//* @protected
 	components: [
-                {name:"changeMedia", kind:"PalmService", service: "palm://com.palm.skype/", method: "changeMedia", onSuccess: "changeMediaSuccess", onFailure: "changeMediaFailure"},
+                {name:"changeMedia", kind:"PalmService", method: "changeMedia", onSuccess: "changeMediaSuccess", onFailure: "changeMediaFailure"},
 		{components: [
 			{name: "title"},
 			{className: "", components: [
@@ -61,7 +61,7 @@ enyo.kind({
 
                 if (enyo.application.isTablet == true) {
 		       this.$.message.setContent($L("The network you're using is having issues that can cause poor call performance. What would you like to do?"));
-                        
+
                 }
                 else {
 		    this.$.message.setContent(this.message);
@@ -88,35 +88,39 @@ enyo.kind({
                      id: this._callId,
                      outgoingVideo: false,
                      incomingVideo: false
+                 }, {
+                     service: enyo.application.CallSynergizer.transports[this._transport].implementation
                  });
 
                 enyo.log("change media called");
 		this.close();
 	},
-	changeMediaSuccess: function() {                                                   
-	        enyo.log("change media success -- trigger callback to convert to audio call"); 
-                enyo.application.CallSynergizer.dispatchConvertToAudioCall();                                             
-	},                                                                                 
-	changeMediaFailure: function() {                                                   
-	        enyo.log("change media failure");                                              
-        }  
+	changeMediaSuccess: function() {
+	        enyo.log("change media success -- trigger callback to convert to audio call");
+                enyo.application.CallSynergizer.dispatchConvertToAudioCall();
+	},
+	changeMediaFailure: function() {
+	        enyo.log("change media failure");
+        }
 });
 
 enyo.kind({
-	name: "PoorSkypeConnectionPrompt",
-	kind: "skypeCustomDialogPrompt", 
-	
-	message: $L("Poor skype connection detected. Do you want to continue?"),
+	name: "PoorVoipConnectionPrompt",
+	kind: "voipCustomDialogPrompt",
+
+	message: $L("Poor connection detected. Do you want to continue?"),
 	acceptButtonCaption: $L("Continue Call"),
 	audioButtonCaption:  $L("Change To Audio"),
 	cancelButtonCaption: $L("End Call"),
 	create: function() {
 		this.inherited(arguments);
                 this._callId = {};
+                this._transport = undefined;
                 this._isAudioCall = false;
 	},
 	destroy: function() {
 		this._callId = null;
+                this._transport = null;
                 this._isAudioCall = null;
 		this.inherited(arguments);
 	},
@@ -130,17 +134,23 @@ enyo.kind({
 	cancelClick: function() {
                 enyo.log("debug-remove: Cancel Click called CALLER ID for Ending IS " + this._callId);
                 //enyo.application.CallSynergizer.geniusDisconnect();
-                enyo.application.CallSynergizer.callDisconnect(this._callId, "com.palm.skype");
+                enyo.application.CallSynergizer.callDisconnect(this._callId, this._transport);
 		this.close();
 	},
         setCallId: function(callId) {
-                this._callId  = callId;  
+                this._callId  = callId;
                 enyo.log("debug-remove: setCallId: CALLER ID IS " + this._callId);
+        },
+        // which transport (whatsapp/telegram/signal/teams/...) this call quality prompt is for - needed
+        // to target changeMedia/disconnect at the right per-transport service instead of the old
+        // hard-coded "com.palm.skype" (which doesn't exist as a transport anymore)
+        setTransport: function(transport) {
+                this._transport = transport;
         },
         setMediaType: function(isAudioCall) {
                 this._isAudioCall = isAudioCall;
                 enyo.log("debug-remove: AUDIO CALL IS " + this._isAudioCall);
 		this.audioButtonCaptionChanged();
         }
-}); 
-          
+});
+

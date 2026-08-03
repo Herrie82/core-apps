@@ -267,9 +267,11 @@ enyo.kind({
 		enyo.application.Cache.phonePreferredDomesticPhoneService = "none"; // If the preference does not exist, match it with the default item in the ListSelector of DomesticCallPrefs
 		
 		if (response && response.phonePreferredDomesticPhoneService) {
+				// accept TIL, "none", or any currently-registered transport (whatsapp/telegram/signal/teams/...) -
+				// the preferred service list is built dynamically from enabled PHONE accounts, not a fixed enum
 				enyo.require(response.phonePreferredDomesticPhoneService === enyo.application.CallSynergizer.TRANSPORTS.TIL ||
-							response.phonePreferredDomesticPhoneService === enyo.application.CallSynergizer.TRANSPORTS.SKYPE ||
-							response.phonePreferredDomesticPhoneService === "none",
+							response.phonePreferredDomesticPhoneService === "none" ||
+							!!enyo.application.CallSynergizer.transports[response.phonePreferredDomesticPhoneService],
 							"TelState:Invalid phonePreferredDomesticPhoneService: " + response.phonePreferredDomesticPhoneService);
 
 				enyo.application.Cache.phonePreferredDomesticPhoneService = response.phonePreferredDomesticPhoneService;
@@ -281,9 +283,11 @@ enyo.kind({
 		enyo.application.Cache.phonePreferredIntlPhoneService = "none"; // If the preference does not exist, match it with the default item in the ListSelector of InternationalCallPrefs
 		
 		if (response && response.phonePreferredIntlPhoneService) {
+				// accept TIL, "none", or any currently-registered transport (whatsapp/telegram/signal/teams/...) -
+				// the preferred service list is built dynamically from enabled PHONE accounts, not a fixed enum
 				enyo.require(response.phonePreferredIntlPhoneService === enyo.application.CallSynergizer.TRANSPORTS.TIL ||
-							response.phonePreferredIntlPhoneService === enyo.application.CallSynergizer.TRANSPORTS.SKYPE ||
-							response.phonePreferredIntlPhoneService === "none",
+							response.phonePreferredIntlPhoneService === "none" ||
+							!!enyo.application.CallSynergizer.transports[response.phonePreferredIntlPhoneService],
 							"TelState:Invalid phonePreferredIntlPhoneService: " + response.phonePreferredIntlPhoneService);
 
 				enyo.application.Cache.phonePreferredIntlPhoneService = response.phonePreferredIntlPhoneService;

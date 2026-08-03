@@ -155,14 +155,15 @@ enyo.kind({
         // User tapped on account to edit. These accounts are listed here because they're usable as VOIP
         // call providers, but the account itself must be managed/removed from the Accounts app, not inside
         // the Phone card (which is the legacy Skype-provider behaviour). Hand messaging connectors (any
-        // account that also has a MESSAGING capability) off to com.palm.app.accounts, deep-linked to the
-        // account; keep the in-Phone modify only for a pure telephony/VOIP-provider account.
+        // account that also has a MESSAGING capability) off to com.palm.app.accounts, deep-linked straight
+        // to "Change Login Settings" (changelogin) rather than the full modify-account overview - that's
+        // the actual maintenance action for these accounts, and skips an extra tap.
         editAccount: function(inSender, inResults) {
                 var account = inResults && inResults.account;
                 if (this.isMessagingConnectorAccount(account)) {
                         this.$.appLauncher.call({
                                 id: "com.palm.app.accounts",
-                                params: {launchType: "modifyAccount", accountId: account._id}
+                                params: {launchType: "changelogin", accountId: account._id}
                         });
                         return;
                 }

@@ -15,7 +15,19 @@ enyo.kind({
 	},
 	_normalize: function(address) {
 		return address && String(address).replace(/[^\+01234567890\*#pwt]/g,'');
-	},	
+	},
+	// Picks the one registered non-cellular (VoIP/IM) transport for the "exactly one calling account,
+	// no paired phone" case. Replaces the old hard-coded TRANSPORTS.SKYPE (which doesn't exist, so this
+	// always left transport undefined and broke dialing on this path).
+	_firstVoipTransport: function() {
+		var transports = enyo.application.CallSynergizer.transports;
+		for (var id in transports) {
+			if (id !== enyo.application.CallSynergizer.TRANSPORTS.TIL && id !== "com.palm.palmprofile") {
+				return id;
+			}
+		}
+		return undefined;
+	},
 	// The DialProxy, checks if the user has a skype acct and the address is a int'l #, then it takes appropriate actions.
 	//    (If the transport is defined then the DialProxy will alwyays use it and ignore what is stored in the preference value preferredPhoneService)
 	placeCall: function(address, video, audio, transport /*optional*/, personId /*optional*/, manualDial /*optional*/) {
@@ -56,16 +68,18 @@ enyo.kind({
 							enyo.application.UI.event("dial", this.callData);
 							return false;
 						
-						case enyo.application.CallSynergizer.TRANSPORTS.SKYPE:
-							address = this._normalize(address);
-							
+						// any non-cellular preferred service (whatsapp/telegram/signal/teams/...) gets
+						// normalized the same way (TRANSPORTS.SKYPE never existed, so this case never matched)
 						default:
+							if (preferredService !== enyo.application.CallSynergizer.TRANSPORTS.TIL) {
+								address = this._normalize(address);
+							}
 							transport = preferredService;
 							break;
 					}								
 				} else { //only one transport is available
 					if (enyo.application.Cache.hasVoipAcct === true) {
-						transport = enyo.application.CallSynergizer.TRANSPORTS.SKYPE; 
+						transport = this._firstVoipTransport();
 					} else if (enyo.application.Cache.hasPairedPhone === true) {
 						transport = enyo.application.CallSynergizer.TRANSPORTS.TIL; 
 					} else {
