@@ -29,7 +29,6 @@ stage_whole() {
   local ov="$STAGE/media/cryptofs/core-apps-overwrite/$name"
   mkdir -p "$ov"
   echo "$dst" > "$ov/dest.txt"
-  mkdir -p "$ov/payload"
   local excludes=(--exclude=spec --exclude=mock --exclude=test --exclude=Gemfile
     --exclude=Gemfile.lock --exclude=Rakefile --exclude=ci_build.sh --exclude=run_tests.sh
     --exclude=all-tests.json --exclude='.rvmrc' --exclude='.project')
@@ -38,7 +37,7 @@ stage_whole() {
   # payload at all: /media/cryptofs is a FUSE mount that rejects symlink() outright ("Operation
   # not permitted", confirmed live installing messaging.library/contacts.plugin.messaging).
   # Record them separately and exclude their paths from the tar; postinst recreates them with a
-  # real ln -s at the final (root-fs, symlink-capable) destination after copying the payload.
+  # real ln -s at the final (root-fs, symlink-capable) destination after extracting the payload.
   : > "$ov/symlinks.txt"
   local link relpath target
   while IFS= read -r -d '' link; do
@@ -48,6 +47,18 @@ stage_whole() {
     excludes+=(--exclude="$relpath")
   done < <(find "$src" -type l -print0)
 
-  tar -C "$src" "${excludes[@]}" -cf - . \
-    | tar -C "$ov/payload" -xf -
+  # Ship the payload as ONE tarball, not thousands of loose files: confirmed live that ipkg's own
+  # data.tar.gz extraction under -o offline-root mode is dramatically slower per-file than a plain
+  # tar extraction of the identical content (com.palm.app.messaging's ~2800 files: ~139s via ipkg
+  # vs ~34s via a single `tar xzf` of the same bytes) -- ipkg's own per-file bookkeeping, not raw
+  # cryptofs FUSE throughput, is the bottleneck. Wrapping the payload in payload.tar.gz means ipkg
+  # only ever extracts ONE file from data.tar.gz; postinst does the real many-small-files
+  # extraction itself via plain tar, and can extract straight to the final destination instead of
+  # extracting to $ov/payload/ and then cp -r'ing a second time.
+  # --owner=0 --group=0: this is built on a dev machine under a regular user account, and GNU tar
+  # on-device tries to restore the archive's recorded ownership on extraction as root by default --
+  # confirmed live this fails per-file ("Cannot change ownership to uid 1000, gid 1000: Operation
+  # not permitted" on cryptofs) and measurably slows extraction. Store everything as root instead
+  # (postinst's --no-same-owner belt-and-suspenders the same fix on the extraction side).
+  tar -C "$src" "${excludes[@]}" --owner=0 --group=0 -czf "$ov/payload.tar.gz" .
 }

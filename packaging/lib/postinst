@@ -1,11 +1,17 @@
 #!/bin/sh
 # Shared postinst for every core-apps package built by this packaging/ tree. Each package stages
-# its whole app/framework directory under /media/cryptofs/core-apps-overwrite/<pkg-name>/payload/ plus a
-# dest.txt naming the real absolute path it replaces (a single ipk only ever ships ONE such
+# its whole app/framework directory as a single /media/cryptofs/core-apps-overwrite/<pkg-name>/payload.tar.gz
+# plus a dest.txt naming the real absolute path it replaces (a single ipk only ever ships ONE such
 # subdirectory -- the per-package name just keeps multiple packages' payloads from colliding on
 # the same tracked filename at the ipkg level). Backs up whatever's currently there (once, as a
 # single tar -- not per-file: these are whole-directory replacements, not surgical patches) so
 # prerm can restore it, then replaces the whole directory with this package's payload.
+#
+# The payload is ONE tarball, not thousands of loose files in data.tar.gz: confirmed live that
+# ipkg's own offline-root extraction of ~2800 loose files took ~139s, vs ~34s for a plain `tar xzf`
+# of the identical bytes -- ipkg's own per-file bookkeeping (not raw cryptofs FUSE throughput) is
+# the bottleneck. Shipping one tarball means ipkg only ever extracts one file; this script does
+# the real many-small-files extraction itself, straight to the final destination.
 set +e
 BAK_ROOT=/media/cryptofs/core-apps-backup
 log() { echo "[core-apps] $*"; }
@@ -40,7 +46,22 @@ if [ -z "$OV" ]; then
     [ -f "${d}dest.txt" ] && OV="${d%/}" && break
   done
 fi
-[ -n "$OV" ] || { echo "!! no core-apps-overwrite/*/dest.txt found (checked direct + offline-root paths), nothing to install" >&2; exit 1; }
+
+# WebOSQuickInstall (confirmed live) runs this SAME pmPostInstall.script a second time itself,
+# after the real App-Installer-driven install already ran it once and cleaned up $OV -- a second
+# run legitimately finds nothing staged, which used to be a hard error here ("no dest.txt found").
+# That's not a real failure, just harmless redundancy: LASTDEST (written on success below, and
+# NEVER cleaned up like $OV is) records where we last installed this exact PKGID. If it says we
+# already installed successfully and that destination still exists, this is a no-op, not an error.
+LASTDEST="/media/cryptofs/core-apps-overwrite/.last-installed/$PKGID.dest.txt"
+if [ -z "$OV" ]; then
+  if [ -n "$PKGID" ] && [ -f "$LASTDEST" ] && [ -d "$(cat "$LASTDEST")" ]; then
+    log "nothing newly staged for $PKGID -- already installed at $(cat "$LASTDEST"), treating as a no-op"
+    exit 0
+  fi
+  echo "!! no core-apps-overwrite/*/dest.txt found (checked direct + offline-root paths), nothing to install" >&2
+  exit 1
+fi
 
 DST="$(cat "$OV/dest.txt")"
 BAK="$BAK_ROOT$(echo "$DST" | tr '/' '_').tar"
@@ -52,8 +73,8 @@ if [ -d "$DST" ] && [ ! -f "$BAK" ]; then
 fi
 
 rm -rf "$DST"
-mkdir -p "$(dirname "$DST")"
-cp -r "$OV/payload" "$DST"
+mkdir -p "$DST"
+tar -C "$DST" --no-same-owner -xzf "$OV/payload.tar.gz"
 
 # Recreate any symlinks stage_whole had to leave out of the payload (cryptofs, where the payload
 # was staged, rejects symlink() outright) -- $DST is on root fs, which supports them fine.
@@ -65,6 +86,14 @@ if [ -s "$OV/symlinks.txt" ]; then
   done < "$OV/symlinks.txt"
 fi
 log "installed $DST"
+
+# Record where we just installed, OUTSIDE $OV (which is about to be wiped below) -- this is what
+# lets a redundant second invocation (see WebOSQuickInstall comment above) recognize "already done"
+# instead of misreporting a real failure.
+if [ -n "$PKGID" ]; then
+  mkdir -p "$(dirname "$LASTDEST")"
+  echo "$DST" > "$LASTDEST"
+fi
 
 # Clean up our own staged copy now that it's been applied -- if left in place, a LATER package's
 # postinst glob (/media/cryptofs/core-apps-overwrite/*/dest.txt) would find this STALE subdirectory before its
