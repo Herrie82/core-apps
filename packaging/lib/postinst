@@ -13,10 +13,33 @@ log() { echo "[core-apps] $*"; }
 mount -o remount,rw /dev/mapper/store-root / 2>/dev/null
 mount -o remount,rw / 2>/dev/null
 
+# Derive our own package id from how this script was invoked: either the direct-install path
+# (/usr/lib/ipkg/info/<pkg-id>.postinst, confirmed live) or the Preware/WOSQI offline-root path
+# (/media/cryptofs/apps/.scripts/<pkg-id>/pmPostInstall.script, also confirmed live). stage_whole's
+# <pkg-name> parameter is always identical to PKG_ID for every package built by this tree, so this
+# lets us look up EXACTLY our own staged subdirectory instead of blindly taking whichever
+# subdirectory happens to have a dest.txt first -- unsafe if more than one package's staged data
+# is ever present at once (e.g. if the App Installer doesn't fully process one package before
+# extracting the next; not something this session could verify either way, so guard against it).
+case "$0" in
+  */pmPostInstall.script) PKGID="$(basename "$(dirname "$0")")" ;;
+  *.postinst) PKGID="$(basename "$0" .postinst)" ;;
+  *) PKGID="" ;;
+esac
+
 OV=""
-for d in /media/cryptofs/core-apps-overwrite/*/ /media/cryptofs/apps/media/cryptofs/core-apps-overwrite/*/; do
-  [ -f "${d}dest.txt" ] && OV="${d%/}" && break
-done
+if [ -n "$PKGID" ]; then
+  for base in /media/cryptofs/core-apps-overwrite /media/cryptofs/apps/media/cryptofs/core-apps-overwrite; do
+    [ -f "$base/$PKGID/dest.txt" ] && OV="$base/$PKGID" && break
+  done
+fi
+# Fallback (should never trigger given the above -- kept only in case PKGID derivation ever fails
+# for an invocation pattern this session didn't see): old "first match" behavior.
+if [ -z "$OV" ]; then
+  for d in /media/cryptofs/core-apps-overwrite/*/ /media/cryptofs/apps/media/cryptofs/core-apps-overwrite/*/; do
+    [ -f "${d}dest.txt" ] && OV="${d%/}" && break
+  done
+fi
 [ -n "$OV" ] || { echo "!! no core-apps-overwrite/*/dest.txt found (checked direct + offline-root paths), nothing to install" >&2; exit 1; }
 
 DST="$(cat "$OV/dest.txt")"

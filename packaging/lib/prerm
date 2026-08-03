@@ -11,10 +11,26 @@ log() { echo "[core-apps] $*"; }
 mount -o remount,rw /dev/mapper/store-root / 2>/dev/null
 mount -o remount,rw / 2>/dev/null
 
+# See postinst's matching comment: pmPreRemove.script (this file, via make-ipk.sh) is what
+# Preware/WOSQI actually run, and grabbing "whichever subdirectory has a dest.txt" instead of
+# EXACTLY our own is unsafe if more than one package's staged data is ever present at once.
+case "$0" in
+  */pmPreRemove.script) PKGID="$(basename "$(dirname "$0")")" ;;
+  *.prerm) PKGID="$(basename "$0" .prerm)" ;;
+  *) PKGID="" ;;
+esac
+
 OV=""
-for d in /media/cryptofs/core-apps-overwrite/*/ /media/cryptofs/apps/media/cryptofs/core-apps-overwrite/*/; do
-  [ -f "${d}dest.txt" ] && OV="${d%/}" && break
-done
+if [ -n "$PKGID" ]; then
+  for base in /media/cryptofs/core-apps-overwrite /media/cryptofs/apps/media/cryptofs/core-apps-overwrite; do
+    [ -f "$base/$PKGID/dest.txt" ] && OV="$base/$PKGID" && break
+  done
+fi
+if [ -z "$OV" ]; then
+  for d in /media/cryptofs/core-apps-overwrite/*/ /media/cryptofs/apps/media/cryptofs/core-apps-overwrite/*/; do
+    [ -f "${d}dest.txt" ] && OV="${d%/}" && break
+  done
+fi
 
 if [ -n "$OV" ]; then
   DST="$(cat "$OV/dest.txt")"
