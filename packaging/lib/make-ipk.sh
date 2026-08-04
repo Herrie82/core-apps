@@ -7,8 +7,11 @@
 # /etc/palm/db, etc, so this builds the .ipk by hand instead.
 #
 # Usage: make-ipk.sh <package-dir> <stage-dir> <output-dir>
-#   <package-dir>/control.env   required: PKG_ID, PKG_VERSION, PKG_DESC; optional PKG_DEPENDS,
-#                                PKG_REPLACES, PKG_CONFLICTS, PKG_MAINTAINER (defaults below)
+#   <package-dir>/control.env   required: PKG_ID, PKG_DESC; optional PKG_DEPENDS, PKG_REPLACES,
+#                                PKG_CONFLICTS, PKG_MAINTAINER (defaults below). PKG_VERSION is
+#                                only required here if <repo>/<PKG_ID>/appinfo.json doesn't exist --
+#                                when it does, its own "version" field wins (see below), so don't
+#                                set PKG_VERSION at all for app packages.
 #   <package-dir>/preinst       optional: copied in as control.tar.gz's preinst (chmod 755) --
 #                                ipkg runs this BEFORE unpacking data.tar.gz, which matters
 #                                because stock webOS boots root read-only: without a preinst that
@@ -38,8 +41,27 @@ OUT="$(cd "$OUT" && pwd)"
 # shellcheck source=/dev/null
 source "$PKGDIR/control.env"
 : "${PKG_ID:?PKG_ID not set in $PKGDIR/control.env}"
-: "${PKG_VERSION:?PKG_VERSION not set in $PKGDIR/control.env}"
 : "${PKG_DESC:?PKG_DESC not set in $PKGDIR/control.env}"
+
+# Prefer the app's own appinfo.json "version" over a hand-maintained PKG_VERSION in control.env --
+# webOS itself reads appinfo.json directly (it's what Preware/App Manager/Settings show as the
+# app's version), so keeping a SEPARATE copy in control.env just invites drift with nothing to
+# catch it (confirmed live: com.palm.app.phone's control.env said 3.1.1 while its own appinfo.json
+# said 2.0.1, with nobody having a reason to notice). REPO/$PKG_ID matches every app package in
+# this tree (stage.sh always stages "$REPO/$PKG_ID"), so this needs no per-package configuration.
+# Packages with no appinfo.json (services, framework libs) just fall back to control.env as before.
+REPO="$(cd "$PKGDIR/../.." && pwd)"
+APPINFO="$REPO/$PKG_ID/appinfo.json"
+if [ -f "$APPINFO" ]; then
+  APPINFO_VERSION="$(node -e "try{process.stdout.write(String(require('$APPINFO').version||''))}catch(e){}" 2>/dev/null || true)"
+  if [ -n "$APPINFO_VERSION" ]; then
+    if [ -n "${PKG_VERSION:-}" ] && [ "$PKG_VERSION" != "$APPINFO_VERSION" ]; then
+      echo "!! $PKGDIR/control.env's PKG_VERSION ($PKG_VERSION) differs from $APPINFO's version ($APPINFO_VERSION) -- using appinfo.json's, since that's what webOS itself reads. Remove PKG_VERSION from control.env to silence this." >&2
+    fi
+    PKG_VERSION="$APPINFO_VERSION"
+  fi
+fi
+: "${PKG_VERSION:?PKG_VERSION not set in $PKGDIR/control.env and no $APPINFO to derive it from}"
 PKG_MAINTAINER="${PKG_MAINTAINER:-Herman van Hazendonk <github.com@herrie.org>}"
 PKG_ARCH="${PKG_ARCH:-armv7}"
 

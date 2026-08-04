@@ -9,7 +9,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$HERE/out"
 mkdir -p "$OUT"
 
-NAMES=(com.palm.app.accounts com.palm.app.phone com.palm.app.messaging messaging.library contacts.plugin.messaging)
+NAMES=(com.palm.app.accounts com.palm.app.phone com.palm.app.messaging com.palm.app.contacts messaging.library contacts.plugin.messaging)
 
 want() {  # $1 = name; true if no filter args were given, or $1 is among them
   [ "${#FILTER[@]}" -eq 0 ] && return 0
