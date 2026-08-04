@@ -62,3 +62,35 @@ stage_whole() {
   # (postinst's --no-same-owner belt-and-suspenders the same fix on the extraction side).
   tar -C "$src" "${excludes[@]}" --owner=0 --group=0 -czf "$ov/payload.tar.gz" .
 }
+
+# stage_db8_schema <kinds-dir> <permissions-dir> <pkg-name>
+# Provisions db8 kind/permission definitions to their real, SYSTEM-WIDE location
+# (/etc/palm/db/kinds, /etc/palm/db/permissions) -- NOT inside this app's own
+# /usr/palm/applications/<id>/ directory that stage_whole ships (db8 never scans that path at all).
+#
+# Confirmed live (2026-08-04): com.palm.app.phone's stock ipk shipped com.palm.callcapabilites,
+# com.palm.carrierbook, com.palm.phonecall, com.palm.phonecallgroup, com.palm.vvm.mailbox,
+# com.palm.vvm.voicemessages (kinds) and its own db/permissions/com.palm.app.phone entirely OUTSIDE
+# /usr/palm/applications/com.palm.app.phone -- this packaging tree's stage_whole/postinst never
+# declared them in its own manifest, so installing our whole-directory-replace ipk as an upgrade
+# over stock silently deleted them via normal ipkg upgrade semantics (exact same root cause as the
+# com.palm.service.accounts LS2-activation incident in app-services/packaging). Reuses the SAME
+# per-package OV subdir stage_whole uses for this <pkg-name> so postinst applies it in one pass.
+stage_db8_schema() {
+  local kinds_dir="$1" perms_dir="$2" name="$3"
+  local ov="$STAGE/media/cryptofs/core-apps-overwrite/$name"
+  mkdir -p "$ov/db8-kinds" "$ov/db8-permissions"
+  local f
+  if [ -d "$kinds_dir" ]; then
+    for f in "$kinds_dir"/*; do
+      [ -f "$f" ] || continue
+      cp "$f" "$ov/db8-kinds/$(basename "$f")"
+    done
+  fi
+  if [ -d "$perms_dir" ]; then
+    for f in "$perms_dir"/*; do
+      [ -f "$f" ] || continue
+      cp "$f" "$ov/db8-permissions/$(basename "$f")"
+    done
+  fi
+}

@@ -106,6 +106,52 @@ if [ -s "$OV/symlinks.txt" ]; then
 fi
 log "installed $DST"
 
+# Provision any db8 kind/permission schema files (stage_db8_schema) to their real, system-wide
+# location -- see stage_db8_schema's comment in common.sh for why this is required at all (confirmed
+# live: com.palm.app.phone's own kinds/permissions were silently deleted by installing our
+# repackaged ipk as a stock upgrade). putKind/putPermissions must be called explicitly with the
+# kind's own declared owner in the payload itself (db8 returns error 22 "required property not
+# found - 'owner'" otherwise) -- dropping the files at the real path alone is not enough for an
+# already-booted device to pick them up. Idempotent, safe to re-run on every install/upgrade.
+if [ -d "$OV/db8-kinds" ] || [ -d "$OV/db8-permissions" ]; then
+  mkdir -p /etc/palm/db/kinds /etc/palm/db/permissions
+  for f in "$OV/db8-kinds"/*; do
+    [ -f "$f" ] || continue
+    name="$(basename "$f")"
+    cp "$f" "/etc/palm/db/kinds/$name"
+    owner="$(grep '"owner"' "$f" | head -1 | sed 's/.*: *"//; s/".*//')"
+    [ -n "$owner" ] || owner="$PKGID"
+    content="$(cat "$f")"
+    if [ -z "$(grep '"owner"' "$f")" ]; then
+      # Inject "owner" after the FIRST '{' in the file, wherever it is -- NOT a line-1-anchored
+      # sed (confirmed live: com.palm.phonecall/com.palm.phonecallgroup both open with a /* ... */
+      # comment BEFORE their '{', so "1s/^{/.../" silently no-ops and the kind still lacks "owner").
+      # awk here, not GNU sed's 0,/{/{s///} range -- BusyBox sed on-device doesn't support that
+      # range-address syntax and silently no-ops on it too.
+      content="$(printf '%s' "$content" | awk -v owner="$owner" '!done && /\{/{sub(/\{/, "{\"owner\":\"" owner "\",");done=1} {print}')"
+    fi
+    reply="$(luna-send -i -n 1 -a "$owner" -f palm://com.palm.db/putKind "$content" 2>&1 </dev/null)"
+    if echo "$reply" | grep -q '"returnValue"[[:space:]]*:[[:space:]]*true'; then
+      log "  provisioned db8 kind $name (owner $owner)"
+    else
+      log "  !! putKind failed for $name (owner $owner): $reply"
+    fi
+  done
+  for f in "$OV/db8-permissions"/*; do
+    [ -f "$f" ] || continue
+    name="$(basename "$f")"
+    cp "$f" "/etc/palm/db/permissions/$name"
+    owner="$(grep '"owner"' "/etc/palm/db/kinds/$name" 2>/dev/null | head -1 | sed 's/.*: *"//; s/".*//')"
+    [ -n "$owner" ] || owner="$PKGID"
+    reply="$(luna-send -i -n 1 -a "$owner" -f palm://com.palm.db/putPermissions "{\"permissions\":$(cat "$f")}" 2>&1 </dev/null)"
+    if echo "$reply" | grep -q '"returnValue"[[:space:]]*:[[:space:]]*true'; then
+      log "  provisioned db8 permissions $name (owner $owner)"
+    else
+      log "  !! putPermissions failed for $name (owner $owner): $reply"
+    fi
+  done
+fi
+
 # Record where we just installed, OUTSIDE $OV (which is about to be wiped below) -- this is what
 # lets a redundant second invocation (see WebOSQuickInstall comment above) recognize "already done"
 # instead of misreporting a real failure.
