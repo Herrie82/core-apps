@@ -75,6 +75,25 @@ fi
 rm -rf "$DST"
 mkdir -p "$DST"
 tar -C "$DST" --no-same-owner -xzf "$OV/payload.tar.gz"
+TAR_STATUS=$?
+
+# This whole script runs under `set +e` (a failed step shouldn't abort a postinst mid-way through
+# other packages' installs), which means a corrupted/truncated payload.tar.gz (confirmed live: a
+# bad transfer left com.palm.app.messaging silently "installed" into an EMPTY directory - ipkg and
+# this script both reported success, and only .last-installed even hinted anything happened) would
+# otherwise go completely unnoticed. Explicitly check both tar's own exit status AND that
+# extraction actually produced something (a truncated-but-still-gzip-valid archive can exit 0 with
+# partial content) - roll back to the pre-install backup if we have one, so a bad transfer leaves
+# the previous working install in place instead of a broken empty directory, and fail loudly
+# either way instead of silently recording success.
+if [ "$TAR_STATUS" -ne 0 ] || [ -z "$(ls -A "$DST" 2>/dev/null)" ]; then
+  echo "!! extraction of $OV/payload.tar.gz into $DST failed (tar exit $TAR_STATUS, $([ -z "$(ls -A "$DST" 2>/dev/null)" ] && echo empty || echo non-empty) result) - likely a corrupted/truncated transfer" >&2
+  if [ -f "$BAK" ]; then
+    rm -rf "$DST"
+    ( cd "$(dirname "$DST")" && tar xf "$BAK" ) && log "rolled back to pre-install backup at $DST"
+  fi
+  exit 1
+fi
 
 # Recreate any symlinks stage_whole had to leave out of the payload (cryptofs, where the payload
 # was staged, rejects symlink() outright) -- $DST is on root fs, which supports them fine.
