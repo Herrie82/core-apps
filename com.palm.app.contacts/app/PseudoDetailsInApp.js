@@ -18,7 +18,7 @@
 
 /*jslint white: true, onevar: true, undef: true, eqeqeq: true, plusplus: true, bitwise: true,
  regexp: true, newcap: true, immed: true, nomen: false, maxerr: 500 */
-/*global ContactsLib, enyo, console, crb, com, $contactsui_path, PalmSystem, window */
+/*global ContactsLib, enyo, console, crb, com, $contactsui_path, PalmSystem, window, PalmCall */
 
 enyo.kind({
     name                 : "pseudoDetailsInApp",
@@ -246,7 +246,9 @@ enyo.kind({
         this.$.moreDetailsGroup.setFields(this.getMoreDetailsFields());
         this.$.emailGroup.setFields(this.person.getEmails().getArray());
         this.$.phoneGroup.setFields(this.person.getPhoneNumbers().getArray());
+        this.$.imGroup.getFieldTypeDisplay = this.imTypeDisplay;
         this.$.imGroup.setFields(this.person.getIms().getArray());
+        this.refreshImLabelsWhenReady();
         this.$.addressGroup.setFields(this.person.getAddresses().getArray());
         this.$.urlGroup.setFields(this.person.getUrls().getArray());
         this.$.notesGroup.setFields(this.addTypeToNotes(this.person.getNotes().getArray()));
@@ -418,6 +420,74 @@ enyo.kind({
         return inField.getDisplayValue();
     },
 
+    // webOS: label each IM row with its real service (WhatsApp/Telegram/Signal/...) instead of the
+    // generic "IM". FieldGroup renders whatever getFieldTypeDisplay returns; the stock version reads
+    // the field's x_displayType, which the framework leaves "IM" for the webOS "type_*" IM services
+    // (IMAddress.x_displayType is a read-only getter, so it can't be overridden on the field itself).
+    // The label comes from the SAME account-template data every messaging service already publishes
+    // (loc_shortName/loc_name via listAccountTemplates) -- see fetchDynamicImLabels below -- rather
+    // than a hand-maintained map that has to be extended by hand for every new IM service. The tiny
+    // static map is only a same-tick fallback for the instant before that fetch resolves.
+    imTypeDisplay: function (inField) {
+        var fallback = {
+            type_whatsapp: "WhatsApp", type_telegram: "Telegram", type_signal: "Signal",
+            type_gometa: "Facebook", type_discord: "Discord", type_teams: "Teams",
+            type_googlechat: "Google Chat", type_irc: "IRC"
+        };
+        try {
+            var dbo = (inField && inField.getDBObject && inField.getDBObject()) || {};
+            var svc = dbo.serviceName || dbo.type;
+            var dynamic = ContactsLib.IMAddress && ContactsLib.IMAddress._dynamicLabels;
+            if (svc && ("" + svc).indexOf("type_") === 0) {
+                return (dynamic && dynamic[svc]) || fallback[svc] || ("" + svc).replace(/^type_/, "");
+            }
+        } catch (e) { /* fall through to the stock label */ }
+        return (inField && inField.x_displayType) || "";
+    },
+    // Kick off (once, app-wide) the same account-template fetch ContactsApp.installDynamicIMLabels
+    // does, and re-render this view's IM rows once it resolves -- covers the case where a contact's
+    // details are opened before that fetch has completed (e.g. cold app launch), so labels upgrade
+    // from the fallback map to the real service name in place instead of staying stuck on it.
+    // Guarded on personId so a stale response can't overwrite whatever contact is showing by then.
+    refreshImLabelsWhenReady: function () {
+        var IMAddress = ContactsLib.IMAddress, self = this, personId;
+        if (!IMAddress || IMAddress._dynamicLabelsReady) {
+            return;
+        }
+        personId = this.person && this.person.getId && this.person.getId();
+        IMAddress._dynamicLabelsCallbacks = IMAddress._dynamicLabelsCallbacks || [];
+        IMAddress._dynamicLabelsCallbacks.push(function () {
+            if (self.person && self.$.imGroup && self.person.getId && self.person.getId() === personId) {
+                self.$.imGroup.setFields(self.person.getIms().getArray());
+            }
+        });
+        if (IMAddress._dynamicLabelsInstalled) {
+            return;
+        }
+        IMAddress._dynamicLabelsInstalled = true;
+        IMAddress._dynamicLabels = IMAddress._dynamicLabels || {};
+        PalmCall.call("palm://com.palm.service.accounts/", "listAccountTemplates", {"capability": "MESSAGING"}).then(this, function (future) {
+            var results, map = {}, seen = {}, callbacks;
+            try {
+                results = future.result && future.result.results;
+            } catch (e) { /* leave map empty, still mark ready so queued callbacks stop waiting */ }
+            (results || []).forEach(function (tmpl) {
+                (tmpl.capabilityProviders || []).forEach(function (cp) {
+                    if (cp && cp.capability === "MESSAGING" && cp.serviceName && !seen[cp.serviceName]) {
+                        seen[cp.serviceName] = true;
+                        map[cp.serviceName] = cp.loc_shortName || cp.loc_name || tmpl.loc_name || cp.serviceName;
+                    }
+                });
+            });
+            IMAddress._dynamicLabels = map;
+            IMAddress._dynamicLabelsReady = true;
+            callbacks = IMAddress._dynamicLabelsCallbacks || [];
+            IMAddress._dynamicLabelsCallbacks = [];
+            callbacks.forEach(function (cb) {
+                try { cb(); } catch (e2) { /* one bad callback shouldn't break the rest */ }
+            });
+        });
+    },
     // webOS: WhatsApp/Signal IM addresses store a routable id (a WhatsApp JID "<phone>@s.whatsapp.net"
     // or a Signal E.164/UUID). The framework FieldGroup shows that raw value, so a WhatsApp contact's
     // card displays "31611745571@s.whatsapp.net" (or a bare +E164 with no grouping) instead of a
