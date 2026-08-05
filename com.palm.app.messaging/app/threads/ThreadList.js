@@ -42,6 +42,7 @@ enyo.kind({
 		return this.$.threadService.call({query: inQuery});
 	},
 	gotThreads: function(inSender, inResponse, inRequest) {
+		inResponse = this.excludeChannelThreads(inResponse);
 		this.$.list.queryResponse(inResponse, inRequest);
 		if ((inRequest.index === 0) && (inResponse.returnValue && inResponse.results && inResponse.results.length === 0)){
 			if (this.filterString && this.filterString.length > 0) {
@@ -65,6 +66,34 @@ enyo.kind({
 		}
 		//enyo.log("***************** total unread count in thread list: ", cnt);
 		this.doUnreadCountChanged(cnt);
+	},
+	// Servers/Rooms (WhatsApp Channels, Status Updates, ...) are com.palm.chatthread records too --
+	// findOrCreateChannelThread (chatthreader) stamps flags.visible:true on them so ServerList's/
+	// ChannelList's own unread-badge queries (which key off that same flag) keep working -- so the
+	// "flags.visible=true" query above has no way to tell them apart from a real 1:1/group chat and
+	// they leak into this list (e.g. a followed Channel or a contact's Status update showing up here
+	// under the sender's name). There is no db8 index on channelId to exclude them at the query
+	// level (com.palm.chatthread is a stock kind, not one of ours), so strip them from the page
+	// after the fact instead. Only `results` is replaced -- `next`/`handle` (DbPages' pagination
+	// cursor, read independently of results.length) are left untouched, so later pages still load
+	// correctly. The one gap: if an ENTIRE page turned out to be channel threads, DbPages treats the
+	// now-empty results as end-of-list and stops -- vanishingly unlikely (would need dozens of
+	// channels/statuses updating in the same page-sized burst with no real chat between them), but
+	// worth knowing if the thread list ever appears to truncate for a heavy channel-follower.
+	excludeChannelThreads: function(inResponse) {
+		if (!inResponse || !inResponse.results) {
+			return inResponse;
+		}
+		var filtered = inResponse.results.filter(function(t) { return !t.channelId; });
+		if (filtered.length === inResponse.results.length) {
+			return inResponse;
+		}
+		var out = {};
+		for (var k in inResponse) {
+			if (inResponse.hasOwnProperty(k)) { out[k] = inResponse[k]; }
+		}
+		out.results = filtered;
+		return out;
 	},
 	showEmptyMessage: function(message) {
 		this.$.emptyMessage.setContent(message);
