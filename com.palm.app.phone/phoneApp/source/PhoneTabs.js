@@ -34,7 +34,7 @@ enyo.kind({
 		//{name:"addToContactsService", kind:"PalmService", service: enyo.palmServices.application, method: "open", },
 		{name: "launchApplication", kind: "PalmService", service: enyo.palmServices.application, method: "launch"},
 		{name: "favPersonsCache", kind: "FavPersonsCache"},
-		{name: "skypeBuddyCache", kind: "SkypeBuddyCache"}
+		{name: "imBuddyStatusCache", kind: "ImBuddyStatusCache"}
 	],
 	create: function() {
 		this.inherited(arguments);
@@ -47,15 +47,15 @@ enyo.kind({
 		this.$.vvmFirstLaunchPref.call();
 		this.tabsShowingChanged();
 
-		enyo.application.Cache.skypeBuddyCache = this.$.skypeBuddyCache;
+		enyo.application.Cache.imBuddyStatusCache = this.$.imBuddyStatusCache;
 		enyo.application.Cache.favPersonsCache = this.$.favPersonsCache;
 		enyo.application.Cache.commandMenu = this.$.commandMenu;
 
 		// Default to the PHONE (dialer) tab on launch. On a fresh launch windowParamsChangeHandler
 		// doesn't reach the app root, so nothing else selects a view and the Pane would otherwise come
 		// up on VIDEO (contactlookup). Do this AFTER the caches above are set: instantiating the (lazy)
-		// Dialer view touches Cache.skypeBuddyCache, so selecting it earlier NPEs. An active call or an
-		// explicit launch scene overrides this right after (both run later than create()).
+		// Dialer view touches Cache.imBuddyStatusCache, so selecting it earlier NPEs. An active call or
+		// an explicit launch scene overrides this right after (both run later than create()).
 		if ( ! enyo.application.CallSynergizer.callExists() ) {
 			this.$.pane.selectViewByName("dialpad_card", true);
 			// A LunaSysMgr card restore re-selects the app's LAST scene ~100ms AFTER create() (via
@@ -76,7 +76,7 @@ enyo.kind({
 		enyo.log("destory ****************** PhoneTabs");
 		enyo.application.VoicemailService.unregisterVoicemailCountQuery(this._updateWithVoicemailCountFunc);
 		
-		enyo.application.Cache.skypeBuddyCache = null;
+		enyo.application.Cache.imBuddyStatusCache = null;
 		enyo.application.Cache.favPersonsCache = null;
 		enyo.application.Cache.commandMenu = null;
 		

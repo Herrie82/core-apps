@@ -37,15 +37,27 @@ enyo.kind({
 		//favorites
 		{kind: "DbService", dbKind: "com.palm.person:1", name: "findTempDB", method: "find", onSuccess: "gotTempDBFavSearchResults", onFailure: "gotFailure", subcribe: true, onWatch: "watchfavoritesChange"},
 
-		// Other PHONE-capable IM transports (whatsapp/telegram/teams/...) have no presence/
-		// video-capability cache like Skype's imbuddystatus table -- list every contact-point
-		// for a currently callable type unconditionally (see gotOtherImContacts), same
-		// generalization CallSynergizer.getCallableImTypes()/Dialer.js already apply to voice.
-		{kind: "DbService", dbKind: "com.palm.person:1", name: "findOtherImContacts", method: "find", onSuccess: "gotOtherImContacts", onFailure: "gotFailure"},
-
-		{kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus.skypem:1", onSuccess: "querySuccess", onFailure: "gotFailure", components: [
-			{name: "find", method: "find", onSuccess: "VCgotSkypeBuddies"},
-			{name: "search", method: "search", onSuccess: "VCgotSkypeBuddies"},
+		// webOS: presence + search for the VIDEO tab, generalized off the same POLYMORPHIC base kind
+		// (com.palm.imbuddystatus:1) every current connector (WhatsApp/Signal/Telegram/Teams/Discord/
+		// Google Chat/...) already publishes into - com.palm.app.messaging reads this same kind for
+		// its own buddy list. Replaces the old Skype-only imbuddystatus.skypem query (dead since
+		// Skype's backend was removed - "kind not registered" on every open) - filtered at query time
+		// to CallSynergizer.getVideoCallableImTypes() (accounts whose PHONE capabilityProvider
+		// declares a videoFormat) so this only ever lists services that can actually take a video
+		// call, same one-agnostic-place pattern as getCallableImTypes()/Dialer.js already use for
+		// voice. This ALSO supersedes the old gotOtherImContacts fallback (which listed every
+		// contact-point unconditionally, with no presence and no search) - real presence + search
+		// now covers every video-capable service, not just Skype.
+		{kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", onSuccess: "querySuccess", onFailure: "gotFailure", components: [
+			{name: "find", method: "find", onSuccess: "VCgotBuddies"},
+			// webOS: "find" not "search" - Enyo's DbService routes both through the identical
+			// findOrSearch() query-builder (see framework source), so the LS2 method name is the
+			// only difference; db8's "search" appears to require a tokenized index (db8.md only
+			// documents "find" at all) and this kind has no tokenize:"all" on username, unlike
+			// whatever index Skype's own now-gone kind apparently had - "search" here silently
+			// returned zero rows. "find" with the same %-prefix where-clause works (proven by the
+			// unfiltered list query above using find successfully).
+			{name: "search", method: "find", onSuccess: "VCgotBuddies"},
 			{name: "get", method: "get"}
 		]},
 		//{kind: "GalService", onSuccess: "gotGalResults", onFailure: "gotFailure"},
@@ -77,7 +89,7 @@ enyo.kind({
 			{name:"GalSpinner", kind:"Spinner", className:"enyo-addressing-GAL-spinner enyo-addressing-GAL-padding"}
 		]},
 		
-		{name: "dbSkypeBuddiesVC", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus.skypem:1", method: "find", subscribe: false, onSuccess: "VCgotSkypeBuddies"},
+		{name: "dbBuddiesVC", kind: enyo.TempDbService, dbKind: "com.palm.imbuddystatus:1", method: "find", subscribe: false, onSuccess: "VCgotBuddies"},
 	],
 	favoriteHtml: '<div class="enyo-addressing-favorite"></div>',
 	create: function() {
@@ -102,29 +114,23 @@ enyo.kind({
 		}
 		this.$.findTempDB.call({query: query});
 
-		// Other PHONE-capable IM transports, merged alongside the Skype buddy list below.
-		this.skypeVideoContacts = [];
-		this.otherImContacts = [];
-		this.$.findOtherImContacts.call({query: {from: "com.palm.person:1", select: ["_id", "displayName", "ims"]}});
-
-		//subscribe to skype availability status change
+		//subscribe to buddy availability status change (live presence across every connector)
 		this.tempdbContacts = [];
 		this._updateBuddyStatusAddressing = enyo.hitch(this, "updateBuddyStatusAddressing");
-		// webOS: Skype gone -> skypeBuddyCache may be absent; guard so this doesn't NPE (see Dialer.js).
-		if (enyo.application.Cache.skypeBuddyCache) {
-			enyo.application.Cache.skypeBuddyCache.registerBuddyStatus(this._updateBuddyStatusAddressing);
+		if (enyo.application.Cache.imBuddyStatusCache) {
+			enyo.application.Cache.imBuddyStatusCache.registerBuddyStatus(this._updateBuddyStatusAddressing);
 		}
-		
-		//Get skype temp db contacts
-		//this.$.dbSkypeBuddiesVC.call();
+
+		//Get video-capable buddies now
+		//this.$.dbBuddiesVC.call();
 
 	},
 	destroy: function () {
-	
-		//this.$.dbSkypeBuddiesVC.cancel();
-	
-		if(enyo.application.Cache.skypeBuddyCache) {
-			enyo.application.Cache.skypeBuddyCache.unregisterBuddyStatus(this._updateBuddyStatusAddressing);
+
+		//this.$.dbBuddiesVC.cancel();
+
+		if(enyo.application.Cache.imBuddyStatusCache) {
+			enyo.application.Cache.imBuddyStatusCache.unregisterBuddyStatus(this._updateBuddyStatusAddressing);
 		}
 		this.cancelSearch();
 				
@@ -149,83 +155,60 @@ enyo.kind({
 		}
 		return false;
 	},
+	// webOS: always the same unfiltered fetch, whether or not the user is typing a search string -
+	// see VCgotBuddies for why (search-string filtering moved client-side).
 	updateBuddyStatusAddressing: function () {
-		if (this.isFiltering) {
-			this.searchForFilterLocal(this.searchString, false, 200);
-		}
-		else {
-			this.$.dbSkypeBuddiesVC.call();
-		}
+		this.$.dbBuddiesVC.call();
 	},
-	VCgotSkypeBuddies: function(inSender, inResponse, inRequest) {
+	// webOS: buddy.availability is the live per-connector presence enum (0 online/available,
+	// 2 busy, 4 offline - same numeric convention com.palm.app.messaging's BuddyItem.js already
+	// uses for every service). Skype wrote its own personAvailability field with the same numbers;
+	// prefer it if present so nothing regresses if a future connector ever writes it too.
+	//
+	// Video-capable-service filtering happens HERE (client-side), not in the db8 query: db8's "="
+	// operator has no IN/array-match (see knowledge/db8.md's operator table - just =, comparisons,
+	// !=, % prefix, ? full-text), and serviceName isn't even a leading prop of any index on this
+	// kind on its own (byusername is [username, serviceName] - db8 only supports filtering on an
+	// index's leading prefix). Matches the original Skype-only design too, which fetched its
+	// (single-service) kind unfiltered and filtered in JS.
+	//
+	// Search-string filtering ALSO happens here now, not as a separate db8 query: the original
+	// (and the first attempt at generalizing it) filtered on username via op:"%", but username is a
+	// PHONE NUMBER for WhatsApp/Signal/Telegram - typing a contact's name would never match it, and
+	// separately db8's "search" method (vs "find") returned zero rows here regardless (db8.md only
+	// documents "find"; this kind has no tokenize:"all" on username for "search" to use). Simplest
+	// correct fix: reuse the same broad, proven-working find() and substring-match displayName OR
+	// username client-side.
+	VCgotBuddies: function(inSender, inResponse, inRequest) {
 
 		var contactsData = (inResponse && inResponse.results) || [];
+		var videoTypes = enyo.application.CallSynergizer.getVideoCallableImTypes();
+		var searchTerm = this.isFiltering ? this.searchString : "";
 
-		this.toggleNoResults(contactsData.length)
 		var itemsArrayFav = [];
 		var itemsArraynonFav = [];
 		if (contactsData && contactsData.length > 0) {
-			//contactsData.forEach(function(row) {
-			var skypeBuddiesTotal = contactsData.length;
-			for (var i = 0; i < skypeBuddiesTotal; i++) {
-				//enyo.error(enyo.json.stringify(contactsData[i]));
-				if (contactsData[i].hasVideoCapability === true && contactsData[i].offline === false) {
-					contactsData[i].favorite = this.getFavoriteFromUsername(contactsData[i].username);
-					contactsData[i].displayAddresses = [{
-						"type": contactsData[i].serviceName,
-						"label": "Skype",
-						"formattedValue": contactsData[i].username,
-						"value": contactsData[i].username
-					}];
-					if(contactsData[i].favorite) {
-						itemsArrayFav.push(contactsData[i]);
-					} else {
-						itemsArraynonFav.push(contactsData[i]);
-					}
-
+			var buddiesTotal = contactsData.length;
+			for (var i = 0; i < buddiesTotal; i++) {
+				var b = contactsData[i];
+				if (videoTypes.indexOf(b.serviceName) === -1) { continue; }
+				var availability = b.personAvailability !== undefined ? b.personAvailability : b.availability;
+				if (availability === 4) { continue; } // offline
+				if (searchTerm) {
+					var hay = ((b.displayName || "") + " " + (b.username || "")).toLowerCase();
+					if (hay.indexOf(searchTerm) === -1) { continue; }
 				}
+				b.favorite = this.getFavoriteFromUsername(b.username);
+				b.displayAddresses = [{
+					"type": b.serviceName,
+					"label": b.serviceName ? b.serviceName.replace("type_", "") : "",
+					"formattedValue": b.username,
+					"value": b.username
+				}];
+				(b.favorite ? itemsArrayFav : itemsArraynonFav).push(b);
 			}
 		}
-		this.skypeVideoContacts = itemsArrayFav.concat(itemsArraynonFav);
-		this.tempdbContacts = this.skypeVideoContacts.concat(this.otherImContacts || []);
-		this.$.list.refresh();
-	},
-	// Other PHONE-capable IM transports (whatsapp/telegram/teams/...): no presence/video-capability
-	// cache like Skype's imbuddystatus table exists for these, so list every contact-point for a
-	// currently callable type unconditionally -- the peer's own client decides whether it can
-	// actually receive video, same as it already does for voice.
-	gotOtherImContacts: function(inSender, inResponse) {
-		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
-		var results = (inResponse && inResponse.results) || [];
-		var itemsArrayFav = [];
-		var itemsArraynonFav = [];
-		for (var i = 0; i < results.length; i++) {
-			var c = results[i];
-			if (!c.ims) { continue; }
-			for (var j = 0; j < c.ims.length; j++) {
-				var im = c.ims[j];
-				if (!im || im.type === "type_skype") { continue; } // Skype already covered above
-				if (callableTypes.indexOf(im.type) === -1) { continue; }
-				var row = {
-					personId: c._id,
-					displayName: c.displayName,
-					favorite: this.getFavoriteFromUsername(im.value),
-					// updateSelection() (below) reads these flat, same shape as a skype row,
-					// not displayAddresses -- keep both in sync.
-					username: im.value,
-					serviceName: im.type,
-					displayAddresses: [{
-						"type": im.type,
-						"label": im.type.replace("type_", ""),
-						"formattedValue": im.value,
-						"value": im.value
-					}]
-				};
-				(row.favorite ? itemsArrayFav : itemsArraynonFav).push(row);
-			}
-		}
-		this.otherImContacts = itemsArrayFav.concat(itemsArraynonFav);
-		this.tempdbContacts = (this.skypeVideoContacts || []).concat(this.otherImContacts);
+		this.tempdbContacts = itemsArrayFav.concat(itemsArraynonFav);
 		this.toggleNoResults(this.tempdbContacts.length);
 		this.$.list.refresh();
 	},
@@ -233,11 +216,10 @@ enyo.kind({
 		this.querySelect =
 			[
 				"_id",
-				"hasVideoCapability",
-				"offline",
 				"personId",
 				"displayName",
 				"serviceName",
+				"availability",
 				"personAvailability",
 				"username"
 			];
@@ -286,9 +268,7 @@ enyo.kind({
 	search: function(inSearch) {
 		this.cancelSearch();
 		this.isFiltering = this.searchString = inSearch.toLowerCase() || "";
-		// first get favorites...
 		this.updateBuddyStatusAddressing();
-		//this.searchForFavorites();
 	},
 	cancelSearch: function() {
 		this.data = [];
@@ -306,48 +286,6 @@ enyo.kind({
 		this.$.GalMessage.setShowing(inShowing);
 		this.$.GalSpinner.setShowing(inShowing);
 		this.$.list.resized();
-	},
-	searchForFavorites: function() {
-		this.searchForFilterLocal(this.searchString, true, null, {onSuccess: "gotFavorites"});
-	},
-	gotFavorites: function(inSender, inResponse) {
-		//enyo.log("debug-and-remove: gotFavo "+enyo.json.stringify(inResponse.results));
-		this.data = inResponse.results;
-		enyo.log("debug-and-remove: this.data has "+this.data.length);
-		// Show the list, we don't know if we will have results in the future
-		this.toggleNoResults(true);
-		// punt the list
-		this.allowListPaging  = true;
-		this.$.list.$.buffer.flush();
-		this.allowListPaging = !this.isFiltering;
-		this.$.list.punt();
-		// If we're not filtering and therefore paging data, the list will take care of 
-		// retrieving its own data pages so do nothing, otherwise do a filter search
-		if (this.isFiltering) {
-			this.searchForFilter();
-		}
-	},
-	searchForFilter: function() {
-		//enyo.log("debug-and-remove: searchForFilter");
-		this.toggleNoResults(true);
-		this.showGalSpinner(true);
-		//this.$.galService.call({filterString: this.searchString, addressTypes: this.addressTypes});
-		this.searchForFilterLocal(this.searchString, false, 200);
-	},
-	searchForFilterLocal: function(inSearch, inFavorites, inLimit, inRequestInfo) {
-		//enyo.log("debug-and-remove: searchForFilterLocal ");
-		var query = {
-			select: this.querySelect,
-			where: []
-		}
-		if (inLimit) {
-			query.limit = inLimit;
-		}
-		if (inSearch) {
-			query.where.push({prop: "username", op: "%", val: inSearch});
-		}
-		//query.where.push({prop: "favorite", op: "=", val: inFavorites || false});
-		this.$.search.call({query: query});
 	},
 	gotSearchResults: function(inSender, inResponse, inRequest) {
 		this.showGalSpinner(false);
@@ -544,23 +482,26 @@ enyo.kind({
 			this.$.videoEnabledIcon.show();
 			this.$.address.setContent(itemAddress.formattedValue);
 			this.$.addressType.setContent(itemAddress.label);
-			if (itemAddress.type === "type_skype") {
-				
+			// webOS: every row here now comes from the live buddy-status query (VCgotBuddies),
+			// already restricted to video-capable services - so this is unconditional, not
+			// type_skype-gated like it used to be.
+			{
+				var availability = this.repeaterPerson.personAvailability !== undefined ? this.repeaterPerson.personAvailability : this.repeaterPerson.availability;
 				statusStr = "";
 				var color = "#888";
-				if (this.repeaterPerson.personAvailability == 0) { // online
+				if (availability == 0) { // online
 					statusStr = "(" + $L("Available") + ")";
 					color = "#7FBB55";
-					
-				}else if (this.repeaterPerson.personAvailability == 2) { // busy
+
+				}else if (availability == 2) { // busy
 					statusStr = "(" + $L("Busy") + ")";
 					color = "#AAA";
-						
-				} else if (this.repeaterPerson.personAvailability == 4) { // offline
+
+				} else if (availability == 4) { // offline
 					statusStr = "(" + $L("Offline") + ")";
-					
+
 				}
-				
+
 				this.$.status.setContent(statusStr);
 				this.$.status.applyStyle('color', color);
 			}

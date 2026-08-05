@@ -51,17 +51,17 @@ enyo.kind({
 		
 		this.buddyAllContactsStatusDirty = true;//force update listview
 		this._updateAllContactsBuddystatus = enyo.hitch(this, "updateAllContactsBuddystatus");
-		// webOS: Skype is gone, so skypeBuddyCache (its buddy-status watcher) can be absent - guard it.
-		// Unguarded, this NPE'd in create() and crashed the Phone app on launch-for-call, which surfaced
-		// as "Unable to connect" on outgoing WhatsApp calls. destroy() already guards the same cache.
-		if (enyo.application.Cache.skypeBuddyCache) {
-			enyo.application.Cache.skypeBuddyCache.registerBuddyStatus(this._updateAllContactsBuddystatus);
+		// Guarded defensively: PhoneTabs sets this in its own create() before instantiating this
+		// (lazy) view, but an unguarded call here once NPE'd and crashed the Phone app on
+		// launch-for-call ("Unable to connect" on outgoing WhatsApp calls) - see PhoneTabs.js.
+		if (enyo.application.Cache.imBuddyStatusCache) {
+			enyo.application.Cache.imBuddyStatusCache.registerBuddyStatus(this._updateAllContactsBuddystatus);
 		}
 	},
-	
+
 	destroy: function() {
-		if(enyo.application.Cache.skypeBuddyCache) {
-			enyo.application.Cache.skypeBuddyCache.unregisterBuddyStatus(this._updateAllContactsBuddystatus);
+		if(enyo.application.Cache.imBuddyStatusCache) {
+			enyo.application.Cache.imBuddyStatusCache.unregisterBuddyStatus(this._updateAllContactsBuddystatus);
 		}
 		this.inherited(arguments);
 	},

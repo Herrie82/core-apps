@@ -839,6 +839,23 @@ enyo.kind({
 		}
 		return types;
 	},
+	// Same as getCallableImTypes(), further filtered to accounts whose PHONE capabilityProvider
+	// declares a videoFormat other than "none" (this.transports[tid] IS that capabilityProvider -
+	// see _accountsListQuery below - so the field is already there with no extra plumbing). Replaces
+	// the old Skype-only imbuddystatus.skypem presence/video-capability cache: video capability is a
+	// per-SERVICE fact from the account template now (WhatsApp/Signal/Telegram/Teams all declare
+	// "both"), not a per-buddy runtime flag no current connector populates. Drives the VIDEO tab's
+	// addressing list + AddressingList's video-icon gating, same one-agnostic-place pattern.
+	getVideoCallableImTypes: function() {
+		var types = [];
+		for (var tid in this.transports) {
+			if ( tid === this.TRANSPORTS.TIL || tid === "com.palm.palmprofile" ) { continue; }
+			var t = this.transports[tid];
+			var sn = t && t.serviceName;
+			if ( sn && t.videoFormat && t.videoFormat !== "none" && types.indexOf(sn) === -1 ) { types.push(sn); }
+		}
+		return types;
+	},
 	// debounce: disallow a second dial call if received within 1.5 sec of first (and both calls pass 'debounce')
 	dial: function(address, video, audio, transport /*optional*/, personId /*optional*/, debounce /*optional*/, manualDial /*optional*/) {
 		// A dial can arrive with the IM serviceName ("type_telegram") instead of the account templateId

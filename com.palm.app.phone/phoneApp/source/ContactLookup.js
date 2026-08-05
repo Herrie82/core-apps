@@ -37,15 +37,15 @@ enyo.kind({
 		this.inherited(arguments);
 		this.buddyStatusDirty = true;//force update listview
 		this._updateBuddystatus = enyo.hitch(this, "updateBuddyStatus");
-		// webOS: Skype gone -> skypeBuddyCache may be absent; guard so this doesn't NPE (see Dialer.js).
-		if (enyo.application.Cache.skypeBuddyCache) {
-			enyo.application.Cache.skypeBuddyCache.registerBuddyStatus(this._updateBuddystatus);
+		// Guarded defensively - see Dialer.js create() for why.
+		if (enyo.application.Cache.imBuddyStatusCache) {
+			enyo.application.Cache.imBuddyStatusCache.registerBuddyStatus(this._updateBuddystatus);
 		}
 	},
 
 	destroy: function() {
-		if(enyo.application.Cache.skypeBuddyCache) {
-			enyo.application.Cache.skypeBuddyCache.unregisterBuddyStatus(this._updateBuddystatus);
+		if(enyo.application.Cache.imBuddyStatusCache) {
+			enyo.application.Cache.imBuddyStatusCache.unregisterBuddyStatus(this._updateBuddystatus);
 		}
 		this.inherited(arguments);
 	},

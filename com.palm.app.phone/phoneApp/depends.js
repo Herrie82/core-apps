@@ -71,7 +71,7 @@
 	,"source/SubItems.js"
 	,"source/DBAssistant.js"
 	,"source/PersonsCaches.js"
-	,"source/SkypebuddyCache.js"
+	,"source/ImBuddyStatusCache.js"
 	
         //pre-dartfish drawerItem
        ,"source/FavoritesDrawerItem.css"

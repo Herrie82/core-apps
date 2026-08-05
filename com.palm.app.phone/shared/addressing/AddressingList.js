@@ -329,46 +329,40 @@ enyo.kind({
 			this.$.address.setContent(itemAddress.formattedValue);
 			this.$.addressType.setContent(itemAddress.label);
 			
-			//if the address is a skype type, show the online status and video availability  
-			if (itemAddress.type === "type_skype") {
+			// webOS: video-capability is a per-SERVICE fact from the account template now (see
+			// CallSynergizer.getVideoCallableImTypes() - WhatsApp/Signal/Telegram/Teams all declare
+			// a videoFormat), not a per-buddy flag from Skype's old imbuddystatus.skypem table (gone
+			// along with Skype). Show the icon for any address on a video-capable service; layer on
+			// live presence (Available/Busy/Offline) from the generalized ImBuddyStatusCache
+			// (com.palm.imbuddystatus:1, keyed by service+username - see ImBuddyStatusCache.js)
+			// when we have it, same as this used to do for Skype only.
+			if (itemAddress.type && enyo.application.CallSynergizer.getVideoCallableImTypes().indexOf(itemAddress.type) !== -1) {
+				this.$.videoEnabledIcon.show();
+
 				var buddy;
-				if (itemAddress.value && enyo.application.Cache.skypeBuddyCache) {
-					buddy = enyo.application.Cache.skypeBuddyCache.getBuddyInfoFromUsername(itemAddress.value);
+				if (itemAddress.value && enyo.application.Cache.imBuddyStatusCache) {
+					buddy = enyo.application.Cache.imBuddyStatusCache.getBuddyInfo(itemAddress.type, itemAddress.value);
 				}
 				if (buddy) {
-					if (buddy.hasVideoCapability === true) {
-						this.$.videoEnabledIcon.show();
-					}
-
-					statusStr = "";   
+					var availability = buddy.personAvailability !== undefined ? buddy.personAvailability : buddy.availability;
+					statusStr = "";
 					var color = "#888";
-					if (buddy.personAvailability == 0) { // online
-						// enyo.log(buddy.displayName + " is online !!");
+					if (availability == 0) { // online
 						statusStr = "("+$L("Available")+")";
 						color = "#7FBB55";
 
-					} else if (buddy.personAvailability == 2) { // busy
-						//enyo.log(buddy.displayName + " is busy !!");
+					} else if (availability == 2) { // busy
 						statusStr = "("+$L("Busy")+")";
 						color = "#AAA";
 
-					} else if (buddy.personAvailability == 4) { // offline
-						//enyo.log(buddy.displayName + " is offline !!");
+					} else if (availability == 4) { // offline
 						statusStr = "("+$L("Offline")+")";
 
 					}
 
 					this.$.status.setContent(statusStr);
 					this.$.status.applyStyle('color', color);
-				} /*else {
-					enyo.error("SKYPE buddy status not available");
-				}*/
-			} else if (itemAddress.type && itemAddress.type.indexOf("type_") === 0) {
-				// Other IM transports (whatsapp/telegram/teams/...) have no per-contact video
-				// capability cache like Skype's buddy list -- the peer's own client decides
-				// whether it can actually receive video, same as it already does for voice, so
-				// just offer the button rather than gating on a capability check we don't have.
-				this.$.videoEnabledIcon.show();
+				}
 			}
 
 			return true;
