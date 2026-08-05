@@ -134,26 +134,17 @@ enyo.kind({
 							enyo.error("Handling Enyo exception(1). Need to fix this. " + e.description);
 						}
 
-                                                // monitor call quality for any non-cellular (VoIP-style) transport
-						if ( account.templateId != this.TRANSPORTS.TIL ) {
-						    // the mediator is able to provide call quality data
-						    // register qualInfoQuery
-                                                    enyo.log("registering for call quality monitoring: " + account.templateId);
-						    cap._subs.callQuality = this.createComponent({
-						        	kind:"PalmService",
-								service: cap.implementation,
-								method: "qualInfoQuery",
-								subscribe: true,
-								transport: account.templateId,
-								onSuccess: "_callQualityInfoResponse",
-								onFailure: "_callQualityInfoResponseFailure"
-						    });
-						    try {
-							    cap._subs.callQuality.call();
-						    } catch (e) {
-							    enyo.error("Handling Enyo exception(2). Need to fix this. " + e.description);
-						    }
-                                                } // monitor skype call quality
+						// webOS: qualInfoQuery was Skype's own bespoke call-quality telemetry
+						// (mediator-computed good/bad/ugly heuristics) - "any non-cellular" here
+						// was a later generalization that never checked whether the target
+						// service actually implements the method. None of the current connectors
+						// (WhatsApp/Signal/Telegram/Teams) do, so this subscription failed with
+						// "Unknown method \"qualInfoQuery\"" unconditionally, every launch, for
+						// every account - permanent log spam with no functional effect
+						// (_callQualityInfoResponseFailure only logs; nothing downstream ever
+						// ran since the success path never fired). Skype itself is long gone, so
+						// removed rather than gated - matches the rest of this file's history of
+						// stripping dead Skype-only hooks instead of leaving them disabled.
 						
 						// todo emergency query only for TIL transport
 						if ( account.templateId == this.TRANSPORTS.TIL ) {
