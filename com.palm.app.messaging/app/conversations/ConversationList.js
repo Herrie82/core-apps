@@ -1709,15 +1709,14 @@ enyo.kind({
 	// Show the header call buttons (video + voice) only for a 1:1 conversation.
 	updateVideoButton: function(){
 		var show = !!(this.chatThread && !this.chatThread.groupChatId);
-		// Video stays for every non-group chat (it uses a universal WebRTC join-link, not the transport).
-		if (this.$.videoCallButton) { this.$.videoCallButton.setShowing(show); }
-		// Voice call launches com.palm.app.phone with the SELECTED transport, so only show it for
-		// phone-capable services (SMS/MMS + the phone-number/voice IM services WhatsApp, Signal, Telegram);
-		// hide it for username-only IM (Discord, Facebook, Teams, Google Chat, IRC, ...). Reads the current
-		// dropdown selection so switching service updates the icon (see transportChange -> updateVideoButton).
-		if (this.$.phoneCallButton) {
-			this.$.phoneCallButton.setShowing(show && this.serviceHasVoiceCapability(this.currentCallTarget().serviceName));
-		}
+		// Both launch com.palm.app.phone with the SELECTED transport, but they're gated independently:
+		// voice-capable (SMS/MMS + PHONE-capable IM services) vs video-capable (a strict subset - e.g.
+		// WhatsApp/Signal/Telegram/Teams declare videoFormat:"both", cellular and Discord/Google Chat/IRC
+		// don't). Reads the current dropdown selection so switching service updates the icons (see
+		// transportChange -> updateVideoButton).
+		var target = this.currentCallTarget().serviceName;
+		if (this.$.videoCallButton) { this.$.videoCallButton.setShowing(show && this.serviceHasVideoCapability(target)); }
+		if (this.$.phoneCallButton) { this.$.phoneCallButton.setShowing(show && this.serviceHasVoiceCapability(target)); }
 	},
 	// webOS: which conversation transports can place a voice call via the phone app. Data-driven -
 	// accountService reads the "voiceCall" flag off each service's MESSAGING capabilityProvider (plus
@@ -1728,6 +1727,13 @@ enyo.kind({
 		if (as && as.hasVoiceCapability) { return as.hasVoiceCapability(serviceName); }
 		var u = enyo.messaging.utils;
 		return !!(u && u.isTextMessage && u.isTextMessage(serviceName));
+	},
+	// webOS: which conversation transports can place a VIDEO call via the phone app. Stricter than voice
+	// (see accountService.hasVideoCapability) - cellular has no free pass here, so this returns false
+	// until accountService is ready rather than guessing.
+	serviceHasVideoCapability: function(serviceName){
+		var as = enyo.application && enyo.application.accountService;
+		return !!(as && as.hasVideoCapability && as.hasVideoCapability(serviceName));
 	},
 	// Voice call: hand off to the Phone app's call flow for the current 1:1 peer.
 	voicecall: function(){
@@ -1740,33 +1746,14 @@ enyo.kind({
 	dial: function(inSender, inReplyAddress){
 		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: inReplyAddress, transport: "com.palm.skype.call", video: false}});
 	},
-	// webOS: video calling via the Atlas browser's built-in WebRTC (getUserMedia + webrtcbin +
-	// ICE/DTLS/SRTP are all confirmed present and working on device). The old skype/phone-app video
-	// path is dead, so instead we spin up a unique Jitsi Meet room: invite the peer with the join
-	// link (a normal outgoing message they can tap on any platform), then open the room locally in
-	// Atlas. No native media code, no signalling server. Self-contained from the current 1:1 thread.
+	// Video call: hand off to the Phone app's call flow for the current 1:1 peer, same as voicecall
+	// but with video:true. com.palm.app.phone's launch handler (index.html) is transport-agnostic here -
+	// it forwards address/transport/video straight into CallSynergizer.dial(), which routes the video
+	// flag to whichever VoIP transport is selected (WhatsApp/Signal/Telegram/...), not just Skype.
 	videocall: function(){
 		if (!this.chatThread || this.chatThread.groupChatId) { return; }
-		var peer = String(this.chatThread.replyAddress || "call").replace(/[^a-zA-Z0-9]/g, "");
-		var room = "webosVC" + peer.slice(-10) + Date.now().toString(36).slice(-4);
-		// Lightweight PeerJS WebRTC page (github.com/Herrie82/webos-vc) - Jitsi's SPA OOM-crashes the
-		// old browser; this is a ~5KB page. Room rides in ?room= (a query param survives Atlas's launch
-		// where a #fragment can be dropped).
-		var url = "https://herrie82.github.io/webos-vc/?room=" + room;
-		// Best-effort: send the peer the join link through the current conversation transport.
-		try {
-			this.$.richText.setValue($L("📹 Video call — tap to join: ") + url);
-			this.sendMessage();
-		} catch (e) {
-			enyo.warn("videocall: could not send invite link: " + e);
-		}
-		// Open in ATLAS explicitly (id) - NOT the default http handler (old com.palm.app.browser).
-		// Prefix the target with "atlas-simple:" so the card is BORN in MODE 2 (viewport, 1-screen
-		// render buffer -> ~4x less display readback CPU): Atlas BrowserApp.js maps the prefix to
-		// _launchSimple, and BrowserServer rebuilds the pre-warmed WebView at mult=1 for it. The call
-		// page is a single fixed viewport that never scrolls, so MODE 2 is ideal. (The prefix survives
-		// atlasOpenCard where the mode= param does not; the old about:blank warmup no longer defeats it.)
-		this.$.launchApp.call({id: "org.webosports.app.atlas", params: {target: "atlas-simple:" + url}});
+		var target = this.currentCallTarget();
+		this.$.launchApp.call({id: "com.palm.app.phone", params: {address: target.address, transport: target.serviceName, video: true}});
 	},
     gotSystemPrefs: function(from, response) {
         // System preferences (timeFormat) service success response handler.

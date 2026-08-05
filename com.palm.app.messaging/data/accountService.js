@@ -146,6 +146,30 @@ enyo.kind({
 		}
 		return false;
 	},
+	// Can this service place a VIDEO call through the phone app? Same PHONE capabilityProvider as
+	// hasVoiceCapability, but additionally requires the provider to declare a "videoFormat" (the same
+	// com.palm.callcapabilites field/enum ["none","landscape","portrait","both"] SingleLineSingleCall.js
+	// reads at call time - it describes supported video ORIENTATIONS, not an audio/video toggle, so any
+	// value other than absent/"none" means video is supported). WhatsApp/Signal/Telegram/Teams templates
+	// in webos-synergy-revival declare "both". Cellular SMS/MMS is voice-capable but never video-capable
+	// here - there is no VoLTE video path - so unlike hasVoiceCapability it gets no free pass. A future
+	// voice-only PHONE provider (one that omits videoFormat) correctly stays voice-only. Used to gate the
+	// conversation video-call button separately from the phone button.
+	hasVideoCapability: function(serviceName){
+		var tmpls = this.getAccountTemplates();
+		if (tmpls) {
+			for (var i = 0, t; t = tmpls[i]; i++) {
+				var caps = (t && t.capabilityProviders) || [];
+				for (var j = 0, c; c = caps[j]; j++) {
+					if (c.capability === "PHONE" && (!c.serviceName || c.serviceName === serviceName) &&
+						c.videoFormat && c.videoFormat !== "none") {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	},
 	cleanAccount: function(account) {
 		id = account._id;
 		for (var i=0, c; c = account.capabilityProviders[i]; i++) {
