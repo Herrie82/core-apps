@@ -111,10 +111,9 @@ enyo.kind({
 	
 	
 	gotDeviceProfile: function(inSender, inResponse) {
-		var accounts = this.owner.$.accounts;
-		accounts.setDeviceProfile(inResponse);
-		accounts.backToViewCallback = this.backToViewCallback;
-		accounts.palmProfileAccount = this.palmProfileAccount;
+		// The pane holds this now; backToViewCallback and palmProfileAccount were
+		// already on it, so only the device profile needed rehoming.
+		this.owner.deviceProfile = inResponse;
 		this.$.spinner.show();
 		// Push this device's current name up BEFORE fetching the profile, so the
 		// device list we are about to render already reflects a rename done in
@@ -148,22 +147,13 @@ enyo.kind({
 	},
 	
 	gotAccount: function(inSender, inResponse)
-	{	
-		var accounts = this.owner.$.accounts;
-		accounts.setAccountInfo(inResponse);
+	{
 		this.$.spinner.hide();
 		// Straight into the profile. The original re-prompted for the account
 		// password here; the device already holds a per-device token that every
 		// profile call authenticates with, so a second challenge proves nothing
 		// the token has not already established.
-		//
-		// Note we do NOT select the intermediate "accounts" view on the way past.
-		// loadAccount() selects the profile by name, and starting a pane transition
-		// here would still be in flight when it did — leaving the user parked on the
-		// accounts view, which since the login button was removed shows nothing but
-		// the name. The password dialog used to mask that by delaying the second
-		// transition until after the user had typed.
-		accounts.loadAccount();
+		this.owner.loadAccount(inResponse);
 	},
 	
 	

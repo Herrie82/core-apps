@@ -262,7 +262,7 @@ enyo.kind({
 		// deviceInfo.nduId, not .deviceNduid — the original compared against a
 		// property getDeviceProfile does not return, so it was always undefined and
 		// "is this the device I am holding" was never true.
-		var myNduId = this.owner.$.accounts.deviceProfile.deviceInfo.nduId;
+		var myNduId = this.owner.deviceProfile.deviceInfo.nduId;
 		this.$.deviceInfo.setDevice({device: device, thisDevice: (myNduId === device.nduId)});
 		this.$.deviceInfo.openAtCenter();
 	},
