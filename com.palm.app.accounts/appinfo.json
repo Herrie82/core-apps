@@ -1,6 +1,6 @@
 {
 	"id": "com.palm.app.accounts",
-	"version": "1.0.0",
+	"version": "3.1.0",
 	"vendor": "HP",
 	"type": "web",
 	"main": "index.html",
