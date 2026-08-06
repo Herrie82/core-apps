@@ -93,6 +93,10 @@ enyo.kind({
 						owner: this.owner
 					},
 					{
+						name: "signOut", kind: "Button", className: "accounts-btn accounts-btn-danger",
+						caption: $L("Sign Out"), onclick: "confirmSignOut"
+					},
+					{
 						name: "nameDialog",
 						kind: "MyApps.PalmID.NameDialog",
 						owner: this.owner
@@ -145,6 +149,23 @@ enyo.kind({
 
 		{kind: "MyApps.PalmID.CommErrorDialog", name: "errorDialog"},
 		{kind: "MyApps.PalmID.SpinnerOverlayPopup", name: "spinnerOverlay"},
+
+		{
+			kind: "PalmService", name: "signOutCall",
+			service: "palm://com.palm.accountservices/", method: "signOut",
+			onSuccess: "signOutSuccess", onFailure: "signOutFailure"
+		},
+		{
+			kind: "ModalDialog", lazy: false, name: "signOutConfirm",
+			caption: $L("Sign Out"), scrim: true, dismissWithClick: false, modal: true,
+			components: [
+				{className: "enyo-paragraph", content: $L("Sign out of this webOS Account on this device? Your books, settings and files stay on the device, and you can sign in again at any time.")},
+				{kind: "HFlexBox", components: [
+					{kind: "Button", caption: $L("Cancel"), flex: 1, onclick: "cancelSignOut"},
+					{kind: "Button", caption: $L("Sign Out"), flex: 1, className: "accounts-btn-danger", onclick: "doSignOut"}
+				]}
+			]
+		},
 	],
 	// The account has ONE name column server-side (display_name). firstName and
 	// lastName arrive split only because that is the shape the stock assistant
@@ -420,6 +441,38 @@ enyo.kind({
 	},
 	
 				
+	confirmSignOut: function()
+	{
+		this.$.signOutConfirm.openAtCenter();
+	},
+	cancelSignOut: function()
+	{
+		this.$.signOutConfirm.close();
+	},
+	doSignOut: function()
+	{
+		this.$.signOutConfirm.close();
+		this.$.spinnerOverlay.openAtCenter();
+		this.$.signOutCall.call({});
+	},
+	signOutSuccess: function(inSender, inResponse)
+	{
+		this.$.spinnerOverlay.close();
+		// The service clears the local token even when the server revoke fails, so
+		// the device really is signed out either way — say so when the token is
+		// still live somewhere, rather than pretending it is not.
+		if (inResponse && inResponse.serverTokenRevoked === false) {
+			console.log("Accounts app: signed out locally, but the server token was not revoked");
+		}
+		// Back to the account list, which re-probes and will now find no token.
+		this.owner.backToViewCallback();
+	},
+	signOutFailure: function(inSender, inResponse)
+	{
+		this.$.spinnerOverlay.close();
+		this.$.errorDialog.openAtCenter(inResponse);
+	},
+
 	create: function()
 	{
 		this.inherited(arguments);

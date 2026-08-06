@@ -301,9 +301,13 @@ enyo.kind({
 	},
 
 	profileServiceUnavailable: function(inSender, inResponse) {
-		// Expected on any device without a Palm Profile replacement, and on a device where
-		// nobody has signed in yet. The row keeps its disabled default.
-		console.log("Accounts app: no profile service/token, profile editor stays disabled");
+		// Expected on any device without a Palm Profile replacement, on a device where
+		// nobody has signed in yet, and after a sign-out. Set the state rather than
+		// just leaving the default, because this also runs on the way back from the
+		// profile view, where the row may currently be enabled.
+		console.log("Accounts app: no profile service/token, profile editor disabled");
+		this.$.palmProfileItem.setDisabled(true);
+		this.$.palmProfileGroup.setCaption($L("Local Account"));
 	},
 
 	editPalmidProfile:  function(inSender, inResults) {
@@ -336,6 +340,10 @@ enyo.kind({
 	// Go to the prefs and accounts view
 	accountsDone: function(inSender, e) {
 		this.selectViewByName("prefsAndAccounts");
+		// Re-probe on the way back: the user may have just signed out, in which
+		// case the row has to stop being tappable or the next tap walks into a
+		// profile fetch with no token behind it.
+		this.$.probeProfileToken.call({});
 	},
 
 	// App menu -> "Delete Account Data": open the retained-data page (swipe-to-delete list of accounts
