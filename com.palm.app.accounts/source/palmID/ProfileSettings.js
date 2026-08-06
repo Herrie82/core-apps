@@ -245,13 +245,25 @@ enyo.kind({
 		this.details.accountInfo.username = username;
 		this.$.usernameLabel.setContent(enyo.string.escapeHtml(username));
 	},
+	// A full nduid is 40 hex characters and a PWA id is a uuid — neither fits a
+	// list row, and an ellipsised hash identifies nothing. Show enough of the head
+	// to tell two devices apart; the detail dialog carries the whole value.
+	shortDeviceId: function(nduId)
+	{
+		nduId = String(nduId || "");
+		return nduId.length > 14 ? nduId.substring(0, 12) + "…" : nduId;
+	},
 	showDeviceInfo: function(inSender, inResponse, rowIndex)
 	{
 		this.gotDevice(this.deviceList[inSender.value]);
 	},
 	gotDevice: function(device)
 	{
-		this.$.deviceInfo.setDevice({device: device, thisDevice: (this.owner.$.accounts.deviceProfile.deviceInfo.deviceNduid == device.nduId)});
+		// deviceInfo.nduId, not .deviceNduid — the original compared against a
+		// property getDeviceProfile does not return, so it was always undefined and
+		// "is this the device I am holding" was never true.
+		var myNduId = this.owner.$.accounts.deviceProfile.deviceInfo.nduId;
+		this.$.deviceInfo.setDevice({device: device, thisDevice: (myNduId === device.nduId)});
 		this.$.deviceInfo.openAtCenter();
 	},
 	populateDeviceList: function(deviceList)
@@ -272,10 +284,14 @@ enyo.kind({
 		this.deviceList = deviceList;
 		for(var i = 0; i < deviceList.length; ++i)
 		{
-			this.$.deviceList.createComponent({ 
-				name: "deviceItem_"+ i, kind: "MyApps.PalmID.SimpleItem", 
-				components: [ {content: enyo.string.escapeHtml(deviceList[i].deviceType), style:"padding-right:30px" },
-							  {content: enyo.string.escapeHtml(deviceList[i].deviceName), flex: 1, className:"enyo-text-ellipsis", style:"text-align:right"}
+			// Name on the left, device id on the right. The id is what actually
+			// distinguishes two devices with the same name, and it replaces the old
+			// left-hand column, which showed deviceType — in practice the hardware
+			// SKU ("HSTNH-I29C"), which named nothing a person would recognise.
+			this.$.deviceList.createComponent({
+				name: "deviceItem_"+ i, kind: "MyApps.PalmID.SimpleItem",
+				components: [ {content: enyo.string.escapeHtml(deviceList[i].deviceName), flex: 1, className:"enyo-text-ellipsis", style:"padding-right:30px" },
+							  {content: enyo.string.escapeHtml(this.shortDeviceId(deviceList[i].nduId)), className:"enyo-text-ellipsis", style:"text-align:right; opacity:0.6"}
 							],
 				onclick: "showDeviceInfo", 
 				value: i, 
