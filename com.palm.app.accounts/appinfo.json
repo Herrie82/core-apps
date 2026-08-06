@@ -7,5 +7,6 @@
 	"title": "Accounts",
 	"icon": "icon.png",
 	"uiRevision": 2,
-	"requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+	"trustLevel": "trusted",
+	"requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.operation", "database.operation", "imaccountvalidator.operation", "keymanager-service.operation", "mojomail-imap.operation", "mojomail-pop.operation", "mojomail-smtp.operation", "networkconnection.query", "networkconnection.management", "settings.read", "tempdatabase.operation", "wifi.query", "wifi.management"]
 }
