@@ -17,6 +17,11 @@ STATE=/media/cryptofs/webosarchive-accounts
 BAK="$STATE/stock-app.tar"
 MARKER="$STATE/installed"
 
+# Must match postinst's OURS_MARKER exactly — this is how the no-backup branch
+# below tells "our build, safe to remove" from "already restored by an earlier
+# call, do not touch".
+OURS_MARKER="source/palmID/UsernameDialog.js"
+
 log() { echo "[wosa-accounts] $*"; }
 
 mount -o remount,rw /dev/mapper/store-root / 2>/dev/null
@@ -30,11 +35,29 @@ if [ -f "$MARKER" ]; then
 fi
 
 if [ ! -f "$BAK" ]; then
-    # No backup means the app was not on the device before us. Removing our build
-    # outright is the correct inverse; leaving it would strand an app ipkg no longer
-    # tracks.
-    log "no stock backup found — removing $DST"
-    rm -rf "$DST"
+    # No backup on file means one of two things, and they call for OPPOSITE
+    # actions — which is why this checks what is actually installed rather than
+    # just the absence of $BAK:
+    #
+    #   1. The app was never on the device before us (first install had nothing to
+    #      back up). $DST is our build. Removing it is the correct inverse.
+    #   2. This is a SECOND invocation of this same uninstall (confirmed live for
+    #      postinst under WOSQI — postinst guards against it explicitly; prerm did
+    #      not, and that omission was the bug). The first call already restored
+    #      stock and deleted $BAK as its very last step. $DST is now stock, not
+    #      ours. Blindly removing it here — which is what this branch used to do —
+    #      deleted the stock app that had just been put back, leaving NEITHER
+    #      version installed. Confirmed by reproducing it: a second prerm call
+    #      turned a successful restore into a missing app directory.
+    #
+    # OURS_MARKER is the same file postinst uses to tell "ours" from "stock", so
+    # case 1 and case 2 are distinguishable without any extra state.
+    if [ -f "$DST/$OURS_MARKER" ]; then
+        log "no stock backup found — removing our build at $DST"
+        rm -rf "$DST"
+    else
+        log "no stock backup found and $DST is not our build — nothing to do (already restored by an earlier call?)"
+    fi
     rm -f "$MARKER"
     luna-send -n 1 palm://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1
     exit 0
