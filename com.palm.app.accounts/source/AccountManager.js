@@ -92,6 +92,9 @@ enyo.kind({
 		// once: whether a Palm Profile replacement service is on the bus at all, and whether an
 		// account is actually signed in on this device. Either failure leaves the row disabled.
 		{kind: "PalmService", name: "probeProfileToken", service: "palm://com.palm.accountservices/", method: "getAccountToken", onSuccess: "profileServiceAvailable", onFailure: "profileServiceUnavailable"},
+		// Used only to label the row when there is no account signed in — see
+		// profileServiceUnavailable().
+		{kind: "PalmService", name: "getDeviceName", service: "palm://com.palm.systemservice/", method: "getPreferences", onSuccess: "gotDeviceNameForLabel", onFailure: "gotDeviceNameForLabel"},
 		{kind: "PalmService", name: "modifyPalmProfileAccountName", service: enyo.palmServices.accounts, method: "modifyAccount"},
 		{kind: "PalmService", name: "retainedQuery", service: "palm://com.palm.db/", method: "find", onSuccess: "gotRetainedData", onFailure: "gotRetainedData"},
 	],
@@ -298,6 +301,11 @@ enyo.kind({
 		}
 		this.$.palmProfileItem.setDisabled(false);
 		this.$.palmProfileGroup.setCaption($L("ACCOUNT"));
+		// Restore the account's own name, in case a sign-out earlier in this session
+		// replaced it with the device-scoped label below.
+		if (this.palmProfileAccount && this.palmProfileAccount.username) {
+			this.$.palmProfileName.setContent(enyo.string.escapeHtml(this.palmProfileAccount.username));
+		}
 	},
 
 	profileServiceUnavailable: function(inSender, inResponse) {
@@ -308,6 +316,22 @@ enyo.kind({
 		console.log("Accounts app: no profile service/token, profile editor disabled");
 		this.$.palmProfileItem.setDisabled(true);
 		this.$.palmProfileGroup.setCaption($L("Local Account"));
+		// The row still carries the signed-out account's name, because sign-out
+		// clears the profile's token but deliberately leaves the local account
+		// record in place (see SignOutCommandAssistant). A real person's name above
+		// a greyed-out row reads as "signed in, but broken", so relabel it after the
+		// device — which is what this account now actually is.
+		this.$.getDeviceName.call({keys: ["deviceName"]});
+	},
+
+	// Success and failure both land here: without a device name there is nothing
+	// better to say than the generic label, which is also the pre-sign-in default.
+	gotDeviceNameForLabel: function(inSender, inResponse) {
+		var device = (inResponse && inResponse.deviceName) ? inResponse.deviceName : "";
+		var label = device
+			? new enyo.g11n.Template($L("#{device}'s Account")).evaluate({device: device})
+			: $L("Local Account");
+		this.$.palmProfileName.setContent(enyo.string.escapeHtml(label));
 	},
 
 	editPalmidProfile:  function(inSender, inResults) {
