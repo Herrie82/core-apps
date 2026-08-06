@@ -219,7 +219,7 @@ enyo.kind({
 	createPhoneSubItem: function(inVVM, inAddress, inAction, inRawPhoneNumber) {		
 		this.callOptionsDataArray.push({
 			'phoneNum': (inAction === DrawerSubItemAction.DialPhoneNumber) ? inAddress: undefined,
-			'ims': (inAction === DrawerSubItemAction.DialSkypeIms) ? inAddress: undefined,
+			'ims': (inAction === DrawerSubItemAction.DialIms) ? inAddress: undefined,
 			'showSMSIcon': true,
 			'clickAction': inAction,
 			'rawPhoneNumber': inRawPhoneNumber,

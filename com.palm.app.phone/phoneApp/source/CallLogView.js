@@ -454,7 +454,7 @@ enyo.kind({
 			for (var i = 0; i < len; i++) {
 				if (callableTypes.indexOf(inPerson.ims[i].type) !== -1) {
 					var ims = inPerson.ims[i];
-					this.createSubItem(undefined, ims.value, undefined, DrawerSubItemAction.DialSkypeIms,
+					this.createSubItem(undefined, ims.value, undefined, DrawerSubItemAction.DialIms,
 						ims.type, ims.value, inPerson._id, bShowSeparator1, true);
 
 					bShowSeparator1 = false;

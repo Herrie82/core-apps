@@ -1,6 +1,13 @@
 enyo.addressing.fetchLabelFromType = function(inContactType, inAddressType) {
+	// IM labels are service-agnostic and owned by Utils.imServiceLabel, so that a new connector
+	// (Teams, Discord, ...) is named correctly with no per-service entry anywhere.
+	if (inContactType === "ims") {
+		return enyo.application.Utils.imServiceLabel(inAddressType) ||
+			enyo.application.Utils.imServiceLabel("type_default");
+	}
+
 	var labels = enyo.addressing.labels[inContactType];
-	var label = labels && labels[inAddressType]
+	var label = labels && labels[inAddressType];
 	return label && label.displayValue;
 }
 
@@ -10,28 +17,6 @@ enyo.addressing.labels = {
 		type_home: {displayValue: $L('Home')},
 		type_work: {displayValue: $L('Work')},
 		type_other: {displayValue: $L('Other')}
-	},
-	//
-	ims: {
-		type_aim: {displayValue: $L('AIM')},
-		type_yahoo: {displayValue: $L('Yahoo!')},
-		type_gtalk: {displayValue: $L('GTalk')},
-		type_msn: {displayValue: $L('Messenger')},
-		type_jabber: {displayValue: $L('Jabber')},
-		type_icq: {displayValue: $L('ICQ')},
-		type_irc: {displayValue: $L('IRC')},
-		type_qq: {displayValue: $L('QQ')},
-		type_skype: {displayValue: $L('Skype')},
-		type_whatsapp: {displayValue: $L('WhatsApp')},
-		type_telegram: {displayValue: $L('Telegram')},
-		type_signal: {displayValue: $L('Signal')},
-		type_yjp: {displayValue: $L('Y! Japan')},
-		type_lcs: {displayValue: $L('LCS')},
-		type_dotmac: {displayValue: $L('.Mac')},
-		type_facebook: {displayValue: $L('Facebook')},
-		type_myspace: {displayValue: $L('MySpace')},
-		type_gadugadu: {displayValue: $L('GaduGadu')},
-		type_default: {displayValue: $L('IM')}
 	},
 	//
 	phoneNumbers: {

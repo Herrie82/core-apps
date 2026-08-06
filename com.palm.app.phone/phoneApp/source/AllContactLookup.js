@@ -4,7 +4,7 @@ enyo.kind({
 	className: "contact-list",
 	components: [
 		{name: "textInput", kind: "SearchInput", spellcheck: false, autocorrect: false, changeOnKeypress: true, keypressChangeDelay: 200, onchange: "showContacts", onCancel: "showContacts"},
-		{kind: "AddressingList", flex: 1, addressTypes: ["phoneNumbers", "ims"], imTypes: ["type_skype"], onSelect: "addressSelected", onSetupHeader: "maybeShowDialButton", components: [
+		{kind: "AddressingList", flex: 1, addressTypes: ["phoneNumbers", "ims"], onSelect: "addressSelected", onSetupHeader: "maybeShowDialButton", components: [
 			{name:"divider", kind: "Divider", className: "enyo-addressing-item-divider", caption:$L("Dial")},
 			{name:"dialShortcutValue", kind: "Item", className: "enyo-single", onclick:"handleEnterKey", className:"enyo-addressing-item-selected"}
 		]}

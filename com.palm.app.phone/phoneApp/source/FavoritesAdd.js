@@ -51,14 +51,17 @@ enyo.kind({
 		this.handleLaunch();
 	},
 	handleLaunch: function() {
-		this.skypeIMs = [];
+		// Offer every IM that can actually place a call (whatsapp/telegram/signal/teams/...) as a
+		// default contact point, not just one hardcoded service.
+		this.callableIMs = [];
 		var params = enyo.windowParams;
 		if (params.context.person) {
 			this.person = params.context.person;
+			var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
 			var len = this.person.ims.length;
 			for (var i = 0; i < len; i++) {
-				if (this.person.ims[i].type === "type_skype") {
-					this.skypeIMs.push(this.person.ims[i]);
+				if (callableTypes.indexOf(this.person.ims[i].type) !== -1) {
+					this.callableIMs.push(this.person.ims[i]);
 				}
 			}
 			this.showSetDefaultPhNumberUI();
@@ -85,9 +88,10 @@ enyo.kind({
 				this.$.phoneLabel.setContent(enyo.application.Utils.FormatPhoneNumber(this.person.phoneNumbers[inIndex].value));
 				this.$.phoneType.setContent(enyo.application.Utils.getPhoneNumberType(this.person.phoneNumbers[inIndex].type));
 				return true;
-			} else if (inIndex < (phNumbersLen + this.skypeIMs.length)) {
-				this.$.phoneLabel.setContent(this.skypeIMs[inIndex - phNumbersLen].value);
-				this.$.phoneType.setContent(enyo.application.Utils.contactPointLabels["type_skype"][0]);
+			} else if (inIndex < (phNumbersLen + this.callableIMs.length)) {
+				var im = this.callableIMs[inIndex - phNumbersLen];
+				this.$.phoneLabel.setContent(enyo.application.Utils.formatImAddress(im.value));
+				this.$.phoneType.setContent(enyo.application.Utils.imServiceLabel(im.type));
 				return true;
 			}
 		}
@@ -132,8 +136,8 @@ enyo.kind({
 		if (inEvent.rowIndex < phNumbersLen) {
 			address = this.person.phoneNumbers[inEvent.rowIndex].value;
 			contactPtType = "contact_point_type_phoneNumber";
-		} else if (inEvent.rowIndex < (phNumbersLen + this.skypeIMs.length)) {
-			address = this.skypeIMs[inEvent.rowIndex - phNumbersLen].value
+		} else if (inEvent.rowIndex < (phNumbersLen + this.callableIMs.length)) {
+			address = this.callableIMs[inEvent.rowIndex - phNumbersLen].value
 			contactPtType = "contact_point_type_imAddress";
 		}
 

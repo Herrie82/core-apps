@@ -12,7 +12,7 @@ enyo.kind({
 		]},		
 		{kind: "VFlexBox", className: "phone-contacts", flex: 1, components: [
 		{name: "textInput", style: "margin: 15px;", className: "enyo-rounded-input", kind: "SearchInput", hint: $L("Enter Name"), spellcheck: false, autocorrect: false, changeOnKeypress: true, keypressChangeDelay: 200, onchange: "showContacts", onCancel: "showContacts"},		
-		{kind: "AddressingList", name: "addressinglist", flex: 1, addressTypes: ["phoneNumbers", "ims"], imTypes: ["type_skype"], onSelect: "addressSelected", onVideoCall:"videoClicked"},	
+		{kind: "AddressingList", name: "addressinglist", flex: 1, addressTypes: ["phoneNumbers", "ims"], onSelect: "addressSelected", onVideoCall:"videoClicked"},
 		// generic dialog, see launch params
 		{name: "genericDialog", kind: enyo.DialogPrompt, cancelButtonCaption: false /*don't show*/},
 		{name: "networkAlerts", kind: "NetworkAlerts", onTap: "onTapHandlerFn"},
@@ -174,8 +174,7 @@ enyo.kind({
 		if (curVal.length === 0) {
 			this.$.addressinglist.cancelSearch();
 		}
-		// Offer a call row for every enabled PHONE-capable service (whatsapp/telegram/signal/...),
-		// not just the legacy hardcoded Skype type. Video stays Skype-only (gated in AddressingList).
+		// Offer a call row for every enabled PHONE-capable service (whatsapp/telegram/signal/teams/...).
 		this.$.addressinglist.imTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		this.$.addressinglist.search(curVal);
 		this.buddyAllContactsStatusDirty = false;

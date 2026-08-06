@@ -3,7 +3,7 @@ DrawerSubItemAction = {
 	ViewContact: 1,
 	AddToContacts: 2,
 	DialPhoneNumber: 3,
-	DialSkypeIms: 4,
+	DialIms: 4,
 	ChangeDefaultNumber: 5,
 	SendSMS: 6,
 	DialVoicemail: 7,
@@ -62,10 +62,9 @@ enyo.kind({
 		if (this.ims) {
 			// webOS: an IM row is no longer always Skype. Format phone-shaped ids (WhatsApp/Signal are
 			// +E.164) and label the row by the IM's OWN service (this.service == type_whatsapp/... set
-			// from callOptionData.transport), falling back to the generic "IM" label.
+			// from callOptionData.transport).
 			this.$.itemTextLbl.setContent(enyo.application.Utils.formatImAddress(this.ims));
-			var lbl = enyo.addressing.fetchLabelFromType("ims", this.service) || enyo.addressing.fetchLabelFromType("ims", "type_default");
-			this.$.phTypeLbl.setContent(lbl);
+			this.$.phTypeLbl.setContent(enyo.application.Utils.imServiceLabel(this.service));
 		}
 	},
 
@@ -155,8 +154,7 @@ enyo.kind({
 		if (this.ims) {
 			// webOS: label/format an IM row by its own service, not a hardcoded Skype (see DrawerSubItem).
 			this.$.itemTextLbl.setContent(enyo.application.Utils.formatImAddress(this.ims));
-			var lbl = enyo.addressing.fetchLabelFromType("ims", this.service) || enyo.addressing.fetchLabelFromType("ims", "type_default");
-			this.$.phTypeLbl.setContent(lbl);
+			this.$.phTypeLbl.setContent(enyo.application.Utils.imServiceLabel(this.service));
 		}
 	},
 
@@ -278,7 +276,7 @@ enyo.kind({
 			case DrawerSubItemAction.DialPhoneNumber:
 				enyo.application.CallSynergizer.dial(inData.rawPhoneNumber, undefined, undefined, undefined, inData.personId, true);
 				break;
-			case DrawerSubItemAction.DialSkypeIms:
+			case DrawerSubItemAction.DialIms:
 				// inData.transport carries the IM's own service (type_whatsapp/type_telegram/...);
 				// CallSynergizer.dial() translates that serviceName to the account templateId.
 				enyo.application.CallSynergizer.dial(inData.rawPhoneNumber, undefined, undefined, inData.transport, inData.personId, true);
@@ -305,7 +303,7 @@ enyo.kind({
 	},
 
 	// Resolve a transport/service value - which may already be an IM serviceName like "type_whatsapp"
-	// (DialSkypeIms rows carry ims.type) or an account templateId like "com.palm.whatsapp" (call-log
+	// (DialIms rows carry ims.type) or an account templateId like "com.palm.whatsapp" (call-log
 	// rows carry address.service) - to its IM serviceName, or undefined for cellular/unset. Replaces
 	// the old hard-coded "type_skype"/TRANSPORTS.SKYPE checks (TRANSPORTS.SKYPE doesn't exist, so those
 	// always resolved false) with something that works for any current/future VoIP transport.

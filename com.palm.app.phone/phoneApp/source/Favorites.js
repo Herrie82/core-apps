@@ -191,21 +191,24 @@ enyo.kind({
 			nPhoneIndex++;
 		}
 
+		// Count every IM that can actually place a call (whatsapp/telegram/signal/teams/...), not
+		// just one hardcoded service - see CallSynergizer.getCallableImTypes().
 		var imsLen = ims.length;
-		var skypeImsCount = 0;
+		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
+		var callableImsCount = 0;
 		for (var i = 0; i < imsLen; i++) {
-			if (ims[i].type === "type_skype") {
-				skypeImsCount++;
-				if (ims[i].favoriteData["com.palm.app.phone"]) {
+			if (callableTypes.indexOf(ims[i].type) !== -1) {
+				callableImsCount++;
+				if (ims[i].favoriteData && ims[i].favoriteData["com.palm.app.phone"]) {
 					return 0;
 				}
 			}
 		}
 
-		if ((nPhone + skypeImsCount) === 1) { // If there is no default ph# or skype ims set and there is at least a ph# or skype ims
+		if ((nPhone + callableImsCount) === 1) { // If there is no default ph# or callable ims set and there is at least a ph# or callable ims
 			return 0;
 		} else {
-			return ((nPhone + skypeImsCount) > 1) ? 1 : 2;
+			return ((nPhone + callableImsCount) > 1) ? 1 : 2;
 		}
 	},
 
@@ -303,14 +306,14 @@ enyo.kind({
 
 		// Offer a call row for every IM whose service is an enabled PHONE-capable transport
 		// (whatsapp/telegram/signal/...), dialing via that IM's own transport.
-		var skypeIMs = [];
+		var callableIMs = [];
 		var len = inContact.ims.length;
 		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		for (var i = 0; i < len; i++) {
 			if (callableTypes.indexOf(inContact.ims[i].type) !== -1) {
 				var ims = inContact.ims[i];
-				this.createPhoneSubItem(inContact, ims.value, DrawerSubItemAction.DialSkypeIms, ims.value, ims.type);
-				skypeIMs.push(ims);
+				this.createPhoneSubItem(inContact, ims.value, DrawerSubItemAction.DialIms, ims.value, ims.type);
+				callableIMs.push(ims);
 			}
 		}
 		
@@ -321,7 +324,7 @@ enyo.kind({
 		//we need to revisit to see if this fix is necessary
 		var defaultContactPoint = enyo.application.Utils.getDefaultContactPoint(inContact, true);
 		if (defaultContactPoint){
-			if ((inContact.phoneNumbers.length + skypeIMs.length) > 1) {
+			if ((inContact.phoneNumbers.length + callableIMs.length) > 1) {
 				this.callOptionsDataArray.push({
 					'itemText': $L("Change Default Number"),
 					'clickAction': DrawerSubItemAction.ChangeDefaultNumber,
@@ -348,7 +351,7 @@ enyo.kind({
 	createPhoneSubItem: function(inContact, inAddress, inAction, inRawPhoneNumber, inTransport) {		
 		this.callOptionsDataArray.push({
 			'phoneNum': (inAction === DrawerSubItemAction.DialPhoneNumber) ? inAddress: undefined,
-			'ims': (inAction === DrawerSubItemAction.DialSkypeIms) ? inAddress: undefined,
+			'ims': (inAction === DrawerSubItemAction.DialIms) ? inAddress: undefined,
 			'showSMSIcon': true,
 			'clickAction': inAction,
 			'rawPhoneNumber': inRawPhoneNumber,
@@ -523,8 +526,11 @@ enyo.log("Favorite add dialog cancel click called-------------------------------
 				this.$.itemTextLbl.setContent(callOptionData.itemText);
 				this.$.phTypeLbl.setContent("");
 			} else if (callOptionData.ims) {
-				this.$.itemTextLbl.setContent(callOptionData.ims);
-				this.$.phTypeLbl.setContent(enyo.application.Utils.contactPointLabels["type_skype"][0]);
+				// Label the row by the IM's OWN service (callOptionData.transport == type_teams/...),
+				// not a hardcoded Skype, and format phone-shaped ims (WhatsApp/Signal are +E.164) like
+				// SubItems.js's DrawerSubItem does instead of showing the raw unspaced digit string.
+				this.$.itemTextLbl.setContent(enyo.application.Utils.formatImAddress(callOptionData.ims));
+				this.$.phTypeLbl.setContent(enyo.application.Utils.imServiceLabel(callOptionData.transport));
 			} // else { 
 			 // 				 enyo.error("opened?" + o);("");
 			 // 				return true;

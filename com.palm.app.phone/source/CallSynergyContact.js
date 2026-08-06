@@ -214,11 +214,12 @@ enyo.kind({
 			matchingContactPoint = enyo.application.Utils.PersonFind.getContactPointFromPerson(this.normalizedAddress, contactPointType, payload.results[0]);
 			if ( matchingContactPoint ) {
 				this.label = matchingContactPoint.type;
-				if ( enyo.application.Utils.contactPointLabels[matchingContactPoint.type] ) {
-					this.labelFormatted = enyo.application.Utils.contactPointLabels[matchingContactPoint.type][0];
-				} else {
-					enyo.error("No label for type" + matchingContactPoint.type)
-				}
+				// contactPointLabels only covers phone-number subtypes (+ legacy type_skype); any other
+				// ims type (type_whatsapp/type_telegram/type_teams/...) is service-agnostic - resolve it
+				// via imServiceLabel instead of hardcoding each one here too.
+				this.labelFormatted = enyo.application.Utils.contactPointLabels[matchingContactPoint.type]
+					? enyo.application.Utils.contactPointLabels[matchingContactPoint.type][0]
+					: enyo.application.Utils.imServiceLabel(matchingContactPoint.type);
 			}
 		} else {
 			this._formatWithoutPerson();
@@ -229,11 +230,11 @@ enyo.kind({
 			this._formatWithPerson(response.person);
 			if ( response.item && response.item.type) {
 				this.label = response.item.type;
-				if(enyo.application.Utils.contactPointLabels[response.item.type]) {
-					this.labelFormatted = enyo.application.Utils.contactPointLabels[response.item.type][0];
-				} else {
-					enyo.error("No labelFormatted for type " + response.item.type)
-				}
+				// See _personLookupByIdComplete: fall back to the generic IM label instead of
+				// hardcoding every service here too.
+				this.labelFormatted = enyo.application.Utils.contactPointLabels[response.item.type]
+					? enyo.application.Utils.contactPointLabels[response.item.type][0]
+					: enyo.application.Utils.imServiceLabel(response.item.type);
 			}
 		} else {
 			this._formatWithoutPerson();

@@ -321,39 +321,45 @@ Utils.getSpeedDialNumber = function (contact, speedKey) {
 	return ""; 	
 };
 
-Utils.getDefaultSkypeIms = function(contact, skypeIMsArray, bPrefixWithType) {
-	var rtnVal = undefined;
+// Collect into imsArray every IM contact-point of this contact that can actually place a call - i.e.
+// whose type maps to a registered PHONE-capable transport (whatsapp/telegram/signal/teams/...), not
+// one hardcoded service - and return the one the phone app marked as its default, if any.
+Utils.getDefaultCallableIms = function(contact, imsArray) {
+	var defaultIm = undefined;
 
 	if (contact.ims) {
+		var callableTypes = enyo.application.CallSynergizer.getCallableImTypes();
 		var len = contact.ims.length;
 		for (var i = 0; i < len; i++) {
-			if (contact.ims[i].type === "type_skype") {
-				skypeIMsArray.push(contact.ims[i]);
-				if (contact.ims[i].favoriteData["com.palm.app.phone"]) {
-					rtnVal = contact.ims[i].value;
-					if (bPrefixWithType) {						
-						var addrTemplate = $L("#{type} #{IM}");
-						rtnVal = enyo.application.Utils.interpolate(addrTemplate, {"type": enyo.application.Utils.contactPointLabels["type_skype"][0], "IM":rtnVal});
-
-					}
-				}
+			var im = contact.ims[i];
+			if (callableTypes.indexOf(im.type) === -1) { continue; }
+			imsArray.push(im);
+			if (im.favoriteData && im.favoriteData["com.palm.app.phone"]) {
+				defaultIm = im;
 			}
 		}
 	}
 
-	return rtnVal;
+	return defaultIm;
 };
 
 Utils.getDefaultContactPoint = function (contact, bPrefixWithType) {
-	var skypeIMs = [];
+	var callableIMs = [];
 	var defaultPhoneNum = enyo.application.Utils.getDefaultPhoneNumber(contact, bPrefixWithType);
-	var ims = enyo.application.Utils.getDefaultSkypeIms(contact, skypeIMs, bPrefixWithType);
-	
+	var defaultIm = enyo.application.Utils.getDefaultCallableIms(contact, callableIMs);
+
 	if (defaultPhoneNum) {
 		// undefined transport so that if it's a int'l # the user will have the option to use skype (Refer to preferredPhoneService and DialProxy)
 		return { "contactPointAddress": defaultPhoneNum, "contactPointTransport": undefined };
-	} else if (ims) {
-		return { "contactPointAddress": ims, "contactPointTransport": enyo.application.CallSynergizer.TRANSPORTS.VOIP };
+	} else if (defaultIm) {
+		var imAddress = defaultIm.value;
+		if (bPrefixWithType) {
+			imAddress = enyo.application.Utils.interpolate($L("#{type} #{IM}"),
+				{"type": enyo.application.Utils.imServiceLabel(defaultIm.type), "IM": enyo.application.Utils.formatImAddress(imAddress)});
+		}
+		// Dial via the IM's OWN service. CallSynergizer.dial() maps a "type_*" serviceName to the
+		// account templateId, so this works for any current/future connector.
+		return { "contactPointAddress": imAddress, "contactPointTransport": defaultIm.type };
 	}
 
 	//note: because contact library does not have picker library ready, we work around to use the first address or
@@ -367,15 +373,15 @@ Utils.getDefaultContactPoint = function (contact, bPrefixWithType) {
 			address = contact.phoneNumbers[0].value;
 		}
 		return { "contactPointAddress": address, "contactPointTransport": undefined };
-	} else if ( skypeIMs.length >= 1 ) {
+	} else if ( callableIMs.length >= 1 ) {
 		var address;
 		if (bPrefixWithType) {
 			var addrTemplate = "<b>#{type}</b> <span>#{IM}</span>";
-			address = enyo.application.Utils.interpolate(addrTemplate, {"type": enyo.application.Utils.contactPointLabels["type_skype"][0], "IM":skypeIMs[0].value});
+			address = enyo.application.Utils.interpolate(addrTemplate, {"type": enyo.application.Utils.imServiceLabel(callableIMs[0].type), "IM":enyo.application.Utils.formatImAddress(callableIMs[0].value)});
 		} else {
-			address = skypeIMs[0].value;
+			address = callableIMs[0].value;
 		}
-		return { "contactPointAddress": address, "contactPointTransport": enyo.application.CallSynergizer.TRANSPORTS.VOIP };
+		return { "contactPointAddress": address, "contactPointTransport": callableIMs[0].type };
 	}
 };
 
@@ -848,29 +854,52 @@ Utils.contactPointLabels = {
 	"type_skype": [$L("Skype"), $L("S")]
 };
 
+// Display names for IM contact-point types that plain Title-casing CANNOT produce - acronyms,
+// internal capitals, punctuation, or a name that differs from the type altogether. Every other
+// service (type_teams -> "Teams", type_discord -> "Discord", ...) is derived by imServiceLabel and
+// needs NO entry here. This lives in Utils, not shared/addressing/labels.js, because the root window
+// loads source/utils/all but not shared/addressing (see depends.js) - labels.js delegates here.
+Utils.imServiceLabels = {
+	"type_aim": $L("AIM"),
+	"type_yahoo": $L("Yahoo!"),
+	"type_gtalk": $L("GTalk"),
+	"type_msn": $L("Messenger"),
+	"type_icq": $L("ICQ"),
+	"type_irc": $L("IRC"),
+	"type_qq": $L("QQ"),
+	"type_whatsapp": $L("WhatsApp"),
+	"type_yjp": $L("Y! Japan"),
+	"type_lcs": $L("LCS"),
+	"type_dotmac": $L(".Mac"),
+	"type_myspace": $L("MySpace"),
+	"type_gadugadu": $L("GaduGadu"),
+	"type_default": $L("IM")
+};
+
+// Display label for an IM contact-point type ("type_teams" -> "Teams"). SERVICE-AGNOSTIC: anything
+// not needing special casing is derived from the type's own name, so a new connector needs no code.
+Utils.imServiceLabel = function(type) {
+	if (!type || String(type).indexOf("type_") !== 0) { return ""; }
+	if (Utils.imServiceLabels[type]) { return Utils.imServiceLabels[type]; }
+	var seg = String(type).slice("type_".length);
+	return seg.charAt(0).toUpperCase() + seg.slice(1);
+};
+
 // Display name for a PHONE-transport call ("service" == the account templateId used at dial time).
-// Today every VoIP call routes through the single repurposed Skype PHONE slot (TRANSPORTS.VOIP),
-// which now hosts WhatsApp calling -> show "WhatsApp". To add another network (Telegram, Signal, ...)
-// either register its own PHONE account/template and branch on its templateId here, or have the
-// mediator tag each call with a network name stored in the call-log record and return that.
-// Keep this the ONE place that names the VoIP transport.
+// SERVICE-AGNOSTIC: do NOT hardcode each network. Prefer the registered PHONE account's own network
+// name, then its serviceName ("type_whatsapp" -> "WhatsApp"), else derive from the templateId's last
+// segment (com.palm.telegram -> "Telegram"). Adding a new IM calling service needs NO change here.
 Utils.callNetworkName = function(service) {
 	// service == the account templateId of the PHONE transport used for the call.
 	if (!service) { return ""; }
 	if (service === enyo.application.CallSynergizer.TRANSPORTS.TIL || service === "com.palm.telephony") {
 		return $L("Cellular");
 	}
-	if (service === enyo.application.CallSynergizer.TRANSPORTS.VOIP) {   // repurposed Skype slot -> WhatsApp
-		return $L("WhatsApp");
-	}
-	// SERVICE-AGNOSTIC for IM transports: do NOT hardcode each service. Prefer the registered PHONE
-	// account's own network name if it exposes one, else derive it from the transport id's last
-	// segment (com.palm.telegram -> "Telegram", com.palm.signal -> "Signal", com.palm.discord ->
-	// "Discord"). Adding a new IM calling service needs NO change here.
 	var t = enyo.application.CallSynergizer.transports && enyo.application.CallSynergizer.transports[service];
 	if (t && t.networkName) { return t.networkName; }
+	if (t && t.serviceName) { return Utils.imServiceLabel(t.serviceName); }
 	var seg = String(service).split(".").pop();
-	return seg ? (seg.charAt(0).toUpperCase() + seg.slice(1)) : service;
+	return seg ? Utils.imServiceLabel("type_" + seg) : service;
 };
 
 // returns list of emergency numbers from the til, or if none provided, from a default list
