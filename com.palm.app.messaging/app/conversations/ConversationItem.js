@@ -158,6 +158,30 @@ enyo.kind({
 			else { chipsHtml += this.buildAttachmentChip(media[i]); }
 		}
 
+		// A shared location (WhatsApp LocationMessage/LiveLocationMessage) arrives as
+		// "Location name\naddress\ngeo:lat,lng" text (see handle_message.go formatLocationMessage) -
+		// there is no dedicated map-bubble UI, but the raw "geo:" URI is still parseable, so turn it
+		// into a tappable pin chip (same chip pattern as an audio/video/document attachment) instead of
+		// showing the raw URI as text. Tapping it opens the coordinates in the Maps app (see
+		// ConversationList.openAttachment, kind "location").
+		var locationsHtml = "";
+		var locations = this.extractLocations(raw);
+		for (var li = 0; li < locations.length; li++) { locationsHtml += this.buildLocationChip(locations[li]); }
+
+		// A shared WhatsApp Event arrives as "Event name\nlocation\nevent:<base64-json>" text (see
+		// handle_message.go formatEventMessage) - turn the token into an "Add to Calendar" chip that
+		// launches the Calendar app's own pre-filled new-event flow (see ConversationList.
+		// openAttachment, kind "event") instead of showing the raw token as text.
+		var eventsHtml = "";
+		var eventTokens = this.extractEvents(raw);
+		for (var ei = 0; ei < eventTokens.length; ei++) { eventsHtml += this.buildEventChip(eventTokens[ei]); }
+
+		// A poll arrives as a bare "poll:<base64-json>" token (see handle_message.go
+		// formatPollMessage) - turn it into a radio/checkbox list block instead of raw text.
+		var pollsHtml = "";
+		var pollTokens = this.extractPolls(raw);
+		for (var pi = 0; pi < pollTokens.length; pi++) { pollsHtml += this.buildPollBlock(pollTokens[pi], inMessage); }
+
 		// Attachment send: an outgoing message can carry a local file path (the file we just sent).
 		// Image files preview inline (mirroring received images); other files show as a chip.
 		var localAttachmentHtml = "";
@@ -178,8 +202,9 @@ enyo.kind({
 			return;
 		}
 
-		// Drop the matched media URLs from the displayed text (they're now an image/chip below).
-		inText = inText.replace(this.mediaUrlRe(), "").replace(/(?:\s|<br>)+$/g, "");
+		// Drop the matched media URLs (and any "geo:"/"event:"/"poll:" token) from the displayed text
+		// (they're now an image/chip/block below).
+		inText = inText.replace(this.mediaUrlRe(), "").replace(this.geoUrlRe(), "").replace(this.eventUrlRe(), "").replace(this.pollUrlRe(), "").replace(/(?:\s|<br>)+$/g, "");
 		if (!skipTextIndexer) {
 			inText = this.linkifyPreservingUrls(inText);
 		}
@@ -189,7 +214,7 @@ enyo.kind({
 		// a LEADING <br> where the stripped media URL sat (the plugin sends "url\ncaption", and the
 		// \n becomes <br>) - strip that so there's no blank line between the image and the caption.
 		// Also strip the media's own leading <br> so the bubble doesn't open with a blank line.
-		var mediaHtml = imagesHtml + chipsHtml + localAttachmentHtml;
+		var mediaHtml = imagesHtml + chipsHtml + locationsHtml + eventsHtml + pollsHtml + localAttachmentHtml;
 		if (mediaHtml) {
 			// NB: the break can be <br>, <br/> or <br /> - the plugin sends "url\ncaption", purple's
 			// strdup_withhtml turns the \n into "<br />" AND leaves the \n, which updateMessageText's
@@ -297,7 +322,9 @@ enyo.kind({
 	_videoExt: "mp4|m4v|mov|webm|ogv|wmv|3gp|mkv|ts",
 	// Documents: rendered as a typed icon chip (PDF/Word/Excel/PowerPoint) that opens in the associated
 	// app via the system resource handler. Otherwise they'd show as a raw "file:///...pdf" link.
-	_docExt: "pdf|doc|docx|xls|xlsx|ppt|pptx",
+	// vcf (a shared contact card - see write_vcard_attachment in handle_message.go) rides the same
+	// chip path but opens in Contacts (see mediaKind/openAttachment) instead of a document viewer.
+	_docExt: "pdf|doc|docx|xls|xlsx|ppt|pptx|vcf",
 	// A fresh global regex matching http(s)/file media URLs by extension (with optional query string),
 	// PLUS local ".data" files: WhatsApp voice notes arrive as "file://<hash>.data" (the gowhatsapp
 	// plugin does not always map the audio mimetype to an extension), so surface those as a chip too.
@@ -319,6 +346,94 @@ enyo.kind({
 		}
 		return urls;
 	},
+	// A fresh global regex matching a "geo:lat,lng" URI (RFC 5870-ish - just the coordinate pair the
+	// plugin emits, no uncertainty/params). Matches formatLocationMessage's output in handle_message.go.
+	geoUrlRe: function() {
+		return /geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/gi;
+	},
+	// Pull "geo:" location URIs out of a body, as {lat, lng} strings (kept as strings - they only
+	// ever get handed straight back to the maps app launch params, never arithmetic).
+	extractLocations: function(text) {
+		var re = this.geoUrlRe(), locations = [], m;
+		while ((m = re.exec(text)) !== null) {
+			locations.push({ lat: m[1], lng: m[2] });
+		}
+		return locations;
+	},
+	// A tappable location pin chip (mirrors buildAttachmentChip's plain-file chip). data-open carries
+	// "lat,lng"; messageTapped() reads it and ConversationList.openAttachment (kind "location") opens
+	// it in the Maps app instead of the system resource handler.
+	buildLocationChip: function(loc) {
+		return '<div class="msg-attachment" data-open="' + loc.lat + ',' + loc.lng + '" data-kind="location">' +
+			'<div class="msg-attachment-icon msg-attachment-location"></div>' +
+			'<div class="msg-attachment-name">' + $L("View location") + '</div></div>';
+	},
+	// A fresh global regex matching a "poll:<base64url-json>" token (see formatPollMessage in
+	// handle_message.go).
+	pollUrlRe: function() {
+		return /poll:([A-Za-z0-9_-]+)/g;
+	},
+	extractPolls: function(text) {
+		var re = this.pollUrlRe(), tokens = [], m;
+		while ((m = re.exec(text)) !== null) { tokens.push(m[1]); }
+		return tokens;
+	},
+	// Decode a "poll:" token into a real, TAPPABLE radio-button/checkbox list (max===1 -> single-
+	// select radio, else checkbox). Each row carries data-poll-option (the option's exact name, sent
+	// straight back to whatsmeow) and data-poll-max, so ConversationList.handleMessageTap can act on
+	// a tap without re-decoding the token. Checked state comes from inMessage.myPollVote (the local
+	// optimistic selection ConversationList.togglePollOption merges onto the row) rather than the
+	// static token, so it survives a FlyweightDbList row recycle/re-render.
+	buildPollBlock: function(token, inMessage) {
+		var payload;
+		try {
+			var b64 = token.replace(/-/g, "+").replace(/_/g, "/");
+			while (b64.length % 4) { b64 += "="; }
+			payload = JSON.parse(decodeURIComponent(escape(atob(b64))));
+		} catch (e) { return ""; }
+		if (!payload || !payload.options || !payload.options.length) { return ""; }
+		var max = payload.max || 0;
+		var type = (max === 1) ? "radio" : "checkbox";
+		var mine = (inMessage && inMessage.myPollVote && inMessage.myPollVote.length) ? inMessage.myPollVote : [];
+		var rows = "";
+		for (var i = 0; i < payload.options.length; i++) {
+			var raw = String(payload.options[i]);
+			var checked = (mine.indexOf(raw) >= 0);
+			var opt = enyo.messaging.message.emojify(enyo.string.escapeHtml(raw));
+			var optAttr = raw.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+			rows += '<label class="msg-poll-option' + (checked ? ' msg-poll-option-checked' : '') + '"' +
+				' data-poll-option="' + optAttr + '" data-poll-max="' + max + '">' +
+				'<input type="' + type + '"' + (checked ? ' checked' : '') + '/><span>' + opt + '</span></label>';
+		}
+		var footer;
+		if (max === 1) { footer = $L("Select one"); }
+		else if (max > 1) { footer = $L("Select up to") + " " + max; }
+		else { footer = $L("Select one or more"); }
+		var question = enyo.messaging.message.emojify(enyo.string.escapeHtml(String(payload.name || "")));
+		return '<div class="msg-poll"><div class="msg-poll-question">' + question + '</div>' +
+			rows + '<div class="msg-poll-footer">' + footer + '</div></div>';
+	},
+	// A fresh global regex matching an "event:<base64url-json>" token (see formatEventMessage in
+	// handle_message.go - RawURLEncoding, so only [A-Za-z0-9_-], no +, /, = or padding to escape).
+	eventUrlRe: function() {
+		return /event:([A-Za-z0-9_-]+)/g;
+	},
+	// Pull "event:" tokens out of a body, as the raw base64url payload strings (decoded lazily by
+	// buildEventChip / ConversationList.openAttachment - not here, so a malformed token can't throw
+	// mid-render).
+	extractEvents: function(text) {
+		var re = this.eventUrlRe(), tokens = [], m;
+		while ((m = re.exec(text)) !== null) { tokens.push(m[1]); }
+		return tokens;
+	},
+	// A tappable "Add to Calendar" chip. data-open carries the raw base64url event payload;
+	// messageTapped() reads it and ConversationList.openAttachment (kind "event") decodes it and
+	// launches the Calendar app's own pre-filled new-event flow.
+	buildEventChip: function(token) {
+		return '<div class="msg-attachment" data-open="' + token + '" data-kind="event">' +
+			'<div class="msg-attachment-icon msg-attachment-event"></div>' +
+			'<div class="msg-attachment-name">' + $L("Add to Calendar") + '</div></div>';
+	},
 	// True when the body is only media URLs (plus whitespace) - i.e. a pure media message.
 	isOnlyMedia: function(text) {
 		return text.replace(this.mediaUrlRe(), "").replace(/\s|<br>|\\r|\\n|\r|\n/g, "") === "";
@@ -338,6 +453,7 @@ enyo.kind({
 		if (ext === "doc" || ext === "docx") { return "doc"; }
 		if (ext === "xls" || ext === "xlsx") { return "xls"; }
 		if (ext === "ppt" || ext === "pptx") { return "ppt"; }
+		if (ext === "vcf") { return "contact"; }
 		return "file";
 	},
 	urlExt: function(url) {
@@ -351,6 +467,17 @@ enyo.kind({
 		var slash = p.lastIndexOf("/");
 		var name = slash >= 0 ? p.substring(slash + 1) : p;
 		try { name = decodeURIComponent(name); } catch (e) {}
+		// A shared contact card is always named by content hash (write_vcard_attachment) - never
+		// something worth showing raw. The plugin rides the real display name along as a "?name="
+		// query param on the file:// URL instead (see formatContactMessage), so the chip can show
+		// "John Doe" rather than a generic label; fall back to a generic label if it's missing.
+		if (/\.vcf$/i.test(name)) {
+			var qm = /[?&]name=([^&]*)/.exec(String(url));
+			if (qm) {
+				try { return decodeURIComponent(qm[1].replace(/\+/g, " ")); } catch (e) {}
+			}
+			return $L("Contact card");
+		}
 		// A bare "<hash>.<ext>" attachment (WhatsApp media with no real filename - the hash IS the
 		// name) has nothing meaningful to show, so label it by kind instead of a raw hash: audio ->
 		// "Voice message", video -> "Video", else a generic "Attachment". A named file (e.g. a

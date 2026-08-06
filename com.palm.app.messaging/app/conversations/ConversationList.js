@@ -140,6 +140,29 @@ enyo.kind({
 		if (enyo.application.telephonyWatcher) {
 			enyo.application.telephonyWatcher.register(this, this.connectionUpdated.bind(this));
 		}
+		// Wrap the list's OWN queryResponse (not just our gotMessages handler) so a pending poll
+		// vote survives every path that lands rows into the list - including list.punt()/reset()
+		// (called from messagesWatch on ANY message-list change, and from noteInlineImageLoaded),
+		// which re-query through enyo.DbPages' own internal request and call list.queryResponse()
+		// directly, never passing through gotMessages at all. That gap is exactly why a vote only
+		// SOMETIMES failed to stick: it depended on whether an unrelated watch-triggered punt/reset
+		// happened to land in the window before our own dbMerge committed.
+		var list = this.$.list;
+		if (list && !list._pollVoteQueryResponsePatched) {
+			var origQueryResponse = list.queryResponse;
+			var self = this;
+			list.queryResponse = function(inResponse, inRequest) {
+				if (self._pendingPollVotes && inResponse && inResponse.results) {
+					for (var i = 0; i < inResponse.results.length; i++) {
+						var row = inResponse.results[i];
+						var pending = row && row._id && self._pendingPollVotes[row._id];
+						if (pending) { row.myPollVote = pending; }
+					}
+				}
+				return origQueryResponse.call(list, inResponse, inRequest);
+			};
+			list._pollVoteQueryResponsePatched = true;
+		}
 	},
 	destroy: function() {
 		if (enyo.messaging.activeConversationList === this) { enyo.messaging.activeConversationList = null; }
@@ -599,6 +622,8 @@ enyo.kind({
 	gotMessages: function(inSender, inResponse, inRequest){
 		this.gotMessagesTime = Date.now();
 		enyo.log("Timing - ConversationList - gotMessages() - It took ", Date.now() - this.listQueryTime, "ms to get",inResponse.results.length,  "messages from the Db.");
+		// Pending-poll-vote overlay now lives in the list.queryResponse wrapper installed in create()
+		// (covers this call AND list.punt()/reset(), which bypass gotMessages entirely) - see there.
 		this.$.list.queryResponse(inResponse, inRequest);
 	},
 	gotStatus: function(inSender, inResponse){
@@ -789,7 +814,8 @@ enyo.kind({
 					"quotedFrom",
 					"quotedMessageId",
 					"deliveryStatus",
-					"locked"
+					"locked",
+					"myPollVote"
 				];
 			return this.$.conversationService.call({query: inQuery});
 	   }
@@ -1349,13 +1375,55 @@ enyo.kind({
 			this.$.appLauncher.call({id: "com.palm.app.videoplayer", params: {target: target, videoTitle: title || $L("Attachment")}});
 			return true;
 		}
+		// A shared location (ConversationItem.buildLocationChip, data-open="lat,lng") opens the stock
+		// Maps app centered on those coordinates - the same {location:{lat,lng}} launch param Contacts'
+		// "view on map" uses (see MapsApp.js: params.location -> searchMap(lat + ", " + lng)).
+		if (kind === "location" && this.$.appLauncher) {
+			var coords = target.split(",");
+			if (coords.length === 2) {
+				this.$.appLauncher.call({id: "com.palm.app.maps", params: {location: {lat: parseFloat(coords[0]), lng: parseFloat(coords[1])}}});
+			}
+			return true;
+		}
+		// A shared event (ConversationItem.buildEventChip, data-open = base64url JSON payload) opens
+		// the Calendar app's own documented "New Calendar Event" cross-launch spec (AppView.
+		// handleLaunchParams: params.newEvent -> a pre-filled, one-tap-to-save event editor) - there is
+		// no ICS import feature in this Calendar app to hand a file to, but this launch spec gives an
+		// equivalent (arguably better) result with zero new Calendar-app code. RawURLEncoding on the
+		// plugin side means no +/ or = to worry about; re-pad and swap back to standard base64 for atob.
+		if (kind === "event" && this.$.appLauncher) {
+			try {
+				var b64 = target.replace(/-/g, "+").replace(/_/g, "/");
+				while (b64.length % 4) { b64 += "="; }
+				var payload = JSON.parse(decodeURIComponent(escape(atob(b64))));
+				var newEvent = {};
+				if (payload.name) { newEvent.subject = payload.name; }
+				if (payload.location) { newEvent.location = payload.location; }
+				if (payload.note) { newEvent.note = payload.note; }
+				// dtstart/dtend as STRINGS, not raw JS numbers: Calendar's own createEventChanged
+				// (App.js) does parseInt(event.dtstart, 10) on arrival - the same defensive parseInt
+				// showDetailFromReminder's startTime gets - because a big ms-epoch integer (13 digits,
+				// > INT32_MAX) sent as a raw JSON number through applicationManager.launch's params
+				// gets silently mangled crossing the legacy Luna Service param layer (confirmed live:
+				// a correct 1785943800000 arrived as a bogus ~1970 date). As a string it survives
+				// intact and parseInt recovers the exact value.
+				if (payload.start) { newEvent.dtstart = String(payload.start); }
+				if (payload.end) { newEvent.dtend = String(payload.end); }
+				this.$.appLauncher.call({id: "com.palm.app.calendar", params: {newEvent: newEvent}});
+			} catch (e) {
+				enyo.warn("ConversationList.openAttachment: failed to decode event token", e);
+			}
+			return true;
+		}
 		// LOCAL documents: launch the registered viewer app directly with the file. applicationManager
 		// "open" browser-opens a file:// document (it lands in Atlas + its pdf.js, which is very slow),
 		// so we bypass it and launch the real app, which reads params.target/fileName: pdf -> Adobe
-		// Reader, Word/Excel/PowerPoint -> QuickOffice. ONLY for file:// though - Adobe/QuickOffice open
-		// LOCAL files, so a REMOTE doc URL (a Teams/OneDrive share link, which can't be downloaded) must
-		// fall through to the browser, where the user's signed-in session can open it (Office Online).
-		var docApp = { pdf: "com.quickoffice.ar", doc: "com.quickoffice.webos", xls: "com.quickoffice.webos", ppt: "com.quickoffice.webos" }[kind];
+		// Reader, Word/Excel/PowerPoint -> QuickOffice, vcf -> Contacts' existing vCard import flow
+		// (ContactsApp.handleVCardLaunch -> VCardHelper, which reads params.target). ONLY for file://
+		// though - Adobe/QuickOffice/Contacts open LOCAL files, so a REMOTE doc URL (a Teams/OneDrive
+		// share link, which can't be downloaded) must fall through to the browser, where the user's
+		// signed-in session can open it (Office Online).
+		var docApp = { pdf: "com.quickoffice.ar", doc: "com.quickoffice.webos", xls: "com.quickoffice.webos", ppt: "com.quickoffice.webos", contact: "com.palm.app.contacts" }[kind];
 		if (docApp && /^file:/i.test(target) && this.$.appLauncher) {
 			this.$.appLauncher.call({id: docApp, params: {target: target, fileName: title}});
 			return true;
@@ -1380,6 +1448,17 @@ enyo.kind({
 			return;
 		}
 		if (message.folder === enyo.messaging.message.FOLDERS.INBOX || message.folder === enyo.messaging.message.FOLDERS.OUTBOX) {
+			// Tapping a poll option votes/toggles it instead of opening the reaction picker. A tap
+			// ANYWHERE else inside the poll block (question text, footer) is swallowed too - polls
+			// aren't reactable, so it must not fall through to openReactRow.
+			var pollOpt = this.pollOptionAt(inEvent.target);
+			if (pollOpt) {
+				this.togglePollOption(message, pollOpt.option, pollOpt.max, pollOpt.node);
+				return;
+			}
+			if (this.isInsidePoll(inEvent.target)) {
+				return;
+			}
 			// Tapping an existing reaction badge toggles MY reaction for that emoji (remove if it's
 			// mine, otherwise add/switch to it) instead of opening the picker.
 			var badgeEmoji = this.reactionBadgeAt(inEvent.target);
@@ -1389,6 +1468,154 @@ enyo.kind({
 				this.openReactRow(inEvent);
 			}
 		}
+	},
+	// Walk up from a tapped node to a poll option row; return {option, max, node} (data-poll-option/
+	// -max, and the row's own <label> element) or null. See ConversationItem.buildPollBlock for how
+	// these attributes are set.
+	pollOptionAt: function(node){
+		var n = node, hops = 0;
+		while (n && n.getAttribute && hops < 8) {
+			var v = n.getAttribute("data-poll-option");
+			if (v !== null) {
+				return { option: v, max: parseInt(n.getAttribute("data-poll-max"), 10) || 0, node: n };
+			}
+			n = n.parentNode; hops++;
+		}
+		return null;
+	},
+	// True if node is anywhere inside a .msg-poll block (question/footer text, not just an option
+	// row) - used to swallow the tap instead of falling through to the reaction picker.
+	isInsidePoll: function(node){
+		var n = node, hops = 0;
+		while (n && hops < 10) {
+			var cls = n.getAttribute ? n.getAttribute("class") : null;
+			if (cls && (" " + cls + " ").indexOf(" msg-poll ") >= 0) { return true; }
+			n = n.parentNode; hops++;
+		}
+		return false;
+	},
+	// Vote (or change/clear my vote) on a poll option and transmit it. Single-select (max===1):
+	// tapping selects only this option; tapping the already-selected option again clears the vote
+	// (mirrors WhatsApp's own "tap again to remove your vote"). Multi-select: toggle membership,
+	// capped at max (0 = unlimited). Sends the FULL selection - whatsmeow's BuildPollVote always
+	// carries the complete current selection, not a delta.
+	//
+	// The running selection is tracked in this._pendingPollVotes (keyed by message._id), NOT read
+	// back from `message`/list.fetch(). ConversationList's own message-list db8 watch re-queries on
+	// EVERY write (messagesWatch -> list.punt()/reset()), including our OWN vote merge below - for two
+	// taps a couple seconds apart (multi-select: tap option A, then B) the second tap can land before
+	// that re-query completes and replaces the cached row, reading a stale/pre-merge `message` and
+	// silently dropping A instead of accumulating [A, B]. _pendingPollVotes survives that churn since
+	// it lives on this component, not the volatile row cache.
+	togglePollOption: function(message, option, max, optionNode){
+		if (!message || !message._id || !option) { return; }
+		if (!this._pendingPollVotes) { this._pendingPollVotes = {}; }
+		var current = this._pendingPollVotes[message._id];
+		current = current ? current.slice() :
+			((message.myPollVote && message.myPollVote.slice) ? message.myPollVote.slice() : []);
+		var idx = current.indexOf(option);
+		var selected;
+		if (max === 1) {
+			selected = (idx >= 0 && current.length === 1) ? [] : [option];
+		} else {
+			if (idx >= 0) {
+				current.splice(idx, 1);
+				selected = current;
+			} else if (max > 0 && current.length >= max) {
+				return; // already at the selection cap
+			} else {
+				current.push(option);
+				selected = current;
+			}
+		}
+		this._pendingPollVotes[message._id] = selected;
+		message.myPollVote = selected;
+		// Paint the tapped checkbox/radio itself RIGHT NOW, synchronously - don't wait on
+		// list.refresh(). Confirmed live: refresh() alone doesn't repaint an already-visible
+		// FlyweightDbList row; the checkbox only actually updated on the NEXT tap (showing the
+		// PREVIOUS selection late), because what was really driving the visible change was the async
+		// messagesWatch -> db8 re-query cycle a full round-trip behind the tap, not refresh() itself.
+		// buildPollBlock's normal data-driven render still runs when that cycle lands and agrees with
+		// this - this only closes the visible gap, it isn't a second source of truth.
+		if (optionNode) {
+			var nowChecked = selected.indexOf(option) >= 0;
+			var input = optionNode.getElementsByTagName ? optionNode.getElementsByTagName("input")[0] : null;
+			if (input) { input.checked = nowChecked; }
+			optionNode.className = "msg-poll-option" + (nowChecked ? " msg-poll-option-checked" : "");
+			// Single-select has no native radio grouping (each poll block needs its own - see
+			// buildPollBlock), so selecting a NEW option must manually clear whichever sibling row
+			// was previously checked.
+			if (max === 1 && nowChecked) {
+				var block = optionNode.parentNode;
+				var rows = block && block.getElementsByTagName ? block.getElementsByTagName("label") : null;
+				for (var i = 0; rows && i < rows.length; i++) {
+					if (rows[i] !== optionNode) {
+						var otherInput = rows[i].getElementsByTagName("input")[0];
+						if (otherInput) { otherInput.checked = false; }
+						rows[i].className = "msg-poll-option";
+					}
+				}
+			}
+		}
+		this.$.dbMerge.call({objects: [{_id: message._id, myPollVote: selected}]});
+		// Deliberately NOT calling list.refresh() here (unlike toggleMyReaction, which this was
+		// originally modelled on). dbMerge is ASYNC - refresh() right after it can force an immediate
+		// re-render that reads the row via list.fetch() BEFORE the merge has actually committed, and
+		// if anything else in the app triggers a db8 re-query in that same window (common - buddy
+		// status, other messages), the freshly-fetched row overwrites the in-place `message.myPollVote`
+		// mutation above with the OLD pre-merge value, undoing the direct-paint below a moment after
+		// it appeared. Confirmed live as exactly that symptom: selection visibly reverted right after
+		// tapping. The direct DOM paint above is already the immediate feedback; the natural
+		// messagesWatch -> db8 re-query cycle (unforced) repaints correctly once the merge lands.
+		// Debounce the actual network send. Each send runs on its OWN goroutine
+		// (gowhatsapp_go_send_poll_vote -> `go handler.send_poll_vote(...)`, no ordering guarantee),
+		// so firing one send per tap during a rapid multi-select burst risked an OLDER, already-
+		// superseded selection landing at WhatsApp's servers AFTER a newer one over the network -
+		// confirmed live: local db8 state accumulated correctly, but which selection actually stuck
+		// server-side depended on network timing between the concurrent sends. Wait for taps to stop
+		// before transmitting, so only the FINAL selection is ever sent - one command, no race.
+		if (!this._pollVoteSendTimers) { this._pollVoteSendTimers = {}; }
+		var mid = message._id;
+		if (this._pollVoteSendTimers[mid]) { clearTimeout(this._pollVoteSendTimers[mid]); }
+		var self = this;
+		this._pollVoteSendTimers[mid] = setTimeout(function() {
+			delete self._pollVoteSendTimers[mid];
+			self.sendPollVoteCommand(message, self._pendingPollVotes[mid]);
+		}, 600);
+	},
+	// Write the imcommand row the transport picks up to actually transmit the vote. Mirrors
+	// sendReactionCommand's peer/channel resolution.
+	sendPollVoteCommand: function(message, selected){
+		if (!message || !message.serviceMessageId || !message.serviceName) { return; }
+		var inbox = (message.folder === enyo.messaging.message.FOLDERS.INBOX);
+		var peer = (message.chatType === "groupchat" && message.channelName) ?
+			message.channelName :
+			(inbox ? (message.from && message.from.addr) : (message.to && message.to[0] && message.to[0].addr));
+		var me = inbox ? (message.to && message.to[0] && message.to[0].addr) : (message.from && message.from.addr);
+		if (!me || !peer) { return; }
+		var imcommandKind = (message._kind && message._kind.indexOf("immessage") >= 0) ?
+			message._kind.replace("immessage", "imcommand") : "com.palm.imcommand.libpurple:1";
+		var cmd = {
+			_kind: imcommandKind,
+			command: "sendPollVote",
+			handler: "transport",
+			status: "pending",
+			fromUsername: me,
+			targetUsername: peer,
+			serviceName: message.serviceName,
+			params: {
+				pollMessageId: message.serviceMessageId,
+				optionNames: (selected || []).join("\x1f"),
+				// senderJid = the poll creation message's ORIGINAL sender (from.addr is the sender on a
+				// received msg AND ourselves on a sent msg, so it's correct both ways - same field/same
+				// reasoning as sendReactionCommand's targetSender). Lets the backend build+encrypt the
+				// vote even when its in-memory message cache has no entry for the poll (transport
+				// restart, or a poll older than the cache) - without it, voting on any poll from a
+				// previous transport session failed with "poll not found in cache".
+				senderJid: (message.from && message.from.addr) || ""
+			}
+		};
+		this.$.reactionCommand.call({objects: [cmd]});
 	},
 	// Walk up from a tapped node to a reaction badge; return its emoji (data-reaction) or null.
 	reactionBadgeAt: function(node){

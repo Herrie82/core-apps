@@ -530,12 +530,16 @@ img.emoji,
 	background-position: center;
 	background-size: 20px 20px;
 }
-/* documents (PDF / Word / Excel / PowerPoint): the app's own file-type icon on a transparent tile.
-   Tapping the chip opens the file in its viewer (see ConversationList.openAttachment). */
+/* documents (PDF / Word / Excel / PowerPoint) and a shared contact card: the app's own file-type
+   icon on a transparent tile. Tapping the chip opens the file in its viewer / Contacts' vCard
+   import (see ConversationList.openAttachment). */
 .msg-attachment-pdf,
 .msg-attachment-doc,
 .msg-attachment-xls,
-.msg-attachment-ppt {
+.msg-attachment-ppt,
+.msg-attachment-contact,
+.msg-attachment-location,
+.msg-attachment-event {
 	background-color: transparent;
 	background-repeat: no-repeat;
 	background-position: center;
@@ -545,6 +549,15 @@ img.emoji,
 .msg-attachment-doc { background-image: url(../images/attach-doc.png); }
 .msg-attachment-xls { background-image: url(../images/attach-xls.png); }
 .msg-attachment-ppt { background-image: url(../images/attach-ppt.png); }
+/* shared contact card: the stock webOS address-book glyph (frame 1 of the addressing framework's
+   address-book.png sprite, cropped/resized to match the other attachment icons). */
+.msg-attachment-contact { background-image: url(../images/attach-contact.png); }
+/* shared location: the stock webOS "precise location" map pin (enyo systemui's
+   poi_precise_location.png, trimmed/squared to match the other attachment icons). */
+.msg-attachment-location { background-image: url(../images/attach-location.png); }
+/* shared event: the stock webOS calendar glyph (mojocommon appsupport calendar-32x32.png, trimmed
+   to match the other attachment icons). */
+.msg-attachment-event { background-image: url(../images/attach-event.png); }
 .msg-attachment-name {
 	-webkit-box-flex: 1;
 	overflow: hidden;
@@ -552,6 +565,56 @@ img.emoji,
 	text-overflow: ellipsis;
 	font-size: 15px;
 	color: #234766;
+}
+/* Poll display: a tappable radio-button/checkbox list (ConversationItem.buildPollBlock,
+   ConversationList.togglePollOption/pollOptionAt) - a real vote, not just a display upgrade. */
+.msg-poll {
+	max-width: 100%;
+	margin-top: 6px;
+	padding: 10px 12px;
+	-webkit-box-sizing: border-box;
+	background-color: rgba(255,255,255,0.7);
+	border: 1px solid rgba(0,0,0,0.15);
+	border-radius: 8px;
+}
+.msg-poll-question {
+	font-weight: bold;
+	font-size: 15px;
+	color: #234766;
+	margin-bottom: 6px;
+}
+.msg-poll-option {
+	display: -webkit-box;
+	-webkit-box-align: center;
+	padding: 6px 4px;
+	margin: 0 -4px;
+	font-size: 14px;
+	color: #234766;
+	border-radius: 6px;
+}
+.msg-poll-option input {
+	margin-right: 8px;
+	/* Native inputs render tiny/inconsistent on this old WebKit; a slightly larger tap target beats a
+	   custom-drawn control here (no new image asset, still visually a real checkbox/radio). */
+	width: 18px;
+	height: 18px;
+	/* A tap landing exactly on this 18x18 square would otherwise ALSO trigger the browser's native
+	   label/input click-to-toggle behavior (this is a real <label> wrapping a real <input>) -
+	   completely independent of, and racing against, Enyo's own tap gesture that drives
+	   togglePollOption/handleMessageTap below. The native toggle changes .checked but never touches
+	   _pendingPollVotes/db8/the send command, so the very next unrelated re-render (buildPollBlock
+	   regenerating from the message's actual stored myPollVote) silently reverts it - looking exactly
+	   like "the tap didn't stick". Routing every tap through the label (which Enyo's gesture handling
+	   does reliably) makes togglePollOption the ONLY thing that ever sets .checked, removing the race. */
+	pointer-events: none;
+}
+.msg-poll-option-checked {
+	background-color: rgba(74,144,217,0.12);
+}
+.msg-poll-footer {
+	margin-top: 6px;
+	font-size: 12px;
+	color: #8f9aa6;
 }
 /* Inline video player (WebKit media path; the webOS video player can't do WebM). Big centered play
    button overlays the <video>; tap the video to toggle, button hides while playing. */

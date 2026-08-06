@@ -541,8 +541,28 @@ enyo.messaging = {
 		// If there's real text alongside the URL, keep the text and drop the URL. Shared by the thread
 		// list (ThreadItem) and the notification banner/dashboard (DashboardManager.getDisplayText) - in
 		// the plain-text banner the emoji is then stripped by stripEmojiForPlainText, leaving the label.
+		// Same idea as the media-URL case below, for the poll:/event:/geo: tokens ConversationItem
+		// decodes into radio-button/"Add to Calendar"/"View location" chips in the full conversation
+		// view (see ConversationItem.pollUrlRe/eventUrlRe/geoUrlRe) - without this, the thread-list
+		// preview and notification banner showed the raw "poll:eyJuYW1l..." token verbatim, since
+		// those two only ever run text through summarizeMedia, never ConversationItem's own regexes.
+		summarizeTokens: function(text) {
+			var pollRe = /poll:[A-Za-z0-9_-]+/, eventRe = /event:[A-Za-z0-9_-]+/,
+				geoRe = /geo:-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?/;
+			var kind, re;
+			if (pollRe.test(text)) { kind = "poll"; re = pollRe; }
+			else if (eventRe.test(text)) { kind = "event"; re = eventRe; }
+			else if (geoRe.test(text)) { kind = "location"; re = geoRe; }
+			else { return text; }
+			var stripped = text.replace(re, "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+			if (stripped) { return stripped; }
+			if (kind === "poll") { return "📊 " + $L("Poll"); }
+			if (kind === "event") { return "📅 " + $L("Event"); }
+			return "📍 " + $L("Location");
+		},
 		summarizeMedia: function(text) {
 			if (!text) { return text; }
+			text = enyo.messaging.message.summarizeTokens(text);
 			var re = /(?:https?|file):\/\/[^\s<>"']+?\.(jpg|jpeg|png|gif|webp|bmp|mp3|m4a|aac|ogg|oga|opus|flac|wav|amr|mp4|m4v|mov|webm|mkv|3gp|data|pdf|doc|docx|xls|xlsx|ppt|pptx)(?:\?[^\s<>"']*)?/gi;
 			var m = re.exec(text);
 			if (!m) { return text; }
