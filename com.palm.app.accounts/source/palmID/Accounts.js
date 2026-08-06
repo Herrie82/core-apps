@@ -117,6 +117,7 @@ enyo.kind({
 		console.log(enyo.json.stringify(this.accountAggregate));
 
 		var profile = this.owner.$.fullProfile;
+		profile.populateName(this.accountAggregate.accountInfo);
 		profile.populateLoginInfo(this.accountAggregate);
 		profile.populateDeviceList(this.accountAggregate.accountDevices);
 		

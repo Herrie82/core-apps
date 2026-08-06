@@ -26,6 +26,7 @@
 	"source/palmID/PalmIDUtilities.js",
 	"source/palmID/Accounts.js",
 	"source/palmID/ProfileSettings.js",
+	"source/palmID/NameDialog.js",
 	"source/palmID/EmailDialog.js",
 	"source/palmID/PasswdDialog.js",
 	"source/palmID/DeviceInfoDialog.js",

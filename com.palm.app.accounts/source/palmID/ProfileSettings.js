@@ -53,10 +53,15 @@ enyo.kind({
 			flex: 1,
 			components: [
 				{kind:"Control", className:"box-center", components: [
-					// The NAME group is gone: the account has one identity field now,
-					// the username in LOGIN INFORMATION. The server still holds a
-					// display_name from sign-up, but showing both invited the question
-					// of which one other people actually see.
+					{
+						name: "nameInfo",
+						kind: "RowGroup",
+						className:"accounts-group",
+						caption: $L("NAME"),
+						components: [
+						],
+						owner: this.owner
+					},
 					{
 						name:"resendVerification", kind: "Button", style:"display: none", className:"accounts-btn", caption: $L("Resend Verification Email"), onclick: "resendVerification"
 					},
@@ -85,6 +90,11 @@ enyo.kind({
 						caption: $L("USE ACCOUNT WITH"),
 						components: [
 						],
+						owner: this.owner
+					},
+					{
+						name: "nameDialog",
+						kind: "MyApps.PalmID.NameDialog",
 						owner: this.owner
 					},
 					{
@@ -136,6 +146,33 @@ enyo.kind({
 		{kind: "MyApps.PalmID.CommErrorDialog", name: "errorDialog"},
 		{kind: "MyApps.PalmID.SpinnerOverlayPopup", name: "spinnerOverlay"},
 	],
+	// The account has ONE name column server-side (display_name). firstName and
+	// lastName arrive split only because that is the shape the stock assistant
+	// speaks; they are joined for display and re-split on save, so a name of any
+	// length round-trips unchanged.
+	populateName: function(accountInfo)
+	{
+		var fullName = [accountInfo.firstName, accountInfo.lastName].join(" ").trim();
+		if (this.userName !== fullName) {
+			this.userName  = fullName;
+			this.firstName = accountInfo.firstName;
+			this.lastName  = accountInfo.lastName;
+			this.$.nameInfo.destroyControls();
+			this.$.nameInfo.createComponent({
+				name: "nameItem",
+				kind: "MyApps.PalmID.SimpleItem",
+				components: [{
+					content: enyo.string.escapeHtml(fullName),
+					className: "enyo-text-ellipsis",
+					flex: 1,
+					owner: this,
+					onclick: "changeName"
+				}]
+			});
+			this.render();
+		}
+	},
+
 	populateLoginInfo: function(details)
 	{
 			this.$.loginInfo.destroyControls();
@@ -170,6 +207,18 @@ enyo.kind({
  			this.$.loginInfo.createComponent({ name: "secAnswerItem", kind: "MyApps.PalmID.SimpleItem", components: [ desc, label ], onclick: "changeSecAnswer", owner: this });   		
 			this.render();
 			*/
+	},
+	changeName: function()
+	{
+		// No password argument: the re-auth gate is gone and updateAccountInfo
+		// authenticates on the device token alone.
+		this.$.nameDialog.openThisDialog({
+			firstName: this.firstName,
+			lastName:  this.lastName,
+			email:     this.email,
+			country:   this.details.accountInfo.country,
+			language:  this.details.accountInfo.language
+		});
 	},
 	changeEmail: function()
 	{ 
