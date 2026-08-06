@@ -118,7 +118,11 @@ enyo.kind({
 		accounts.setAccountInfo(inResponse);
 		this.$.spinner.hide();
 		this.owner.selectViewByName("accounts");
-		this.owner.$.accounts.login();
+		// Straight into the profile. The original re-prompted for the account
+		// password here; the device already holds a per-device token that every
+		// profile call authenticates with, so a second challenge proves nothing
+		// the token has not already established.
+		this.owner.$.accounts.loadAccount();
 	},
 	
 	

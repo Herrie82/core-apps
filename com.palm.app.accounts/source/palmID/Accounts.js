@@ -48,7 +48,7 @@ enyo.kind({
 			components: [
 				{kind:"Toolbar", className:"enyo-toolbar-light accounts-header", pack:"center", components:[
 					{kind: "Image", src: "images/acounts-48x48.png"},
-					{kind: "Control", content: $L("HP webOS Account")}
+					{kind: "Control", content: $L("webOS Community Account")}
 				]},
 				{className:"accounts-header-shadow"},
 				{kind:"Control", className:"box-center", components: [
@@ -60,12 +60,9 @@ enyo.kind({
 						components: [],
 						owner: this.owner
 					},
-					{
-						kind: "Button", 
-						caption: $L("Login"),
-						className:"accounts-btn", 
-						onclick: "login"
-					},
+					// The "Login" button pointed at the removed password challenge. This
+					// whole view is transient now (gotAccount goes straight to the
+					// profile), so it had no reachable purpose either way.
 				]},
 			]
 		},
@@ -95,31 +92,11 @@ enyo.kind({
 		this.inherited(arguments);
 	},
 	
-	login: function() {
-		enyo.keyboard.setManualMode(true);
-		enyo.keyboard.show(1);
-		
-		setTimeout(enyo.bind(this, function() { // delay for keyboard to show.
-			this.$.loginDialog.openThisDialog(
-				this.accountAggregate.accountInfo.email, 
-				this.accountAggregate, 
-				enyo.bind(this, this.loginSuccess), 
-				enyo.bind(this, this.loginCancel), 
-				enyo.bind(this, this.done));
-			}), 500)
-	},	
-	
-	loginSuccess: function(password) {
-		enyo.keyboard.hide();
-		enyo.keyboard.setManualMode(false);
-		this.accountAggregate.accountInfo.password = password; 
-		this.loadAccount();
-	},
-	
-	loginCancel: function() {
-		this.login();
-	},
-	
+	// The password challenge that used to guard this view is gone — see
+	// Initialize.gotAccount. loginDialog/recoverDialog are left defined but
+	// unreferenced so the flow can be restored by pointing the profile row's
+	// onclick back at a login() that calls loadAccount() on success.
+
 	setAccountInfo: function(accountAggregate)
 	{
 		this.accountAggregate = accountAggregate;
@@ -130,7 +107,7 @@ enyo.kind({
 		var list = this.$.profileList;
 		list.destroyControls();
 		
-		list.createComponent({name: "account", kind: "MyApps.PalmID.ProfileItem", content: enyo.string.escapeHtml(acctname), className:"enyo-text-ellipsis", flex:1, owner: this, onclick: "login"});
+		list.createComponent({name: "account", kind: "MyApps.PalmID.ProfileItem", content: enyo.string.escapeHtml(acctname), className:"enyo-text-ellipsis", flex:1, owner: this, onclick: "loadAccount"});
 
 		this.render();
 	},
@@ -140,7 +117,6 @@ enyo.kind({
 		console.log(enyo.json.stringify(this.accountAggregate));
 
 		var profile = this.owner.$.fullProfile;
-		profile.populateName(this.accountAggregate.accountInfo);
 		profile.populateLoginInfo(this.accountAggregate);
 		profile.populateDeviceList(this.accountAggregate.accountDevices);
 		

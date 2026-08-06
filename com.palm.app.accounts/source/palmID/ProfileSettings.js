@@ -44,7 +44,7 @@ enyo.kind({
 
 		{kind:"Toolbar", className:"enyo-toolbar-light accounts-header", pack:"center", components: [
 			{kind: "Image", src: "images/acounts-48x48.png"},
-			{kind: "Control", content: $L("HP webOS Account")}
+			{kind: "Control", content: $L("webOS Community Account")}
 		]},
 		{className:"accounts-header-shadow"},
 		{
@@ -53,15 +53,10 @@ enyo.kind({
 			flex: 1,
 			components: [
 				{kind:"Control", className:"box-center", components: [
-					{
-						name: "nameInfo",
-						kind: "RowGroup",
-						className:"accounts-group",
-						caption: $L("NAME"),
-						components: [
-						],
-						owner: this.owner
-					},
+					// The NAME group is gone: the account has one identity field now,
+					// the username in LOGIN INFORMATION. The server still holds a
+					// display_name from sign-up, but showing both invited the question
+					// of which one other people actually see.
 					{
 						name:"resendVerification", kind: "Button", style:"display: none", className:"accounts-btn", caption: $L("Resend Verification Email"), onclick: "resendVerification"
 					},
@@ -90,11 +85,6 @@ enyo.kind({
 						caption: $L("USE ACCOUNT WITH"),
 						components: [
 						],
-						owner: this.owner
-					},
-					{
-						name: "nameDialog",
-						kind: "MyApps.PalmID.NameDialog",
 						owner: this.owner
 					},
 					{
@@ -146,33 +136,6 @@ enyo.kind({
 		{kind: "MyApps.PalmID.CommErrorDialog", name: "errorDialog"},
 		{kind: "MyApps.PalmID.SpinnerOverlayPopup", name: "spinnerOverlay"},
 	],
-	populateName: function(accountInfo)
-	{
-		var fullName = accountInfo.firstName + " " + accountInfo.lastName;
-		if (this.userName != fullName) {
-			var name = fullName;
-			this.userName = name;
-			this.firstName = accountInfo.firstName;
-			this.lastName = accountInfo.lastName;
-			if (accountInfo.password) {
-				this.password = accountInfo.password; 
-			}
-			this.$.nameInfo.destroyControls();
-			this.$.nameInfo.createComponent({
-				name: "nameItem",
-				kind: "MyApps.PalmID.SimpleItem",
-				components: [{
-					content: enyo.string.escapeHtml(name),
-					className: "enyo-text-ellipsis",
-					flex: 1,
-					owner: this,
-					onclick: "changeName"
-				}]
-			});
-			this.render();
-		}
-	},
-	
 	populateLoginInfo: function(details)
 	{
 			this.$.loginInfo.destroyControls();
@@ -207,16 +170,6 @@ enyo.kind({
  			this.$.loginInfo.createComponent({ name: "secAnswerItem", kind: "MyApps.PalmID.SimpleItem", components: [ desc, label ], onclick: "changeSecAnswer", owner: this });   		
 			this.render();
 			*/
-	},
-	changeName: function()
-	{
-		
-		this.$.nameDialog.openThisDialog(
-			{firstName: this.firstName, 
-			lastName: this.lastName, 
-			email: this.email, 
-			country : this.details.accountInfo.country,
-			language: this.details.accountInfo.language}, this.password);
 	},
 	changeEmail: function()
 	{ 
@@ -291,14 +244,17 @@ enyo.kind({
 			capName = capability.loc_name;	
 		} 
 		
-		if (capability.state == undefined) {
-			capability.state = (capability._id ? true : false);
-		} 
+		// Shown capabilities are always on and always locked — there is nothing to
+		// opt out of while app data storage is the only one listed.
+		capability.state = true;
+
+		var label = this.CAPABILITY_LABELS[capability.capability]
+			|| AccountsUtil.getCapabilityText(capability.capability);
 
 		var item = {
 			kind: "MyApps.PalmID.SimpleItem",
-			components: [ 
-				{ content: enyo.string.escapeHtml(AccountsUtil.getCapabilityText(capability.capability)), flex: 1},
+			components: [
+				{ content: enyo.string.escapeHtml(label), flex: 1},
 				//{ name: "app_" + appIndex, kind: "ToggleButton", state: capability.state, onChange: onChange, value: appIndex, disabled: capability.alwaysOn}
 				{ name: "app_" + appIndex, kind: "ToggleButton", state: capability.state, onChange: onChange, value: appIndex, disabled: true}
 			],
@@ -307,13 +263,42 @@ enyo.kind({
 		return item; 
 	},
 		
+	// Which of the account's capabilityProviders to actually show. The local
+	// account still declares all seven (see palm_profile_util's createLocalAccount),
+	// but only app data storage is backed by anything today — listing the rest
+	// promised syncing we do not do. Uncomment a line to bring one back once it
+	// has a real implementation behind it.
+	SHOWN_CAPABILITIES: [
+		// "CONTACTS",
+		// "CALENDAR",
+		// "TASKS",
+		// "MEMOS",
+		// "MESSAGING",          // shows as "SMS Account"
+		// "PHONE",              // shows as "Carrier"
+		"LOCAL.FILESTORAGE"
+	],
+
+	// Labels we override rather than take from AccountsUtil's framework map.
+	CAPABILITY_LABELS: {
+		"LOCAL.FILESTORAGE": $L("App data storage")
+	},
+
 	populateAppList: function(capabilities)
 	{
 		this.$.appList.destroyControls();
 
-		this.capabilities = capabilities;		
+		var shown = [];
 		for (var i = 0; i < capabilities.length; i++) {
-			this.$.appList.createComponent(this.generateItemForAppList(capabilities[i], i, "setAppState"));
+			var cap = capabilities[i];
+			if (cap && this.SHOWN_CAPABILITIES.indexOf(cap.capability) !== -1) {
+				shown.push(cap);
+			}
+		}
+
+		this.capabilities = shown;
+		this.$.appList.setShowing(shown.length > 0);
+		for (var j = 0; j < shown.length; j++) {
+			this.$.appList.createComponent(this.generateItemForAppList(shown[j], j, "setAppState"));
 		};
 
 		this.render();
