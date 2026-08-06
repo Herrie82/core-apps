@@ -93,13 +93,14 @@ enyo.kind({
 		this.addVoipAccount();
 	},
 
+	// The embedded VideoAddressingList registers its OWN listener with the same cache and refetches
+	// itself on a presence change (its row set genuinely depends on availability - offline buddies
+	// are filtered out), so driving a second search from here only duplicated that query and stole
+	// focus back into the search box on every presence signal. Nothing else here reacts to presence:
+	// the account prompt vs. list choice is driven by Cache.hasVoipAcct, which CallSynergizer's
+	// account watch maintains. Just mark the view dirty so re-entering the tab re-searches.
 	updateBuddyStatus: function () {
 		this.buddyStatusDirty = true;
-		enyo.log("debug: updateBuddyStatus "+ this.buddyStatusDirty);
-		if (enyo.application.UI.getCurrentState() === 'contactlookup') {
-			this.updateContactLookupUI(null);
-			this.showVideoContacts();
-		}
 	},
 
 	showVideoContacts: function() {

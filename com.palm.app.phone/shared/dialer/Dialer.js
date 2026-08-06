@@ -155,10 +155,24 @@ enyo.kind({
 		this.$.addtoContactButton.setShowing(false);
 		this.dialpadShowed = false; 
 	}, 	
+	// A presence change must NOT re-run the search. AddressingList reads the buddy status straight
+	// out of the cache while rendering each row (addressGetItem), so re-rendering the rows already
+	// on screen is all that's needed. Re-searching tore the whole list down instead - search()
+	// empties data, re-queries favorites, then punt()s the VirtualList (which dumps its rendering
+	// buffers AND scrolls back to the top) before paging the non-favorites back in. That made the
+	// list visibly flick between favorites-only and the full list, and jump to the top, every time
+	// any buddy's presence changed - which on a live roster is every few seconds.
 	updateAllContactsBuddystatus: function () {
-		this.buddyAllContactsStatusDirty = true;
-		if (enyo.application.UI.getCurrentState() === 'dialpad_card') {
+		if (enyo.application.UI.getCurrentState() !== 'dialpad_card') {
+			// Off-tab: no rows to re-render, so force the search on the way back in instead.
+			this.buddyAllContactsStatusDirty = true;
+		} else if (this.prevVal === undefined) {
+			// Never searched yet - there are no rows to re-render, so this has to populate the list.
+			// PhoneTabs.create() selects this (lazy) view straight through the Pane on a fresh
+			// launch, which bypasses handleLaunch(), so this can genuinely be the first search.
 			this.showContacts();
+		} else {
+			this.$.addressinglist.refresh();
 		}
 	},
 	/*the functionality for addressing list*/

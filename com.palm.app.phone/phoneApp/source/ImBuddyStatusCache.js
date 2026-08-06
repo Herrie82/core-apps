@@ -26,6 +26,7 @@ enyo.kind({
 	},
 
 	destroy: function() {
+		enyo.job.stop(this.id + "dispatchBuddyStatus");
 		this._buddies = null;
 		this.$.dbBuddies.cancel();
 		this.inherited(arguments);
@@ -44,18 +45,38 @@ enyo.kind({
 		return serviceName + "|" + username;
 	},
 
+	// The watch on this kind fires far more often than presence actually changes: every connector
+	// signal (sign-on, status change, avatar change, group change) ends up as a db8 MERGE in
+	// BuddyStatusHandler::updateBuddyStatus, and a merge bumps _rev even when it writes the exact
+	// same values - so with reCallWatches the watch re-fires every few seconds on a busy roster.
+	// Only tell listeners when something they actually RENDER changed (the availability per
+	// service+username); otherwise every listener rebuilds its contact list for nothing.
 	_gotBuddies: function(inSender, inResponse, inRequest) {
 		if (inResponse && inResponse.results) {
 			var data = inResponse.results;
 			this.resetItems();
+			var signature = [];
 			for (var i = 0; i < data.length; i++) {
 				var buddy = data[i];
 				if (buddy.username && buddy.serviceName) {
-					this._buddies[this._key(buddy.serviceName, buddy.username)] = buddy;
+					var key = this._key(buddy.serviceName, buddy.username);
+					this._buddies[key] = buddy;
+					signature.push(key + "=" + this._availability(buddy));
 				}
 			}
-			this.dispatchBuddyStatus();
+			signature = signature.sort().join(",");
+			if (signature === this._signature) {
+				return;
+			}
+			this._signature = signature;
+			// Coalesce bursts (a roster coming online signals one buddy at a time) into a single
+			// dispatch, so listeners re-render once instead of once per buddy.
+			enyo.job(this.id + "dispatchBuddyStatus", enyo.hitch(this, "dispatchBuddyStatus"), 500);
 		}
+	},
+
+	_availability: function(buddy) {
+		return buddy.personAvailability !== undefined ? buddy.personAvailability : buddy.availability;
 	},
 
 	// serviceName is required now (was optional/implicit when Skype was the only source) - callers
