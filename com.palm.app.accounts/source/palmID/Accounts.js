@@ -133,7 +133,10 @@ enyo.kind({
 				],
 		*/
 		profile.populateAppList(this.applications);
-		this.owner.next();
+		// By name, not next(). next() advances relative to whatever the pane
+		// currently has selected, which is only correct if no transition is in
+		// flight — and reaching here directly from gotAccount, one was.
+		this.owner.selectViewByName("fullProfile");
 	}
 });
 

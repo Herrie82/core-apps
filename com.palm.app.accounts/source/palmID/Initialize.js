@@ -152,12 +152,18 @@ enyo.kind({
 		var accounts = this.owner.$.accounts;
 		accounts.setAccountInfo(inResponse);
 		this.$.spinner.hide();
-		this.owner.selectViewByName("accounts");
 		// Straight into the profile. The original re-prompted for the account
 		// password here; the device already holds a per-device token that every
 		// profile call authenticates with, so a second challenge proves nothing
 		// the token has not already established.
-		this.owner.$.accounts.loadAccount();
+		//
+		// Note we do NOT select the intermediate "accounts" view on the way past.
+		// loadAccount() selects the profile by name, and starting a pane transition
+		// here would still be in flight when it did — leaving the user parked on the
+		// accounts view, which since the login button was removed shows nothing but
+		// the name. The password dialog used to mask that by delaying the second
+		// transition until after the user had typed.
+		accounts.loadAccount();
 	},
 	
 	
