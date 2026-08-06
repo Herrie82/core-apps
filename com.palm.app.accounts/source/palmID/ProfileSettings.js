@@ -98,14 +98,9 @@ enyo.kind({
 						owner: this.owner
 					},
 					{
-						name: "secDialog",
-						kind: "MyApps.PalmID.SecDialog",
-						owner: this.owner	
-					},
-					{
-						name: "secAnswerDialog",
-						kind: "MyApps.PalmID.SecAnswerDialog",
-						owner: this.owner	
+						name: "usernameDialog",
+						kind: "MyApps.PalmID.UsernameDialog",
+						owner: this.owner
 					},
 					{
 						name: "emailDialog",
@@ -183,6 +178,7 @@ enyo.kind({
 			this.$.loginInfo.destroyControls();
 			
 			this.email = details.accountInfo.email;
+			this.username = details.accountInfo.username;
 			this.details = details;
 			
 			this.$.resendVerification.applyStyle("display", 
@@ -197,9 +193,12 @@ enyo.kind({
 			handler = this.changePassword;
 			this.$.loginInfo.createComponent({ name: "passItem", kind: "MyApps.PalmID.SimpleItem", components: [ desc, label ], onclick: "changePassword", owner: this });       
 
-			desc = { name: "secDesc", content: $L("Security Question"), style:"padding-right:30px" };
-			label = { name: "secLabel", content: enyo.string.escapeHtml(this.details.acctChallengeQuestions.question), flex: 1, className:"enyo-text-ellipsis", style:"text-align:right"};
- 			this.$.loginInfo.createComponent({ name: "secItem", kind: "MyApps.PalmID.SimpleItem", components: [ desc, label ], onclick: "changeSecQtn", owner: this });   		
+			// webOS Archive: the username lives where HP put the security
+			// question. We store no security questions, and a public handle is
+			// something members can actually share instead of their email.
+			desc = { name: "usernameDesc", content: $L("Username"), style:"padding-right:30px" };
+			label = { name: "usernameLabel", content: enyo.string.escapeHtml(this.username), flex: 1, className:"enyo-text-ellipsis", style:"text-align:right"};
+ 			this.$.loginInfo.createComponent({ name: "usernameItem", kind: "MyApps.PalmID.SimpleItem", components: [ desc, label ], onclick: "changeUsername", owner: this });
 			this.render();
 
 			/*
@@ -233,13 +232,16 @@ enyo.kind({
 	{
 		this.$.passwdDialog.openThisDialog(false);
 	},
-	changeSecQtn: function()
+	changeUsername: function()
 	{
-		this.$.secDialog.initAndOpen(this.details.challengeQuestions, this.details.acctChallengeQuestions, this.details.securityQuestionSelectedAnswer);
+		this.$.usernameDialog.openThisDialog(this.username);
 	},
-	changeSecAnswer: function()
+	// Called back by UsernameDialog once the server has accepted the new handle.
+	usernameChanged: function(username)
 	{
-		this.$.secAnswerDialog.initAndOpen(this.details.acctChallengeQuestions, this.details.securityQuestionSelectedAnswer);
+		this.username = username;
+		this.details.accountInfo.username = username;
+		this.$.usernameLabel.setContent(enyo.string.escapeHtml(username));
 	},
 	showDeviceInfo: function(inSender, inResponse, rowIndex)
 	{
@@ -251,8 +253,18 @@ enyo.kind({
 		this.$.deviceInfo.openAtCenter();
 	},
 	populateDeviceList: function(deviceList)
-	{       
-		deviceList =  (deviceList.length) ? deviceList : [deviceList]; 
+	{
+		// The original wrapped a lone device object in an array by testing
+		// .length — which also wraps an EMPTY array, producing one row of
+		// "undefined". Normalise properly and hide the group when there is
+		// nothing to list.
+		if (!deviceList) {
+			deviceList = [];
+		} else if (Object.prototype.toString.call(deviceList) !== "[object Array]") {
+			deviceList = [deviceList];
+		}
+		this.$.deviceList.setShowing(deviceList.length > 0);
+ 
 		
 		this.$.deviceList.destroyControls();
 		this.deviceList = deviceList;

@@ -45,8 +45,11 @@ enyo.kind({
 			{className:"accounts-header-shadow"},
 			{kind: "Scroller", flex: 1, components: [
 				{kind:"Control", className:"box-center", components: [
-					{kind: "RowGroup", className:"accounts-group", caption:$L("Local Account"), components: [
-						{kind: "Item", layoutKind: "HFlexLayout", tapHighlight: true, disabled:true, className:"enyo-single" , onclick: "editPalmidProfile", align:"center", components:[
+					{kind: "RowGroup", name: "palmProfileGroup", className:"accounts-group", caption:$L("Local Account"), components: [
+						// Stays disabled unless a profile service actually answers - see
+						// probeProfileService(). On a device with no Palm Profile replacement this
+						// is exactly the previous behaviour: a non-tappable label.
+						{kind: "Item", name: "palmProfileItem", layoutKind: "HFlexLayout", tapHighlight: true, disabled:true, className:"enyo-single" , onclick: "editPalmidProfile", align:"center", components:[
 							{kind: "Image", name: "profileIcon", className:"icon-image"},
 							{name:"palmProfileName", className:"enyo-text-ellipsis", flex:1}
 						]}
@@ -84,6 +87,11 @@ enyo.kind({
 		]},
 		
 		{kind: "PalmService", name: "getPalmProfileAccountInfo", service: "palm://com.palm.accountservices/", method: "getAccountInfo", onSuccess: "setPalmProfileNameSuccess"},
+		// Capability probe for the profile editor. getAccountToken is local-only (it reads the
+		// stored profile out of db8, no network), so it answers fast and tells us two things at
+		// once: whether a Palm Profile replacement service is on the bus at all, and whether an
+		// account is actually signed in on this device. Either failure leaves the row disabled.
+		{kind: "PalmService", name: "probeProfileToken", service: "palm://com.palm.accountservices/", method: "getAccountToken", onSuccess: "profileServiceAvailable", onFailure: "profileServiceUnavailable"},
 		{kind: "PalmService", name: "modifyPalmProfileAccountName", service: enyo.palmServices.accounts, method: "modifyAccount"},
 		{kind: "PalmService", name: "retainedQuery", service: "palm://com.palm.db/", method: "find", onSuccess: "gotRetainedData", onFailure: "gotRetainedData"},
 	],
@@ -202,6 +210,7 @@ enyo.kind({
 					//this.$.getPalmProfileAccountInfo.call({});
 				}
 				this.palmProfileAccount = account;
+				this.$.probeProfileToken.call({});
 
 				return false;
 			}
@@ -280,6 +289,23 @@ enyo.kind({
 		this.$.AccountsView.AddAccount(this.templates);
 	},
 	
+	// A profile service answered with a token: this device has a real, signed-in account, so
+	// the profile editor behind the row has something to edit. Enable it and drop the
+	// "Local Account" wording, which is only accurate when there is no backing service.
+	profileServiceAvailable: function(inSender, inResponse) {
+		if (!inResponse || !inResponse.token) {
+			return;
+		}
+		this.$.palmProfileItem.setDisabled(false);
+		this.$.palmProfileGroup.setCaption($L("ACCOUNT"));
+	},
+
+	profileServiceUnavailable: function(inSender, inResponse) {
+		// Expected on any device without a Palm Profile replacement, and on a device where
+		// nobody has signed in yet. The row keeps its disabled default.
+		console.log("Accounts app: no profile service/token, profile editor stays disabled");
+	},
+
 	editPalmidProfile:  function(inSender, inResults) {
 		console.log("editPalmidProfile")
 		this.selectViewByName("palmprofile");
