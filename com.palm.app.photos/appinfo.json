@@ -16,5 +16,5 @@
 	"noWindow": true,
 	"removable": false,
 	"trustLevel": "trusted",
-	"requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+	"requiredPermissions": ["activity.operation", "application.launcher", "appmanager.management", "audio.operation", "database.operation", "filecache.management", "filecache.operation", "luna-sysmgr.operation", "servicebus.signal", "systemsettings.query", "tempdatabase.operation"]
 }

@@ -13,5 +13,5 @@
 	"debug": false,
 	"removable": false,
 	"trustLevel": "trusted",
-	"requiredPermissions": ["activities.manage", "applications.internal", "database", "database.internal", "networking", "networking.internal", "system", "services", "settings"]
+	"requiredPermissions": ["activity.operation", "audio.management", "audio.operation", "database.operation", "luna-sysmgr.operation", "media.operation", "media.query"]
 }

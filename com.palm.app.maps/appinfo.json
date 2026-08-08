@@ -10,5 +10,5 @@
 	"uiRevision": 2,
 	"splashicon": "icon-256x256.png",
 	"trustLevel": "trusted",
-	"requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+	"requiredPermissions": ["application.launcher", "appmanager.management", "location.query", "networkconnection.query"]
 }

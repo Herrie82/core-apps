@@ -19,5 +19,5 @@
 		}
 	},
 	"trustLevel": "trusted",
-	"requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "contactsservice.operation", "database.operation", "filecache.operation", "filecache.management", "luna-sysmgr.operation", "networkconnection.query", "settings.read", "systemsettings.query", "telephony.management", "tempdatabase.operation"]
+	"requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "appmanager.management", "contactsservice.operation", "database.operation", "filecache.management", "filecache.operation", "imlibpurple-service.operation", "luna-sysmgr.operation", "media.operation", "media.query", "networkconnection.query", "systemsettings.query", "telephony.management", "telephony.query", "tempdatabase.operation"]
 }

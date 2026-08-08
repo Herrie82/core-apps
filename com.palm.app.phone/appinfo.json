@@ -11,5 +11,5 @@
 	"keywords": ["Dial"],
 	"vendor": "Palm, Inc.",
 	"trustLevel": "trusted",
-	"requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+	"requiredPermissions": ["accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "appmanager.management", "audio.management", "audio.operation", "bluetooth.operation", "bluetooth.query", "contactsservice.operation", "database.operation", "imlibpurple-call.operation", "luna-sysmgr.operation", "media.operation", "media.query", "networkconnection.query", "preferences.applicationpropertyquery", "preferences.systempropertyquery", "servicebus.signal", "sleep.management", "sleep.operation", "systemsettings.management", "systemsettings.query", "telephony.management", "telephony.query", "tempdatabase.operation", "wifi.query"]
 }
