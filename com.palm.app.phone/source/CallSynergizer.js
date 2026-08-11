@@ -852,9 +852,25 @@ enyo.kind({
 		// A dial can arrive with the IM serviceName ("type_telegram") instead of the account templateId
 		// ("com.palm.telegram"). this.transports is keyed by templateId (each entry carries its serviceName),
 		// so translate here - ONE agnostic place that works for any current/future service, no per-service code.
+		//
+		// Every current connector's templateId is exactly "com.palm.<X>" for serviceName "type_<X>"
+		// (whatsapp/teams/telegram/signal/discord/googlechat/gometa - verified against every account
+		// template), so try that direct mapping FIRST. Confirmed live: a WhatsApp dial (transport
+		// arrived as "type_whatsapp") resolved to the Teams entry instead, because at that moment
+		// this.transports["com.palm.teams"].serviceName had somehow become "type_whatsapp" - the old
+		// "first entry whose serviceName matches" loop below has no defense against exactly that kind
+		// of stale/corrupted state on an unrelated entry. The direct mapping doesn't trust serviceName
+		// at all, so it's immune to that regardless of root cause. Fall back to the old loop only if
+		// the direct id isn't a currently-known transport (e.g. some future account whose templateId
+		// doesn't follow the convention).
 		if (transport && transport.indexOf("type_") === 0) {
-			for (var _tid in this.transports) {
-				if (this.transports[_tid] && this.transports[_tid].serviceName === transport) { transport = _tid; break; }
+			var _directId = "com.palm." + transport.slice(5);
+			if (this.transports[_directId]) {
+				transport = _directId;
+			} else {
+				for (var _tid in this.transports) {
+					if (this.transports[_tid] && this.transports[_tid].serviceName === transport) { transport = _tid; break; }
+				}
 			}
 		}
 		enyo.error("CALLSYN_DIAG PLACECALL transport=" + transport + " known=" + !!(this.transports && this.transports[transport]));
