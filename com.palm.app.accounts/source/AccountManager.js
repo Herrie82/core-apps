@@ -45,8 +45,11 @@ enyo.kind({
 			{className:"accounts-header-shadow"},
 			{kind: "Scroller", flex: 1, components: [
 				{kind:"Control", className:"box-center", components: [
-					{kind: "RowGroup", className:"accounts-group", caption:$L("Local Account"), components: [
-						{kind: "Item", layoutKind: "HFlexLayout", tapHighlight: true, disabled:true, className:"enyo-single" , onclick: "editPalmidProfile", align:"center", components:[
+					{kind: "RowGroup", name: "palmProfileGroup", className:"accounts-group", caption:$L("Local Account"), components: [
+						// Stays disabled unless a profile service actually answers - see
+						// probeProfileService(). On a device with no Palm Profile replacement this
+						// is exactly the previous behaviour: a non-tappable label.
+						{kind: "Item", name: "palmProfileItem", layoutKind: "HFlexLayout", tapHighlight: true, disabled:true, className:"enyo-single" , onclick: "editPalmidProfile", align:"center", components:[
 							{kind: "Image", name: "profileIcon", className:"icon-image"},
 							{name:"palmProfileName", className:"enyo-text-ellipsis", flex:1}
 						]}
@@ -84,6 +87,11 @@ enyo.kind({
 		]},
 		
 		{kind: "PalmService", name: "getPalmProfileAccountInfo", service: "palm://com.palm.accountservices/", method: "getAccountInfo", onSuccess: "setPalmProfileNameSuccess"},
+		// Capability probe for the profile editor. getAccountToken is local-only (it reads the
+		// stored profile out of db8, no network), so it answers fast and tells us two things at
+		// once: whether a Palm Profile replacement service is on the bus at all, and whether an
+		// account is actually signed in on this device. Either failure leaves the row disabled.
+		{kind: "PalmService", name: "probeProfileToken", service: "palm://com.palm.accountservices/", method: "getAccountToken", onSuccess: "profileServiceAvailable", onFailure: "profileServiceUnavailable"},
 		{kind: "PalmService", name: "modifyPalmProfileAccountName", service: enyo.palmServices.accounts, method: "modifyAccount"},
 		{kind: "PalmService", name: "retainedQuery", service: "palm://com.palm.db/", method: "find", onSuccess: "gotRetainedData", onFailure: "gotRetainedData"},
 	],
@@ -202,6 +210,7 @@ enyo.kind({
 					//this.$.getPalmProfileAccountInfo.call({});
 				}
 				this.palmProfileAccount = account;
+				this.$.probeProfileToken.call({});
 
 				return false;
 			}
@@ -280,6 +289,30 @@ enyo.kind({
 		this.$.AccountsView.AddAccount(this.templates);
 	},
 	
+	// A profile service answered with a token: this device has a real, signed-in account, so
+	// the profile editor behind the row has something to edit. Enable it and drop the
+	// "Local Account" wording, which is only accurate when there is no backing service.
+	profileServiceAvailable: function(inSender, inResponse) {
+		if (!inResponse || !inResponse.token) {
+			return;
+		}
+		this.$.palmProfileItem.setDisabled(false);
+		this.$.palmProfileGroup.setCaption($L("ACCOUNT"));
+	},
+
+	profileServiceUnavailable: function(inSender, inResponse) {
+		// Expected on any device without a Palm Profile replacement, on a device where
+		// nobody has signed in yet, and after a sign-out. Set the state rather than
+		// just leaving the default, because this also runs on the way back from the
+		// profile view, where the row may currently be enabled.
+		console.log("Accounts app: no profile service/token, profile editor disabled");
+		this.$.palmProfileItem.setDisabled(true);
+		this.$.palmProfileGroup.setCaption($L("Local Account"));
+		// The row label needs no special-casing: sign-out renames the local account
+		// record to "Local User", so what is stored is already what should be shown.
+	},
+
+
 	editPalmidProfile:  function(inSender, inResults) {
 		console.log("editPalmidProfile")
 		this.selectViewByName("palmprofile");
@@ -310,6 +343,44 @@ enyo.kind({
 	// Go to the prefs and accounts view
 	accountsDone: function(inSender, e) {
 		this.selectViewByName("prefsAndAccounts");
+		// Re-probe on the way back: the user may have just signed out, in which
+		// case the row has to stop being tappable or the next tap walks into a
+		// profile fetch with no token behind it.
+		this.$.probeProfileToken.call({});
+	},
+
+	// App menu -> "Delete Account Data": open the retained-data page (swipe-to-delete list of accounts
+	// that were removed with their data kept on the device).
+	showRetainedData: function() {
+		this.$.appMenu.close();
+		this.selectViewByName("retainedDataView");
+		// Pass the active accounts too so a re-added account is filtered out of the delete list.
+		this.$.retainedDataView.load(this.templates, this.accounts);
+	},
+
+	// Query the retained-data markers and show the "Delete Account Data" menu item only if any belong to
+	// an account that is NOT currently active (a re-added account's marker doesn't count).
+	checkRetainedData: function() {
+		this.$.retainedQuery.call({query: {from: "com.palm.imretaineddata:1"}});
+	},
+	gotRetainedData: function(inSender, resp) {
+		var results = (resp && resp.results) || [];
+		var active = {}, i;
+		for (i = 0; i < this.accounts.length; i++) {
+			var a = this.accounts[i];
+			if (a && a.templateId)
+				active[this.retainedKey(a.templateId, a.username)] = true;
+		}
+		var count = 0;
+		for (i = 0; i < results.length; i++) {
+			if (!active[this.retainedKey(results[i].templateId, results[i].username)])
+				count++;
+		}
+		var _mi = this.$.deleteDataMenuItem || (this.$.appMenu && this.$.appMenu.$ && this.$.appMenu.$.deleteDataMenuItem);
+		if (_mi) { _mi.setShowing(count > 0); }
+	},
+	retainedKey: function(templateId, username) {
+		return (templateId || "") + "|" + String(username || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 	},
 
 	// App menu -> "Delete Account Data": open the retained-data page (swipe-to-delete list of accounts
