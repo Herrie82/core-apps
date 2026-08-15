@@ -1,0 +1,13 @@
+{
+	"returnValue": true,
+	"results": [
+		{"_id": "ch_d1", "_kind": "com.palm.imchannel:1", "serverId": "srv_discord", "serviceName": "type_discord", "remoteId": "1400000000001011", "name": "general", "displayName": "Gaming Guild", "type": "channel", "position": 0, "chatThreadId": "thr_d1"},
+		{"_id": "ch_d2", "_kind": "com.palm.imchannel:1", "serverId": "srv_discord", "serviceName": "type_discord", "remoteId": "1400000000001012", "name": "random", "displayName": "Gaming Guild", "type": "channel", "position": 1, "chatThreadId": "thr_d2"},
+		{"_id": "ch_d3", "_kind": "com.palm.imchannel:1", "serverId": "srv_discord", "serviceName": "type_discord", "remoteId": "1400000000001013", "name": "dev-talk", "displayName": "Gaming Guild", "type": "channel", "position": 2, "chatThreadId": "thr_d3"},
+		{"_id": "ch_i1", "_kind": "com.palm.imchannel:1", "serverId": "srv_irc", "serviceName": "type_irc", "remoteId": "#webos", "name": "#webos", "displayName": "Libera.Chat", "type": "channel", "position": 0, "chatThreadId": "thr_i1"},
+		{"_id": "ch_i2", "_kind": "com.palm.imchannel:1", "serverId": "srv_irc", "serviceName": "type_irc", "remoteId": "#linux", "name": "#linux", "displayName": "Libera.Chat", "type": "channel", "position": 1, "chatThreadId": "thr_i2"},
+		{"_id": "ch_t1", "_kind": "com.palm.imchannel:1", "serverId": "srv_teams", "serviceName": "type_teams-personal", "remoteId": "channel_a", "name": "announcements", "displayName": "Acme Corp", "type": "channel", "position": 0, "chatThreadId": "thr_t1"},
+		{"_id": "ch_t2", "_kind": "com.palm.imchannel:1", "serverId": "srv_teams", "serviceName": "type_teams-personal", "remoteId": "channel_b", "name": "engineering", "displayName": "Acme Corp", "type": "channel", "position": 1, "chatThreadId": "thr_t2"},
+		{"_id": "ch_t3", "_kind": "com.palm.imchannel:1", "serverId": "srv_teams", "serviceName": "type_teams-personal", "remoteId": "channel_c", "name": "watercooler", "displayName": "Acme Corp", "type": "channel", "position": 2, "chatThreadId": "thr_t3"}
+	]
+}

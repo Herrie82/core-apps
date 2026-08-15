@@ -1,0 +1,14 @@
+{
+	"id": "com.palm.app.maps",
+	"version": "3.0.1",
+	"vendor": "HP",
+	"type": "web",
+	"main": "index.html",
+	"title": "Maps",
+	"icon": "icon.png",
+	"removable": false,
+	"uiRevision": 2,
+	"splashicon": "icon-256x256.png",
+	"trustLevel": "trusted",
+	"requiredPermissions": ["application.launcher", "appmanager.management", "location.query", "networkconnection.query"]
+}

@@ -1,0 +1,13 @@
+{
+	"id": "com.palm.app.firstuse",
+	"version": "3.0.0",
+	"vendor": "HP",
+	"type": "web",
+	"main": "index.html",
+	"title": "HP webOS",
+	"icon": "images/icon.png",
+	"visible": false,
+	"uiRevision": 2,
+	"trustLevel": "trusted",
+	"requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "appmanager.management", "database.operation", "filecache.management", "filecache.operation", "location.query", "luna-sysmgr.operation", "networkconnection.management", "networkconnection.query", "preferences.operation", "preferences.systempropertyquery", "sleep.management", "sleep.operation", "storaged.operation", "systemsettings.management", "systemsettings.query", "telephony.management", "telephony.query", "tempdatabase.operation", "update-service.operation", "wifi.management", "wifi.query"]
+}

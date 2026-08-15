@@ -41,5 +41,6 @@
             }
         }
     },
-    "requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+    "trustLevel": "trusted",
+    "requiredPermissions": ["accountsservice.management", "activity.operation", "application.launcher", "appmanager.management", "calendarremindersservice.operation", "database.operation", "location.query", "networkconnection.management", "networkconnection.query", "settings.query", "systemsettings.query", "tempdatabase.operation", "time.query", "universalsearch.operation", "wifi.management", "wifi.query"]
 }

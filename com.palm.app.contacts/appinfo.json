@@ -1,6 +1,6 @@
 {
     "id"        : "com.palm.app.contacts",
-    "version"   : "3.0.6700",
+    "version"   : "3.0.6701",
     "uiRevision": 2,
     "vendor"    : "HP",
     "type"      : "web",
@@ -8,5 +8,6 @@
     "title"     : "Contacts",
     "icon"      : "icon.png",
     "removable" : false,
-    "requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+    "trustLevel" : "trusted",
+    "requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "appmanager.management", "contactslinkerservice.operation", "contactsservice.operation", "database.management", "database.operation", "settings.query", "tempdatabase.management", "tempdatabase.operation"]
 }

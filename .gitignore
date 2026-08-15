@@ -2,3 +2,4 @@ BuildResults
 .project
 .settings
 .DS_Store
+packaging/out/

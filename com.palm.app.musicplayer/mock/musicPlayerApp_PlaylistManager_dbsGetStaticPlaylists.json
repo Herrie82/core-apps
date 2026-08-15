@@ -1,0 +1,30 @@
+{
+	"returnValue": true,
+	"results": [{
+		"_id": "++MlyZgBBl+G9HQ2",
+		"_kind": "com.palm.music.staticplaylists:1",
+		"_rev": 674,
+		"_sync": true,
+		"name": "Test Playlist",
+		"tracks": [{
+			"_id": "2a3",
+			"artist": "Michael Jackson",
+			"path": "/media/internal/music/01 Do You Know Where Your Children Are.mp3",
+			"title": "Do You Know Where Your Children Are"
+		}]
+	}, {
+		"_id": "++Mmv09aSV0sGIQP",
+		"_kind": "com.palm.music.staticplaylists:1",
+		"_rev": 1999,
+		"_sync": true,
+		"name": "Test Playlist 2",
+		"tracks": []
+	}, {
+		"_id": "++Mmv12CqxVHmjRA",
+		"_kind": "com.palm.music.staticplaylists:1",
+		"_rev": 2001,
+		"_sync": true,
+		"name": "Test Playlist 3",
+		"tracks": []
+	}]
+}

@@ -1,0 +1,103 @@
+{
+	"results": [{
+		"_kind": "com.palm.account:1",
+		"_id": "++LII865x8_Rst9x",
+		"_rev": 297,
+		"_sync": true,
+		"beingDeleted": false,
+		"capabilityProviders": [{
+			"_id": "12a",
+			"capability": "CONTACTS",
+			"id": "com.palm.palmprofile.contacts",
+			"dbkinds": {
+				"contact": "com.palm.contact.palmprofile:1"
+			},
+			"refetchPhoto": "palm://com.palm.service.contacts/refetchPhoto"
+		}, {
+			"_id": "12b",
+			"capability": "CALENDAR",
+			"id": "com.palm.palmprofile.calendar"
+		}, {
+			"_id": "12c",
+			"capability": "TASKS",
+			"id": "com.palm.palmprofile.tasks"
+		}, {
+			"_id": "12d",
+			"capability": "MEMOS",
+			"id": "com.palm.palmprofile.memos"
+		}, {
+			"_id": "12e",
+			"capability": "MESSAGING",
+			"id": "com.palm.palmprofile.sms",
+			"capabilitySubtype": "SMS",
+			"icon": {
+				"loc_32x32": "/usr/palm/public/accounts/com.palm.palmprofile/images/sms-32x32.png",
+				"loc_48x48": "/usr/palm/public/accounts/com.palm.palmprofile/images/sms-48x48.png",
+				"splitter": "/usr/palm/public/accounts/com.palm.palmprofile/images/sms-32x32.png"
+			},
+			"loc_name": "SMS Account",
+			"loc_shortName": "Text"
+		}, {
+			"_id": "12f",
+			"capability": "PHONE",
+			"id": "com.palm.palmprofile.voice",
+			"alwaysOn": true,
+			"icon": {
+				"loc_32x32": "/usr/palm/public/accounts/com.palm.palmprofile/images/mypalm-32x32.png",
+				"loc_48x48": "/usr/palm/public/accounts/com.palm.palmprofile/images/mypalm-48x48.png"
+			},
+			"loc_name": "Carrier",
+			"loc_shortName": "Carrier"
+		}, {
+			"_id": "130",
+			"capability": "LOCAL.FILESTORAGE",
+			"id": "com.palm.palmprofile.localfilestore",
+			"icon": {
+				"loc_32x32": "/usr/palm/public/accounts/com.palm.palmprofile/images/touchpad-32x32.png"
+			}
+		}],
+		"templateId": "com.palm.palmprofile",
+		"username": "Dr. Skipped Firstuse",
+		"icon": {
+			"loc_32x32": "/usr/palm/public/accounts/com.palm.palmprofile/images/mypalm-32x32.png",
+			"loc_48x48": "/usr/palm/public/accounts/com.palm.palmprofile/images/mypalm-48x48.png"
+		},
+		"loc_name": "HP webOS Account",
+		"readPermissions": ["com.palm.service.contacts", "com.palm.app.contacts"],
+		"writePermissions": ["com.palm.accountservices", "com.palm.app.firstuse"]
+	}, {
+		"_kind": "com.palm.account:1",
+		"_id": "++LII8665tGTmJ1m",
+		"_rev": 305,
+		"_sync": false,
+		"beingDeleted": false,
+		"capabilityProviders": [{
+			"_id": "132",
+			"capability": "PHONE",
+			"id": "com.palm.telephony",
+			"implementation": "palm://com.palm.telephony/",
+			"serviceName": "com.palm.telephony",
+			"wanAllowed": true,
+			"wifiAllowed": false,
+			"pausePrompt": true,
+			"pauseCode": ["p"],
+			"waitCode": ["w"],
+			"keyHoldMappings": [{
+				"0": "+"
+			}, {
+				"*": "p"
+			}, {
+				"#": "w"
+			}]
+		}],
+		"templateId": "com.palm.telephony",
+		"username": "local",
+		"loc_name": "Telephony Interface Layer",
+		"hidden": true,
+		"invisible": true,
+		"disableRemove": true,
+		"readPermissions": ["com.palm.telephony"],
+		"writePermissions": ["com.palm.telephony"]
+	}],
+	"returnValue": true
+}

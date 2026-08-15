@@ -50,5 +50,6 @@
             }
         }
     },
-    "requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+    "trustLevel": "trusted",
+    "requiredPermissions": ["accountsservice.management", "accountsservice.operation", "activity.operation", "application.launcher", "application.operation", "appmanager.management", "database.operation", "filecache.management", "filecache.operation", "luna-sysmgr.operation", "mojomail-imap.operation", "mojomail-pop.operation", "mojomail-smtp.operation", "nettools.operation", "networkconnection.query", "settings.query", "sleep.management", "sleep.operation", "systemsettings.query", "tempdatabase.operation"]
 }

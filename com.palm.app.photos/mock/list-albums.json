@@ -1,0 +1,72 @@
+{
+	"returnValue": true,
+	"results": [{
+		"_id": "++HoaBoSK+soZUwD",
+		"_kind": "com.palm.media.image.album:1",
+		"_rev": 10376,
+		"accountId": "",
+		"modifiedTime": 1324454848,
+		"name": "Photo roll",
+		"path": "camera://",
+		"searchKey": "Photo roll",
+		"showAlbum": true,
+		"sortKey": "200_Photo roll",
+		"thumbnails": [{
+			"_id": "2805",
+			"data": {
+				"length": 9264,
+				"offset": 474,
+				"path": "/media/internal/DCIM/100PALM/CIMG0001.jpg"
+			},
+			"type": "embedded"
+		}],
+		"toBeDeleted": "",
+		"total": {
+			"images": 1,
+			"videos": 0
+		},
+		"type": "local"
+	}, {
+		"_id": "++HoaBoUyeBkh+oj",
+		"_kind": "com.palm.media.image.album:1",
+		"_rev": 10375,
+		"accountId": "",
+		"modifiedTime": 1324432052,
+		"name": "Wallpapers",
+		"path": "/media/internal/wallpapers",
+		"searchKey": "Wallpapers",
+		"showAlbum": true,
+		"sortKey": "900_Wallpapers",
+		"thumbnails": [{
+			"_id": "2803",
+			"data": {
+				"length": 0,
+				"offset": 0,
+				"path": "./images/wallpapers/02.jpg"
+			},
+			"type": "embedded"
+		}, {
+			"_id": "2801",
+			"data": {
+				"length": 0,
+				"offset": 0,
+				"path": "./images/wallpapers/01.jpg"
+			},
+			"type": "embedded"
+		}, {
+			"_id": "27ff",
+			"data": {
+				"length": 0,
+				"offset": 0,
+				"path": "./images/wallpapers/04.jpg"
+			},
+			"type": "embedded"
+		}],
+		"toBeDeleted": "",
+		"total": {
+			"images": 11,
+			"videos": 0
+		},
+		"type": "local"
+	}]
+}

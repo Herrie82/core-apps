@@ -1,0 +1,20 @@
+{
+	"title": "Photos & Videos",
+	"id": "com.palm.app.photos",
+	"version": "3.0.8001",
+	"vendor": "HP",
+	"type": "web",
+	"main": "index.html",
+	"icon": "icon.png",
+	"splashicon": "icon-256x256.png",
+	"keywords": ["pictures", "photos", "videos"],
+	"dockMode": true,
+	"touchstoneMode": "enabled",
+	"exhibitionMode": true,
+	"exhibitionModeOptions": { "title": "Photos"},
+	"uiRevision": 2,
+	"noWindow": true,
+	"removable": false,
+	"trustLevel": "trusted",
+	"requiredPermissions": ["activity.operation", "application.launcher", "appmanager.management", "audio.operation", "database.operation", "filecache.management", "filecache.operation", "luna-sysmgr.operation", "servicebus.signal", "systemsettings.query", "tempdatabase.operation"]
+}

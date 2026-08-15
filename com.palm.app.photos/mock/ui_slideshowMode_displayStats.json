@@ -1,0 +1,9 @@
+{
+	"returnValue": true,
+	"event": "request",
+	"state": "on",
+	"timeout": 120,
+	"blockDisplay": "false",
+	"active": false,
+	"subscribed": true
+}

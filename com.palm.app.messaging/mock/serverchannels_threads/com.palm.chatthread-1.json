@@ -1,0 +1,13 @@
+{
+	"returnValue": true,
+	"results": [
+		{"_id": "thr_d1", "_kind": "com.palm.chatthread:1", "displayName": "# general", "summary": "alice: anyone up for a match tonight?", "unreadCount": 3, "replyAddress": "1400000000001011", "replyService": "type_discord", "channelId": "ch_d1", "serverId": "srv_discord", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721030000000},
+		{"_id": "thr_d2", "_kind": "com.palm.chatthread:1", "displayName": "# random", "summary": "bob: lol that meme", "unreadCount": 0, "replyAddress": "1400000000001012", "replyService": "type_discord", "channelId": "ch_d2", "serverId": "srv_discord", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721029000000},
+		{"_id": "thr_d3", "_kind": "com.palm.chatthread:1", "displayName": "# dev-talk", "summary": "carol: pushed the fix to main", "unreadCount": 12, "replyAddress": "1400000000001013", "replyService": "type_discord", "channelId": "ch_d3", "serverId": "srv_discord", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721028000000},
+		{"_id": "thr_i1", "_kind": "com.palm.chatthread:1", "displayName": "# #webos", "summary": "dave: does luna-send work over ssh?", "unreadCount": 1, "replyAddress": "#webos", "replyService": "type_irc", "channelId": "ch_i1", "serverId": "srv_irc", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721027000000},
+		{"_id": "thr_i2", "_kind": "com.palm.chatthread:1", "displayName": "# #linux", "summary": "erin: kernel 6.8 dropped", "unreadCount": 0, "replyAddress": "#linux", "replyService": "type_irc", "channelId": "ch_i2", "serverId": "srv_irc", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721026000000},
+		{"_id": "thr_t1", "_kind": "com.palm.chatthread:1", "displayName": "# announcements", "summary": "HR: office closed friday", "unreadCount": 2, "replyAddress": "channel_a", "replyService": "type_teams-personal", "channelId": "ch_t1", "serverId": "srv_teams", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721025000000},
+		{"_id": "thr_t2", "_kind": "com.palm.chatthread:1", "displayName": "# engineering", "summary": "frank: standup in 5", "unreadCount": 7, "replyAddress": "channel_b", "replyService": "type_teams-personal", "channelId": "ch_t2", "serverId": "srv_teams", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721024000000},
+		{"_id": "thr_t3", "_kind": "com.palm.chatthread:1", "displayName": "# watercooler", "summary": "grace: coffee run?", "unreadCount": 0, "replyAddress": "channel_c", "replyService": "type_teams-personal", "channelId": "ch_t3", "serverId": "srv_teams", "flags": {"visible": true, "outgoing": false}, "timestamp": 1721023000000}
+	]
+}

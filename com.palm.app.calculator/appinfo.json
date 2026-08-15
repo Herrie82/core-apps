@@ -7,5 +7,6 @@
 	"title": "Calculator",
 	"icon": "icon.png",
 	"uiRevision": "2",
-	"removable": false
+	"removable": false,
+	"trustLevel": "trusted"
 }

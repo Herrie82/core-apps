@@ -18,7 +18,7 @@
 
 /*jslint white: true, onevar: true, undef: true, eqeqeq: true, plusplus: true, bitwise: true,
  regexp: true, newcap: true, immed: true, nomen: false, maxerr: 500 */
-/*global ContactsLib, document, Foundations, enyo, console, AccountsList:true, AppPrefs:true, com, $L, DefaultAccountId:true, window, runningInBrowser, Edit, launchParams:true */
+/*global ContactsLib, document, Foundations, enyo, console, AccountsList:true, AppPrefs:true, com, $L, DefaultAccountId:true, window, runningInBrowser, Edit, launchParams:true, PalmCall */
 enyo.VirtualList.prototype.accelerated = true;
 
 enyo.kind({
@@ -59,8 +59,73 @@ enyo.kind({
     ],
     ready                  : function () {
     },
+    // Fetch the real service name (WhatsApp/Telegram/Signal/Google Chat/...) for every installed
+    // messaging account template and cache it on ContactsLib.IMAddress._dynamicLabels, keyed by
+    // serviceName (e.g. "type_whatsapp"). This is the single source of truth PseudoDetailsInApp.js's
+    // (and contactsui/UI/DetailsInDialog.js's) imTypeDisplay reads from -- see those files' comments
+    // for why a manually-maintained hardcoded label map is the wrong long-term approach: every IM
+    // service already declares its own loc_name/loc_shortName via its account template, so reading
+    // it from there means a newly-added service needs no UI code change at all.
+    // Ready-flag + callback-queue instead of a plain "already fetched" boolean: any number of
+    // callers (this app's create() below, PseudoDetailsInApp.renderPerson, the shared
+    // DetailsInDialog.js popup used by Phone/Messaging) can call this at any time, whether or not
+    // the one underlying PalmCall has resolved yet, and all get notified exactly once when it does.
+    installDynamicIMLabels : function (onReady) {
+        var IMAddress = ContactsLib.IMAddress;
+        if (!IMAddress) {
+            if (onReady) { onReady(); }
+            return;
+        }
+        if (IMAddress._dynamicLabelsReady) {
+            if (onReady) { onReady(); }
+            return;
+        }
+        IMAddress._dynamicLabelsCallbacks = IMAddress._dynamicLabelsCallbacks || [];
+        if (onReady) {
+            IMAddress._dynamicLabelsCallbacks.push(onReady);
+        }
+        if (IMAddress._dynamicLabelsInstalled) {
+            // Fetch already in flight from an earlier caller -- our callback is queued above.
+            return;
+        }
+        IMAddress._dynamicLabelsInstalled = true;
+        IMAddress._dynamicLabels = {};
+        PalmCall.call("palm://com.palm.service.accounts/", "listAccountTemplates", {"capability": "MESSAGING"}).then(this, function (future) {
+            var results, map = {}, opts = [], seen = {}, callbacks;
+            try {
+                results = future.result && future.result.results;
+            } catch (e) {
+                enyo.warn("ContactsApp.installDynamicIMLabels: listAccountTemplates failed: " + e);
+            }
+            (results || []).forEach(function (tmpl) {
+                (tmpl.capabilityProviders || []).forEach(function (cp) {
+                    var label;
+                    if (cp && cp.capability === "MESSAGING" && cp.serviceName && !seen[cp.serviceName]) {
+                        seen[cp.serviceName] = true;
+                        label = cp.loc_shortName || cp.loc_name || tmpl.loc_name || cp.serviceName;
+                        map[cp.serviceName] = label;
+                        opts.push({value: cp.serviceName, label: label});
+                    }
+                });
+            });
+            opts.sort(function (a, b) { return a.label.localeCompare(b.label); });
+            IMAddress._dynamicLabels = map;
+            IMAddress._dynamicLabelsReady = true;
+            // Share the list with the Edit picker so it reuses this fetch instead of its own.
+            if (typeof Edit !== "undefined") {
+                Edit._imServiceOptions = opts;
+            }
+            callbacks = IMAddress._dynamicLabelsCallbacks || [];
+            IMAddress._dynamicLabelsCallbacks = [];
+            callbacks.forEach(function (cb) {
+                try { cb(); } catch (e2) { /* one bad callback shouldn't break the rest */ }
+            });
+        });
+    },
     create                 : function () {
         this.inherited(arguments);
+
+        this.installDynamicIMLabels();
 
         this.$.getAccounts.getAccounts({capability: "CONTACTS"});
 

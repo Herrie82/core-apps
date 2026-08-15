@@ -18,7 +18,7 @@
 
 /*jslint white: true, onevar: true, undef: true, eqeqeq: true, plusplus: true, bitwise: true,
  regexp: true, newcap: true, immed: true, nomen: false, maxerr: 500 */
-/*global ContactsLib, enyo, console, crb, com, $contactsui_path, PalmSystem, window */
+/*global ContactsLib, enyo, console, crb, com, $contactsui_path, PalmSystem, window, PalmCall */
 
 enyo.kind({
     name                 : "pseudoDetailsInApp",
@@ -67,7 +67,7 @@ enyo.kind({
                     {name: "linkPanel", kind: "enyo.Drawer", open: false},
                     {name: "phoneGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "phoneFieldClick", onGetActionIcon: "phoneGetActionIcon", onActionIconClick: "phoneActionIconClick"},
                     {name: "emailGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "emailFieldClick"},
-                    {name: "imGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "imFieldClick", onShowArrow: "showImDropdownArrow"},
+                    {name: "imGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "imFieldClick", onGetFieldValue: "getImFieldValue", onShowArrow: "showImDropdownArrow"},
                     {name: "addressGroup", kind: "com.palm.library.contactsui.FieldGroup", onGetFieldValue: "getAddressFieldValue", onFieldClick: "addressFieldClick"},
                     {name: "urlGroup", kind: "com.palm.library.contactsui.FieldGroup", onFieldClick: "urlFieldClick"},
                     {name: "notesGroup", kind: "com.palm.library.contactsui.FieldGroup", onGetFieldValue: "getNotesFieldValue"},
@@ -246,7 +246,9 @@ enyo.kind({
         this.$.moreDetailsGroup.setFields(this.getMoreDetailsFields());
         this.$.emailGroup.setFields(this.person.getEmails().getArray());
         this.$.phoneGroup.setFields(this.person.getPhoneNumbers().getArray());
+        this.$.imGroup.getFieldTypeDisplay = this.imTypeDisplay;
         this.$.imGroup.setFields(this.person.getIms().getArray());
+        this.refreshImLabelsWhenReady();
         this.$.addressGroup.setFields(this.person.getAddresses().getArray());
         this.$.urlGroup.setFields(this.person.getUrls().getArray());
         this.$.notesGroup.setFields(this.addTypeToNotes(this.person.getNotes().getArray()));
@@ -416,6 +418,142 @@ enyo.kind({
     },
     getAddressFieldValue: function (inSender, inField) {
         return inField.getDisplayValue();
+    },
+
+    // webOS: label each IM row with its real service (WhatsApp/Telegram/Signal/...) instead of the
+    // generic "IM". FieldGroup renders whatever getFieldTypeDisplay returns; the stock version reads
+    // the field's x_displayType, which the framework leaves "IM" for the webOS "type_*" IM services
+    // (IMAddress.x_displayType is a read-only getter, so it can't be overridden on the field itself).
+    // The label comes from the SAME account-template data every messaging service already publishes
+    // (loc_shortName/loc_name via listAccountTemplates) -- see fetchDynamicImLabels below -- rather
+    // than a hand-maintained map that has to be extended by hand for every new IM service. The tiny
+    // static map is only a same-tick fallback for the instant before that fetch resolves.
+    imTypeDisplay: function (inField) {
+        var fallback = {
+            type_whatsapp: "WhatsApp", type_telegram: "Telegram", type_signal: "Signal",
+            type_gometa: "Facebook", type_discord: "Discord", type_teams: "Teams",
+            type_googlechat: "Google Chat", type_irc: "IRC"
+        };
+        try {
+            var dbo = (inField && inField.getDBObject && inField.getDBObject()) || {};
+            var svc = dbo.serviceName || dbo.type;
+            var dynamic = ContactsLib.IMAddress && ContactsLib.IMAddress._dynamicLabels;
+            if (svc && ("" + svc).indexOf("type_") === 0) {
+                return (dynamic && dynamic[svc]) || fallback[svc] || ("" + svc).replace(/^type_/, "");
+            }
+        } catch (e) { /* fall through to the stock label */ }
+        return (inField && inField.x_displayType) || "";
+    },
+    // Kick off (once, app-wide) the same account-template fetch ContactsApp.installDynamicIMLabels
+    // does, and re-render this view's IM rows once it resolves -- covers the case where a contact's
+    // details are opened before that fetch has completed (e.g. cold app launch), so labels upgrade
+    // from the fallback map to the real service name in place instead of staying stuck on it.
+    // Guarded on personId so a stale response can't overwrite whatever contact is showing by then.
+    refreshImLabelsWhenReady: function () {
+        var IMAddress = ContactsLib.IMAddress, self = this, personId;
+        if (!IMAddress || IMAddress._dynamicLabelsReady) {
+            return;
+        }
+        personId = this.person && this.person.getId && this.person.getId();
+        IMAddress._dynamicLabelsCallbacks = IMAddress._dynamicLabelsCallbacks || [];
+        IMAddress._dynamicLabelsCallbacks.push(function () {
+            if (self.person && self.$.imGroup && self.person.getId && self.person.getId() === personId) {
+                self.$.imGroup.setFields(self.person.getIms().getArray());
+            }
+        });
+        if (IMAddress._dynamicLabelsInstalled) {
+            return;
+        }
+        IMAddress._dynamicLabelsInstalled = true;
+        IMAddress._dynamicLabels = IMAddress._dynamicLabels || {};
+        PalmCall.call("palm://com.palm.service.accounts/", "listAccountTemplates", {"capability": "MESSAGING"}).then(this, function (future) {
+            var results, map = {}, seen = {}, callbacks;
+            try {
+                results = future.result && future.result.results;
+            } catch (e) { /* leave map empty, still mark ready so queued callbacks stop waiting */ }
+            (results || []).forEach(function (tmpl) {
+                (tmpl.capabilityProviders || []).forEach(function (cp) {
+                    if (cp && cp.capability === "MESSAGING" && cp.serviceName && !seen[cp.serviceName]) {
+                        seen[cp.serviceName] = true;
+                        map[cp.serviceName] = cp.loc_shortName || cp.loc_name || tmpl.loc_name || cp.serviceName;
+                    }
+                });
+            });
+            IMAddress._dynamicLabels = map;
+            IMAddress._dynamicLabelsReady = true;
+            callbacks = IMAddress._dynamicLabelsCallbacks || [];
+            IMAddress._dynamicLabelsCallbacks = [];
+            callbacks.forEach(function (cb) {
+                try { cb(); } catch (e2) { /* one bad callback shouldn't break the rest */ }
+            });
+        });
+    },
+    // webOS: WhatsApp/Signal IM addresses store a routable id (a WhatsApp JID "<phone>@s.whatsapp.net"
+    // or a Signal E.164/UUID). The framework FieldGroup shows that raw value, so a WhatsApp contact's
+    // card displays "31611745571@s.whatsapp.net" (or a bare +E164 with no grouping) instead of a
+    // human phone number. Recover and format the phone here; fall back to the raw value untouched for
+    // everything else (Skype/AIM/@lid/Signal UUID), so nothing else changes.
+    getImFieldValue: function (inSender, inField) {
+        var value = (inField && inField.value) || (inField && inField.getDisplayValue && inField.getDisplayValue()) || "";
+        // Prefer the raw ims db type (reliable) over getType(), which — as noted below — does not
+        // always resolve to the service ("type_gometa"/"type_whatsapp"/...) on a linked contact.
+        var dbo = (inField && inField.getDBObject && inField.getDBObject()) || null;
+        var type = (dbo && dbo.type) || (inField && inField.getType && inField.getType()) || "";
+        // Telegram stores the internal numeric user id as "id<digits>" (tdlib-purple's prefix).
+        // Show the bare number for a cleaner card — display only; the stored "id<digits>" value is
+        // still what's used to message the contact. (Not phone-formatted: it's a user id.)
+        if (type === "type_telegram" && (/^id[0-9]+$/).test(value)) {
+            return value.substring(2);
+        }
+        var phone = this.phoneFromImAddress(value, type);
+        return phone || value;
+    },
+    // Recover "+<country><number>" (formatted) from a phone-based IM routable id, or "" when the id
+    // carries no phone. Mirrors com.palm.app.messaging utilities/utils.js phoneFromImAddress so both
+    // apps agree. Display-only - the stored value is unchanged.
+    phoneFromImAddress: function (address, serviceName) {
+        var raw = String(address || "");
+        // Facebook (E2EE / gometa) handles are numeric Meta user IDs, NOT phone numbers — never
+        // phone-format them (a bare id like "744870190" would otherwise show as a bogus
+        // "+7 44870190"). Other messaging services legitimately carry phones (WhatsApp/Signal/
+        // Telegram) and stay formatted below.
+        if (serviceName === "type_gometa") {
+            return "";
+        }
+        var s = raw.toLowerCase();
+        var at = s.indexOf("@");
+        var isWaJid = (at !== -1) && (s.substring(at) === "@s.whatsapp.net");
+        // Reject any @-address that is not a WhatsApp JID (e.g. WhatsApp "<id>@lid", XMPP JIDs).
+        if (at !== -1 && !isWaJid) {
+            return "";
+        }
+        var bare = isWaJid ? s.substring(0, at) : s;
+        // Reject Signal UUIDs / Skype-style usernames (anything with letters or dashes).
+        if (/[a-z\-]/.test(bare)) {
+            return "";
+        }
+        var digits = bare.replace(/[^0-9]/g, "");
+        if (digits.length < 7 || digits.length > 15) {
+            return "";  // not a plausible phone number
+        }
+        // Format when the service is phone-based OR the value is unmistakably a phone (bare +E.164 /
+        // WhatsApp JID). The type gate alone is unreliable here because getType() does not always
+        // resolve to "type_whatsapp"/"type_signal" on a linked contact, so a clean +<digits> value
+        // would otherwise be shown raw. Non-phone IM ids (Skype/AIM/Telegram "id123") are already
+        // excluded above by the letter/dash and @-address checks.
+        var phoneService = (serviceName === "type_whatsapp" || serviceName === "type_signal");
+        var phoneShaped = isWaJid || /^\+?[0-9]{7,15}$/.test(raw);
+        if (!phoneService && !phoneShaped) {
+            return "";
+        }
+        var e164 = "+" + digits;
+        try {
+            var numberObj = new enyo.g11n.PhoneNumber(e164);
+            if (numberObj.subscriberNumber) {
+                return (new enyo.g11n.PhoneFmt({style: "default"})).format(numberObj);
+            }
+        } catch (e) { /* fall through to plain e164 */ }
+        return e164;
     },
 
     getNotesFieldValue   : function (inSender, inField) {

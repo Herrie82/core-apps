@@ -22,5 +22,5 @@
         "Notepad"
     ],
     "splashBackground": "images/splash-background.png",
-    "requiredPermissions": ["applications.internal", "applications", "activities.manage", "devices", "settings", "settings.read", "services", "database", "database.internal", "filecache", "system", "networking", "networking.internal"]
+    "requiredPermissions": ["activity.operation", "application.launcher", "appmanager.management", "database.operation"]
 }

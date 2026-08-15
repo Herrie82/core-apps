@@ -1,0 +1,86 @@
+{
+    "returnValue": true,
+    "results": [
+        {
+            "_id": "++Mep6jenQ+35eDF",
+            "_kind": "com.palm.smsmessage:1",
+            "_rev": 49054,
+            "_sync": true,
+            "callbackNumber": "",
+            "conversations": [
+                "++Mep6jtRl0iYQH8"
+            ],
+            "flags": {
+                "read": true
+            },
+            "folder": "inbox",
+            "from": {
+                "addr": "+14407493614"
+            },
+            "localTimestamp": 1665573216000,
+            "messageText": "Here's a message that I received in Conversation A.",
+            "networkMsgId": 1,
+            "priority": 0,
+            "readRevSet": 49054,
+            "serviceName": "sms",
+            "smsType": 0,
+            "status": "successful",
+            "timestamp": 1665573216
+        },
+        {
+            "_id": "++Mep6lhILgeIRmD",
+            "_kind": "com.palm.smsmessage:1",
+            "_rev": 49055,
+            "_sync": true,
+            "callbackNumber": "",
+            "conversations": [
+                "++Mep6jtRl0iYQH8"
+            ],
+            "flags": {
+                "read": true
+            },
+            "folder": "inbox",
+            "from": {
+                "addr": "+14407493614"
+            },
+            "localTimestamp": 1665573225000,
+            "messageText": "This message is part of Conversation A.",
+            "networkMsgId": 1,
+            "priority": 0,
+            "readRevSet": 49055,
+            "serviceName": "sms",
+            "smsType": 0,
+            "status": "successful",
+            "timestamp": 1665573224
+        },
+        {
+            "_id": "++Mep7EVMMV7faXw",
+            "_kind": "com.palm.smsmessage:1",
+            "_rev": 48870,
+            "_sync": true,
+            "conversations": [
+                "++Mep7Ek4gZI_004"
+            ],
+            "flags": {
+                "deliveryReport": false,
+                "visible": true
+            },
+            "folder": "outbox",
+            "localTimestamp": 1665573350027,
+            "messageText": "This is a message that is part of conversation B, that I sent.",
+            "networkMsgId": 9158,
+            "readRevSet": 48859,
+            "serviceName": "sms",
+            "status": "successful",
+            "timestamp": 1665573355,
+            "to": [
+                {
+                    "_id": "bedc",
+                    "addr": "5186695950",
+                    "name": "Mark Twain"
+                }
+            ]
+        },
+    ],
+    "next": "1lJ401gfILokGrCEBadfO_RoQ570"
+}

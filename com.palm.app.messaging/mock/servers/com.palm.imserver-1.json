@@ -1,0 +1,8 @@
+{
+	"returnValue": true,
+	"results": [
+		{"_id": "srv_discord", "_kind": "com.palm.imserver:1", "serviceName": "type_discord", "remoteId": "guild_100", "accountId": "acct_discord", "name": "Gaming Guild", "displayName": "Gaming Guild"},
+		{"_id": "srv_irc", "_kind": "com.palm.imserver:1", "serviceName": "type_irc", "remoteId": "libera", "accountId": "acct_irc", "name": "Libera.Chat", "displayName": "Libera.Chat"},
+		{"_id": "srv_teams", "_kind": "com.palm.imserver:1", "serviceName": "type_teams-personal", "remoteId": "team_200", "accountId": "acct_teams", "name": "Acme Corp", "displayName": "Acme Corp"}
+	]
+}
