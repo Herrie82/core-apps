@@ -13,6 +13,13 @@
 # the bottleneck. Shipping one tarball means ipkg only ever extracts one file; this script does
 # the real many-small-files extraction itself, straight to the final destination.
 set +e
+# The App Installer runs this script with its working directory set to the package's app directory
+# (/media/cryptofs/apps/usr/palm/applications/<pkg-id>) -- which for com.palm.app.contacts and
+# com.palm.app.messaging is exactly the directory dest.txt names and `rm -rf "$DST"` below deletes.
+# Once the cwd is gone, GNU tar fails getcwd() before it ever honours -C ("tar: Cannot save working
+# directory") and exits 2, so the extraction "fails", the script rolls back, and the device is left
+# with no Contacts/Messaging app at all. Anchor ourselves somewhere that cannot be deleted first.
+cd /
 BAK_ROOT=/media/cryptofs/core-apps-backup
 log() { echo "[core-apps] $*"; }
 
@@ -168,9 +175,26 @@ fi
 rm -rf "$OV"
 
 # Nudge anything that might have this cached to reload.
+#
+# nudge_kill matches on cmdline but never signals our own installer chain: under the App Installer
+# this script runs as `sh -c .../.scripts/<pkg-id>/pmPostInstall.script`, and ipkg and
+# ApplicationInstallerUtility both carry the package name or the .ipk path in their cmdline. An
+# unqualified match therefore SIGTERMs the installer whenever the swept string is a substring of the
+# package's own id -- the package installs correctly, but webOS reports FAILED_IPKG_INSTALL and
+# Preware aborts every remaining package in the batch (and, because Preware only refreshes its
+# installed list on Update Feeds, retrying just replays the same package forever).
+nudge_kill() {
+  pat="$1"
+  for p in /proc/[0-9]*; do
+    pid="${p##*/}"
+    [ "$pid" = "$$" ] && continue
+    grep -qa -e pmPostInstall -e pmPreRemove -e ApplicationInstallerUtility -e /usr/lib/ipkg/ -e '\.ipk' "$p/cmdline" 2>/dev/null && continue
+    grep -qa "$pat" "$p/cmdline" 2>/dev/null && kill "$pid" 2>/dev/null
+  done
+}
 luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1
-for p in $(ps 2>/dev/null | grep 'com.palm.service.accounts.js' | grep -v grep | awk '{print $1}'); do kill "$p" 2>/dev/null; done
-for p in /proc/[0-9]*; do grep -qa "contacts.linker" "$p/cmdline" 2>/dev/null && kill "${p##*/}" 2>/dev/null; done
+nudge_kill 'com.palm.service.accounts.js'
+nudge_kill 'contacts.linker'
 
 # Deliberately NOT remounting root back to read-only here -- ipkg writes its own bookkeeping after
 # postinst returns, and that needs root writable too.
