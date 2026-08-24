@@ -18,7 +18,12 @@ DST=/usr/palm/applications/$APPID
 STATE=/media/cryptofs/webosarchive-accounts
 BAK="$STATE/stock-app.tar"
 MARKER="$STATE/installed"
-REL=media/cryptofs/webosarchive-accounts-overwrite
+# Must match stage_whole()'s own overwrite_rel() convention in packaging/lib/common.sh
+# (media/cryptofs/core-apps-overwrite/<pkg-name>, pkg-name = com.palm.app.accounts here) --
+# confirmed live this postinst's own REL never actually matched what stage.sh (which uses
+# stage_whole()) stages, so this package could never find its payload at all ("no payload found
+# at /media/cryptofs/webosarchive-accounts-overwrite").
+REL=media/cryptofs/core-apps-overwrite/$APPID
 
 # A file only our build has. Used to tell "this is stock" from "this is already
 # ours" — see the backup guard below. More robust than an md5, which changes with
