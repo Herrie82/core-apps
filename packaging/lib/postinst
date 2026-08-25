@@ -213,7 +213,13 @@ nudge_kill() {
     grep -qa "$pat" "$p/cmdline" 2>/dev/null && kill "$pid" 2>/dev/null
   done
 }
-luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1
+# Fire-and-forget -- NEVER wait for this one. `luna-send -n 1` blocks until applicationManager
+# replies, but under the App Installer this script runs INSIDE LunaSysMgr's own request handling, so
+# the service that owes the reply is the same one waiting for this script to exit. Nothing times out,
+# so the install chain and the UI both hang forever (observed live: Preware stuck on "[core-apps]
+# removal complete", luna-send visible blocked in the process tree, the whole batch dead until that
+# one call was killed by hand). The rescan is only a nudge -- launch it and move on.
+( luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1 & ) >/dev/null 2>&1
 nudge_kill 'com.palm.service.accounts.js'
 nudge_kill 'contacts.linker'
 
