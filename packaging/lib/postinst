@@ -13,6 +13,13 @@
 # the bottleneck. Shipping one tarball means ipkg only ever extracts one file; this script does
 # the real many-small-files extraction itself, straight to the final destination.
 set +e
+# The App Installer runs this script with its working directory set to the package's app directory
+# (/media/cryptofs/apps/usr/palm/applications/<pkg-id>) -- which for com.palm.app.contacts and
+# com.palm.app.messaging is exactly the directory dest.txt names and `rm -rf "$DST"` below deletes.
+# Once the cwd is gone, GNU tar fails getcwd() before it ever honours -C ("tar: Cannot save working
+# directory") and exits 2, so the extraction "fails", the script rolls back, and the device is left
+# with no Contacts/Messaging app at all. Anchor ourselves somewhere that cannot be deleted first.
+cd /
 BAK_ROOT=/media/cryptofs/core-apps-backup
 log() { echo "[core-apps] $*"; }
 
@@ -67,9 +74,30 @@ DST="$(cat "$OV/dest.txt")"
 BAK="$BAK_ROOT$(echo "$DST" | tr '/' '_').tar"
 
 mkdir -p "$BAK_ROOT"
-if [ -d "$DST" ] && [ ! -f "$BAK" ]; then
-  ( cd "$(dirname "$DST")" && tar cf "$BAK" "$(basename "$DST")" ) \
-    && log "backed up stock $DST -> $BAK"
+
+# A one-entry tar is a backup of an empty directory: a restore point that restores nothing. Treat it
+# as absent so it is rebuilt rather than trusted forever -- the "back up once" test below only asks
+# whether the file exists.
+bak_is_usable() { [ -f "$1" ] && [ "$(tar tf "$1" 2>/dev/null | head -3 | wc -l)" -gt 1 ]; }
+
+# What gets backed up may be incomplete, and that is worth understanding rather than working around:
+# Preware replaces an installed package with remove-then-install, so for an app webOS itself manages
+# as an ipkg package (com.palm.app.contacts, com.palm.app.messaging on a TouchPad) ipkg has already
+# deleted the files it tracked by the time this runs.
+#
+# That is survivable without any special machinery. Once our package is uninstalled it is no longer
+# registered, and webOS's own boot-time app-install service reinstalls the stock ipk from
+# /usr/palm/ipkgs on the next restart -- confirmed live on a 3.0.5 TouchPad. So the recovery for a
+# missing or broken core app is simply: uninstall, then REBOOT, and stock comes back by itself.
+if ! bak_is_usable "$BAK"; then
+  rm -f "$BAK"
+  if [ -d "$DST" ] && [ -n "$(ls -A "$DST" 2>/dev/null)" ]; then
+    ( cd "$(dirname "$DST")" && tar cf "$BAK" "$(basename "$DST")" ) \
+      && log "backed up stock $DST -> $BAK"
+  else
+    log "nothing complete at $DST to back up -- the package manager removed it before this ran."
+    log "  uninstall will remove our copy; reboot afterwards and webOS reinstalls the stock app."
+  fi
 fi
 
 rm -rf "$DST"
@@ -168,9 +196,32 @@ fi
 rm -rf "$OV"
 
 # Nudge anything that might have this cached to reload.
-luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1
-for p in $(ps 2>/dev/null | grep 'com.palm.service.accounts.js' | grep -v grep | awk '{print $1}'); do kill "$p" 2>/dev/null; done
-for p in /proc/[0-9]*; do grep -qa "contacts.linker" "$p/cmdline" 2>/dev/null && kill "${p##*/}" 2>/dev/null; done
+#
+# nudge_kill matches on cmdline but never signals our own installer chain: under the App Installer
+# this script runs as `sh -c .../.scripts/<pkg-id>/pmPostInstall.script`, and ipkg and
+# ApplicationInstallerUtility both carry the package name or the .ipk path in their cmdline. An
+# unqualified match therefore SIGTERMs the installer whenever the swept string is a substring of the
+# package's own id -- the package installs correctly, but webOS reports FAILED_IPKG_INSTALL and
+# Preware aborts every remaining package in the batch (and, because Preware only refreshes its
+# installed list on Update Feeds, retrying just replays the same package forever).
+nudge_kill() {
+  pat="$1"
+  for p in /proc/[0-9]*; do
+    pid="${p##*/}"
+    [ "$pid" = "$$" ] && continue
+    grep -qa -e pmPostInstall -e pmPreRemove -e ApplicationInstallerUtility -e /usr/lib/ipkg/ -e '\.ipk' "$p/cmdline" 2>/dev/null && continue
+    grep -qa "$pat" "$p/cmdline" 2>/dev/null && kill "$pid" 2>/dev/null
+  done
+}
+# Fire-and-forget -- NEVER wait for this one. `luna-send -n 1` blocks until applicationManager
+# replies, but under the App Installer this script runs INSIDE LunaSysMgr's own request handling, so
+# the service that owes the reply is the same one waiting for this script to exit. Nothing times out,
+# so the install chain and the UI both hang forever (observed live: Preware stuck on "[core-apps]
+# removal complete", luna-send visible blocked in the process tree, the whole batch dead until that
+# one call was killed by hand). The rescan is only a nudge -- launch it and move on.
+( luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1 & ) >/dev/null 2>&1
+nudge_kill 'com.palm.service.accounts.js'
+nudge_kill 'contacts.linker'
 
 # Deliberately NOT remounting root back to read-only here -- ipkg writes its own bookkeeping after
 # postinst returns, and that needs root writable too.
