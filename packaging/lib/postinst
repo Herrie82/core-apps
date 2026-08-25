@@ -74,9 +74,30 @@ DST="$(cat "$OV/dest.txt")"
 BAK="$BAK_ROOT$(echo "$DST" | tr '/' '_').tar"
 
 mkdir -p "$BAK_ROOT"
-if [ -d "$DST" ] && [ ! -f "$BAK" ]; then
-  ( cd "$(dirname "$DST")" && tar cf "$BAK" "$(basename "$DST")" ) \
-    && log "backed up stock $DST -> $BAK"
+
+# A one-entry tar is a backup of an empty directory: a restore point that restores nothing. Treat it
+# as absent so it is rebuilt rather than trusted forever -- the "back up once" test below only asks
+# whether the file exists.
+bak_is_usable() { [ -f "$1" ] && [ "$(tar tf "$1" 2>/dev/null | head -3 | wc -l)" -gt 1 ]; }
+
+# What gets backed up may be incomplete, and that is worth understanding rather than working around:
+# Preware replaces an installed package with remove-then-install, so for an app webOS itself manages
+# as an ipkg package (com.palm.app.contacts, com.palm.app.messaging on a TouchPad) ipkg has already
+# deleted the files it tracked by the time this runs.
+#
+# That is survivable without any special machinery. Once our package is uninstalled it is no longer
+# registered, and webOS's own boot-time app-install service reinstalls the stock ipk from
+# /usr/palm/ipkgs on the next restart -- confirmed live on a 3.0.5 TouchPad. So the recovery for a
+# missing or broken core app is simply: uninstall, then REBOOT, and stock comes back by itself.
+if ! bak_is_usable "$BAK"; then
+  rm -f "$BAK"
+  if [ -d "$DST" ] && [ -n "$(ls -A "$DST" 2>/dev/null)" ]; then
+    ( cd "$(dirname "$DST")" && tar cf "$BAK" "$(basename "$DST")" ) \
+      && log "backed up stock $DST -> $BAK"
+  else
+    log "nothing complete at $DST to back up -- the package manager removed it before this ran."
+    log "  uninstall will remove our copy; reboot afterwards and webOS reinstalls the stock app."
+  fi
 fi
 
 rm -rf "$DST"
