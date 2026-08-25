@@ -5,6 +5,13 @@
 # /media/cryptofs/core-apps-overwrite/<pkg-name>/dest.txt (part of this package's payload) is still present
 # and readable here.
 set +e
+# The App Installer runs this script with its working directory set to the package's app directory
+# (/media/cryptofs/apps/usr/palm/applications/<pkg-id>) -- which for com.palm.app.contacts and
+# com.palm.app.messaging is exactly the directory dest.txt names and `rm -rf "$DST"` below deletes.
+# Once the cwd is gone, GNU tar fails getcwd() before it ever honours -C ("tar: Cannot save working
+# directory") and exits 2, so the extraction "fails", the script rolls back, and the device is left
+# with no Contacts/Messaging app at all. Anchor ourselves somewhere that cannot be deleted first.
+cd /
 BAK_ROOT=/media/cryptofs/core-apps-backup
 log() { echo "[core-apps] $*"; }
 
@@ -32,8 +39,22 @@ if [ -z "$OV" ]; then
   done
 fi
 
-if [ -n "$OV" ]; then
-  DST="$(cat "$OV/dest.txt")"
+# postinst deletes $OV as its last act (so a later package's glob can't find a stale subdirectory),
+# which means the lookups above find NOTHING on any normal uninstall -- the restore below was
+# silently skipped and the replaced app was left in place forever, with its backup orphaned. Fall
+# back to the destination postinst recorded outside $OV for exactly this kind of lookup.
+DST=""
+[ -n "$OV" ] && DST="$(cat "$OV/dest.txt")"
+LASTDEST="/media/cryptofs/core-apps-overwrite/.last-installed/$PKGID.dest.txt"
+if [ -z "$DST" ] && [ -n "$PKGID" ] && [ -f "$LASTDEST" ]; then
+  DST="$(cat "$LASTDEST")"
+fi
+
+# Both sources are file contents, and everything below starts with rm -rf: refuse anything that is
+# not an absolute path.
+case "$DST" in /?*) ;; *) DST="" ;; esac
+
+if [ -n "$DST" ]; then
   BAK="$BAK_ROOT$(echo "$DST" | tr '/' '_').tar"
   rm -rf "$DST"
   if [ -f "$BAK" ]; then
@@ -43,9 +64,18 @@ if [ -n "$OV" ]; then
   else
     log "removed $DST (was never on stock)"
   fi
+  # Only now is the recorded destination expendable. Leaving it would make a SECOND uninstall call
+  # (WOSQI is known to make one) rm -rf the stock app that the first call just restored.
+  rm -f "$LASTDEST"
 fi
 
-luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1
+# Fire-and-forget -- NEVER wait for this one. `luna-send -n 1` blocks until applicationManager
+# replies, but under the App Installer this script runs INSIDE LunaSysMgr's own request handling, so
+# the service that owes the reply is the same one waiting for this script to exit. Nothing times out,
+# so the install chain and the UI both hang forever (observed live: Preware stuck on "[core-apps]
+# removal complete", luna-send visible blocked in the process tree, the whole batch dead until that
+# one call was killed by hand). The rescan is only a nudge -- launch it and move on.
+( luna-send -n 1 luna://com.palm.applicationManager/rescan '{}' >/dev/null 2>&1 & ) >/dev/null 2>&1
 
 # Deliberately NOT remounting root back to read-only here -- same reasoning as postinst.
 log "removal complete."
