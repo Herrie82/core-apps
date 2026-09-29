@@ -1,0 +1,26 @@
+{
+	"icon": "../../../icon.png",
+	"id": "com.palm.app.tasks",
+	"keywords": [
+		"To Do",
+		"Todos",
+		"Checklist"
+	],
+	"main": "../../../index.html",
+	"miniicon": "../../../images/notification-small.png",
+	"noWindow": true,
+	"splashBackground": "../../../images/splash-screenshot-default.png",
+	"splashicon": "../../../icon-256x256.png",
+	"theme": "palm-dark",
+	"title": "Tasks",
+	"type": "web",
+	"universalSearch": {
+		"action": {
+			"displayName": "New Task",
+			"launchParam": "taskSubject",
+			"url": "com.palm.app.tasks"
+		}
+	},
+	"vendor": "Palm, Inc.",
+	"version": "1.0"
+}

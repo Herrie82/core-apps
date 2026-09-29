@@ -1,0 +1,31 @@
+[{
+    "source": "/usr/palm/frameworks/mojoloader.js"
+}, {
+    "source": "app/extensions/framework.js"
+}, {
+    "source": "app/models/constants.js"
+}, {
+    "source": "app/models/task.js"
+}, {
+    "source": "app/models/database-manager.js"
+}, {
+    "source": "app/models/activity-manager.js"
+}, {
+    "source": "app/javascripts/date.js"
+}, {
+    "source": "app/models/tasklist.js"
+}, {
+    "source": "app/controllers/app-assistant.js"
+}, {
+    "source": "app/controllers/datepicker-assistant.js"
+}, {
+    "source": "app/controllers/dashboard-assistant.js"
+}, {
+    "source": "app/controllers/tasklists-assistant.js"
+}, {
+    "source": "app/controllers/tasks-assistant.js"
+}, {
+    "source": "app/controllers/task-assistant.js"
+}, {
+    "source": "app/controllers/datepopup-assistant.js"
+}]

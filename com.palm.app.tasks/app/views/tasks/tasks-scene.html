@@ -1,0 +1,32 @@
+<div id="tasks-list" class="tasks-list">
+	<div class="tasks-paper-backdrop"></div>
+    <div id="filterField" class="palm-dark textfield-wrapper" x-mojo-element="FilterField"></div>
+    
+	<div class="palm-row tasks-list-header" x-mojo-focus-highlight="true">
+        <div class="palm-row-wrapper textfield-group">
+            <div class="title">
+				<div class="list-selector-spacer right">
+					<div class="list-selector-container" x-mojo-tap-highlight="immediate">
+						<div class="list-selector-wrapper">
+	                		<div id="showFilter" class="label right" x-mojo-element="ListSelector" tabindex="1"></div>
+						</div>
+					</div>	
+					<div id="taskListTransportIcon" class="tasklist-icon icon right"></div><!-- display:block to show this eas-icon -->			
+				</div>
+                <div id="taskListName" x-mojo-element="TextField" class="task-list-name"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- <div class="list-header-spacer"></div> -->
+    <div class="tasks-list-backdrop"></div>
+	<div class="tasks-list-scroller-wrapper">
+		<div id="tasks_scroller" x-mojo-element="Scroller" class="tasks-list-scroller">
+			<div class="tasks-list-fade-bottom" x-mojo-scroll-fade="bottom"></div>
+	    	<div id="taskList" x-mojo-element="IndexedList"></div>
+			<div style="height:50px"></div>
+		</div>
+	</div>
+	
+	<div id="scrim" class="splash-scrim" style="display:none"></div>
+</div>

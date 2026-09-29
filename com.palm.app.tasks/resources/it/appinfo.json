@@ -1,0 +1,26 @@
+{
+	"icon": "../../icon.png",
+	"id": "com.palm.app.tasks",
+	"keywords": [
+		"Attività",
+		"Attività",
+		"Elenco di spunta"
+	],
+	"main": "../../index.html",
+	"miniicon": "../../images/notification-small.png",
+	"noWindow": true,
+	"splashBackground": "../../images/splash-screenshot-default.png",
+	"splashicon": "../../icon-256x256.png",
+	"theme": "palm-dark",
+	"title": "Attività",
+	"type": "web",
+	"universalSearch": {
+		"action": {
+			"displayName": "Nuova attività",
+			"launchParam": "taskSubject",
+			"url": "com.palm.app.tasks"
+		}
+	},
+	"vendor": "Palm, Inc.",
+	"version": "1.0"
+}

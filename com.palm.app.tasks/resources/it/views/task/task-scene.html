@@ -1,0 +1,43 @@
+<div class="tasks-details">
+    <div class="tasks-paper-backdrop"></div>
+
+    <div class="palm-list">
+	
+        <div class="palm-row no-rule">
+			<div class="palm-row-wrapper textfield-group" x-mojo-focus-highlight="true">
+				<div class="title task-subject">
+		            <div id="completed" x-mojo-element="CheckBox" class="icon left"></div>
+		            <div id="subject" x-mojo-element="TextField"></div>
+				</div>
+			</div>
+        </div>
+		<div class="perforation"></div>
+
+        <div class="palm-row" x-mojo-tap-highlight="momentary">
+			<div class="palm-row-wrapper">
+	            <!-- <div class="label right" x-mojo-loc="">Priority</div> -->
+	            <div class="truncating-text" id="priority" x-mojo-element="ListSelector"></div>
+			</div>
+        </div>
+        <div class="palm-row" x-mojo-tap-highlight="momentary">
+			<div class="palm-row-wrapper">
+	            <!-- <div class="label right" x-mojo-loc="">List</div> -->
+	            <div class="truncating-text" id="taskList" x-mojo-element="ListSelector"></div>
+			</div>
+        </div>
+        <div id="task_duebox" class="last palm-row perforated" x-mojo-tap-highlight="momentary">
+			<div class="palm-row-wrapper">				
+		        <div class="label right">Scadenza</div>
+	            <div class="title due-date-text truncating-text" id="task_duedate"></div>
+			</div>
+        </div>
+    </div>
+    <!-- FRAMEWORK ISSUE? this div grows in size when a user adds text, but the scrolling-container does not grow with it, so when a user adds many lines of text, the user can no longer scroll back to the very top of the page -->
+	<div class="palm-row">
+		<div class="palm-row-wrapper textfield-group focused">
+		    <div class="title">
+				<div id="notes" class="notes" x-mojo-element="SmartTextField"></div>
+		    </div>			
+		</div>
+	</div>
+</div>

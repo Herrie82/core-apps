@@ -1,0 +1,3 @@
+#! /bin/sh
+rsync -vtru --exclude=.* ../../weave/weave/ ../weave/
+rsync -vtru --exclude=.* ../weave/ ../../weave/weave/
